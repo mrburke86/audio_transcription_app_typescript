@@ -1,113 +1,275 @@
-import Image from "next/image";
+// src/app/page.tsx
+"use client";
+
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import Header from "@/components/Header";
+import TranscriptionControls from "@/components/TranscriptionControls";
+import { useLLMProvider } from "@/hooks/useLLMProvider";
+import { logger, LogEntry } from "@/modules/Logger";
+import { formatTimestamp } from "@/utils/helpers";
+import {
+    MemoizedLogBox,
+    MemoizedTranscriptionBox,
+} from "@/components/MemoizedComponents";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+
+interface Message {
+    content: string;
+    type: "user" | "assistant" | "interim";
+    timestamp: string;
+}
+
+const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
+    <h2 className="text-lg font-semibold text-white bg-gray-800 p-2 rounded-t-lg">
+        {title}
+    </h2>
+);
+
+const AudioVisualizer: React.FC<{
+    canvasRef: React.RefObject<HTMLCanvasElement>;
+}> = ({ canvasRef }) => (
+    <canvas
+        ref={canvasRef}
+        id="audioVisualizer"
+        width="120"
+        height="30"
+        className="bg-gray-700 rounded"
+    />
+);
+
+const useTranscriptions = (
+    generateResponse: (message: string) => Promise<void>,
+    streamedContent: string,
+    isStreamingComplete: boolean, // Add a flag to know when streaming is done
+) => {
+    const [liveTranscription, setLiveTranscription] = useState<Message[]>([]);
+    const [savedTranscription, setSavedTranscription] = useState<Message[]>([]);
+
+    const handleMove = useCallback(async () => {
+        if (liveTranscription.length > 0) {
+            const userMessage = liveTranscription
+                .filter((msg) => msg.type === "user")
+                .map((msg) => msg.content)
+                .join(" ");
+
+            setSavedTranscription((prev) => [
+                ...prev,
+                {
+                    content: userMessage,
+                    type: "user",
+                    timestamp: formatTimestamp(new Date()),
+                },
+            ]);
+
+            try {
+                await generateResponse(userMessage);
+                // Remove direct appending here. We'll handle updates in the `useEffect`
+            } catch (error) {
+                logger.error(
+                    `Error generating response: ${(error as Error).message}`,
+                );
+            }
+
+            setLiveTranscription([]);
+        }
+    }, [liveTranscription, generateResponse]);
+
+    const handleClear = useCallback(() => {
+        setLiveTranscription([]);
+        setSavedTranscription([]);
+        logger.clearLogs();
+    }, []);
+
+    // New useEffect to update the saved transcription when streaming is complete
+    useEffect(() => {
+        if (isStreamingComplete && streamedContent.trim()) {
+            setSavedTranscription((prev) => [
+                ...prev,
+                {
+                    content: streamedContent,
+                    type: "assistant",
+                    timestamp: formatTimestamp(new Date()),
+                },
+            ]);
+        }
+    }, [isStreamingComplete, streamedContent]); // Only trigger when streaming is done
+
+    return {
+        liveTranscription,
+        setLiveTranscription,
+        savedTranscription,
+        setSavedTranscription,
+        handleMove,
+        handleClear,
+    };
+};
 
 export default function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
+    const [recognitionStatus, setRecognitionStatus] = useState<
+        "inactive" | "active" | "error"
+    >("inactive");
+    const [logs, setLogs] = useState<LogEntry[]>([]);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const visualizationStartedRef = useRef(false);
+
+    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+    const {
+        generateResponse,
+        isLoading,
+        error,
+        streamedContent,
+        isStreamingComplete,
+    } = useLLMProvider(apiKey || "");
+
+    const {
+        liveTranscription,
+        setLiveTranscription,
+        savedTranscription,
+        setSavedTranscription,
+        handleMove,
+        handleClear,
+    } = useTranscriptions(
+        generateResponse,
+        streamedContent,
+        isStreamingComplete,
+    );
+
+    const handleRecognitionStart = useCallback(() => {
+        setRecognitionStatus("active");
+    }, []);
+
+    const handleRecognitionEnd = useCallback(() => {
+        setRecognitionStatus("inactive");
+    }, []);
+
+    const handleRecognitionError = useCallback(
+        (event: SpeechRecognitionErrorEvent) => {
+            setRecognitionStatus("error");
+            logger.error(`Speech recognition error: ${event.error}`);
+        },
+        [],
+    );
+
+    const handleRecognitionResult = useCallback(
+        (finalTranscript: string, interimTranscript: string) => {
+            setLiveTranscription((prev) => {
+                const newTranscription = [...prev];
+                if (finalTranscript) {
+                    newTranscription.push({
+                        content: finalTranscript,
+                        type: "user",
+                        timestamp: formatTimestamp(new Date()),
+                    });
+                }
+                if (interimTranscript) {
+                    const lastMessage =
+                        newTranscription[newTranscription.length - 1];
+                    if (lastMessage && lastMessage.type === "interim") {
+                        lastMessage.content = interimTranscript;
+                    } else {
+                        newTranscription.push({
+                            content: interimTranscript,
+                            type: "interim",
+                            timestamp: formatTimestamp(new Date()),
+                        });
+                    }
+                }
+                return newTranscription;
+            });
+        },
+        [],
+    );
+
+    const { start, stop, startAudioVisualization } = useSpeechRecognition({
+        onStart: handleRecognitionStart,
+        onEnd: handleRecognitionEnd,
+        onError: handleRecognitionError,
+        onResult: handleRecognitionResult,
+    });
+
+    const handleStart = useCallback(() => {
+        start().then(() => {
+            if (canvasRef.current && !visualizationStartedRef.current) {
+                startAudioVisualization(canvasRef.current);
+                visualizationStartedRef.current = true;
+            }
+        });
+    }, [start, startAudioVisualization]);
+
+    useEffect(() => {
+        if (!apiKey) {
+            logger.error("OpenAI API key is missing");
+        }
+        setLogs(logger.getLogs());
+    }, [
+        apiKey,
+        recognitionStatus,
+        liveTranscription,
+        savedTranscription,
+        isLoading,
+        error,
+    ]);
+
+    return (
+        <div className="flex flex-col h-screen w-screen overflow-hidden">
+            <Header status={recognitionStatus} />
+            <TranscriptionControls
+                onStart={handleStart}
+                onStop={stop}
+                onMove={handleMove}
+                onClear={handleClear}
+                isRecognitionActive={recognitionStatus === "active"}
             />
-          </a>
+
+            <main className="flex-1 grid grid-cols-3 gap-4 p-4 overflow-hidden">
+                {/* 1st Column */}
+                <section className="col-span-2 flex flex-col overflow-hidden">
+                    <MemoizedTranscriptionBox
+                        id="postChat"
+                        title="Saved Transcription"
+                        messages={savedTranscription}
+                        variant="saved"
+                        streamedContent={streamedContent}
+                    />
+                </section>
+                {/* 2nd Column */}
+                <section className="col-span-1 flex flex-col gap-4 overflow-hidden">
+                    {/* Audio Visualizer */}
+                    <div className="bg-transcription-box rounded-lg shadow">
+                        {/* <SectionHeader title="Audio Visualizer" /> */}
+                        <div className="p-1">
+                            <AudioVisualizer canvasRef={canvasRef} />
+                        </div>
+                    </div>
+                    {/* Live Transcription */}
+                    <div className="flex-1 overflow-hidden">
+                        <MemoizedTranscriptionBox
+                            id="preChat"
+                            title="Live Transcription"
+                            messages={liveTranscription}
+                            variant="live"
+                        />
+                    </div>
+                    {/* Placeholder */}
+                    <div className="flex-1 overflow-hidden">
+                        <div className="h-full bg-transcription-box rounded-lg shadow">
+                            <SectionHeader title="Placeholder" />
+                            <div className="p-4 overflow-y-auto h-[calc(100%-2.5rem)]">
+                                {/* Placeholder content */}
+                            </div>
+                        </div>
+                    </div>
+                    {/* Activity Logs */}
+                    <div className="flex-1 overflow-hidden">
+                        <div className="h-full bg-transcription-box rounded-lg shadow">
+                            <SectionHeader title="Activity Logs" />
+                            <div className="p-4 overflow-y-auto h-[calc(100%-2.5rem)]">
+                                <MemoizedLogBox logs={logs} />
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
         </div>
-      </div>
-
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  );
+    );
 }

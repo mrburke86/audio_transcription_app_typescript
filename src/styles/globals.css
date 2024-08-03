@@ -1,0 +1,158 @@
+/* src/styles/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    --background: #09090b;
+    --foreground: 0 0% 98%;
+
+    --surface: #1c1c1e;
+    --primary: #0a85ff;
+    --user-message-background: #27262b;
+    --secondary: 135, 64%, 50%;
+    --tertiary: 348, 100%, 61%;
+    --text: #fff;
+    --text-secondary: #8e8e93;
+
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+
+    --primary-foreground: 240 5.9% 10%;
+
+    --secondary-foreground: 0 0% 98%;
+
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: ;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 85.7% 97.3%;
+
+    --ring: 240 3.7% 15.9%;
+}
+
+@layer base {
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue",
+            sans-serif;
+        background-color: var(--background);
+        color: var(--text);
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    h1 {
+        @apply font-bold text-2xl tracking-tight mb-2;
+    }
+
+    h2 {
+        @apply font-semibold text-lg mb-2;
+    }
+}
+
+@layer components {
+    .content-box {
+        @apply bg-surface rounded-lg p-4 shadow-md flex flex-col overflow-hidden;
+    }
+
+    .scrollable-content {
+        @apply flex-grow overflow-y-auto pr-2 -mr-2;
+    }
+
+    .message {
+        @apply max-w-[80%] mb-4 px-4 py-3 rounded-[18px] text-sm leading-relaxed relative text-text;
+    }
+
+    .message.user {
+        @apply bg-user-message self-end ml-[20%];
+    }
+
+    .message.assistant {
+        @apply bg-primary self-start mr-[20%];
+    }
+
+    .message.interim {
+        @apply italic text-text-secondary;
+    }
+
+    .message.assistant .error {
+        @apply text-red-500 font-bold;
+    }
+
+    .message.assistant h3 {
+        @apply text-lg mt-4 mb-2;
+    }
+
+    .log-entry {
+        @apply mb-1;
+    }
+
+    .log-entry.debug {
+        color: #7f7f7f;
+    }
+
+    .log-entry.info {
+        color: #387fc7;
+    }
+
+    .log-entry.warning {
+        color: #ffa500;
+    }
+
+    .log-entry.error {
+        color: #f00;
+    }
+
+    .log-entry.performance {
+        color: #00ff00;
+        font-weight: bold;
+    }
+}
+
+/* Custom scrollbar styles */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--surface);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgb(255 255 255 / 20%);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgb(255 255 255 / 30%);
+}
+
+#audioVisualizer {
+    width: 100%;
+    height: 40px;
+    background-color: #000;
+    border-radius: 4px;
+}
+
+@media (max-width: 768px) {
+    .btn {
+        @apply px-3 py-1.5 text-sm;
+    }
+}
+
+@media (max-width: 480px) {
+    .btn {
+        @apply w-full;
+    }
+}
