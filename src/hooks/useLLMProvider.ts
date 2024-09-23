@@ -1,10 +1,13 @@
 // src/hooks/useLLMProvider.ts
 
 "use client";
-import { useState, useCallback, useReducer, useEffect } from "react";
+import { useState, useCallback, useReducer, useEffect, useRef } from "react";
 import { logger } from "@/modules/Logger";
 import { createUserMessage } from "@/utils/createUserMessage";
 import type OpenAI from "openai";
+import { Message } from "@/types/Message";
+
+const COMPONENT_ID = "useLLMProvider";
 
 interface LLMProviderHook {
     generateResponse: (userMessage: string) => Promise<void>;
@@ -12,6 +15,7 @@ interface LLMProviderHook {
     error: string | null;
     streamedContent: string;
     isStreamingComplete: boolean; // Ensure this is returned from the hook
+    conversationSummary: string; // New state variable for summary
 }
 
 interface LLMState {
@@ -19,6 +23,7 @@ interface LLMState {
     error: string | null;
     streamedContent: string;
     isStreamingComplete: boolean; // New state property
+    conversationSummary: string; // New state property
 }
 
 type LLMAction =
@@ -26,7 +31,8 @@ type LLMAction =
     | { type: "SET_ERROR"; payload: string | null }
     | { type: "APPEND_STREAMED_CONTENT"; payload: string }
     | { type: "RESET_STREAMED_CONTENT" }
-    | { type: "SET_STREAMING_COMPLETE"; payload: boolean }; // New action
+    | { type: "SET_STREAMING_COMPLETE"; payload: boolean }
+    | { type: "SET_CONVERSATION_SUMMARY"; payload: string }; // New action
 
 const reducer = (state: LLMState, action: LLMAction): LLMState => {
     switch (action.type) {
@@ -50,26 +56,46 @@ const reducer = (state: LLMState, action: LLMAction): LLMState => {
                 ...state,
                 isStreamingComplete: action.payload,
             };
+        case "SET_CONVERSATION_SUMMARY":
+            return {
+                ...state,
+                conversationSummary: action.payload,
+            };
         default:
             return state;
     }
 };
 
-export const useLLMProvider = (apiKey: string): LLMProviderHook => {
+const useLLMProvider = (
+    apiKey: string,
+    assistantId: string,
+    roleDescription: string,
+    conversationHistory: Message[], // New parameter
+    goals: string[], // New parameter
+): LLMProviderHook => {
     const [state, dispatch] = useReducer(reducer, {
         isLoading: false,
         error: null,
         streamedContent: "",
-        isStreamingComplete: false, // Add this property to the initial state
+        isStreamingComplete: false,
+        conversationSummary: "", // Initialize summary
     });
-    const { isLoading, error, streamedContent, isStreamingComplete } = state;
+    const {
+        isLoading,
+        error,
+        streamedContent,
+        isStreamingComplete,
+        conversationSummary,
+    } = state;
 
     const [openai, setOpenai] = useState<OpenAI | null>(null);
+
+    const streamedContentRef = useRef<string>("");
 
     const initializeOpenAI = useCallback(async () => {
         if (!apiKey) {
             logger.error(
-                "❌ API key is missing. OpenAI client initialization skipped.",
+                `[${COMPONENT_ID}] ❌ API key is missing. OpenAI client initialization skipped.`,
             );
             return;
         }
@@ -81,9 +107,12 @@ export const useLLMProvider = (apiKey: string): LLMProviderHook => {
                 dangerouslyAllowBrowser: true,
             });
             setOpenai(client);
+            logger.info(
+                `[${COMPONENT_ID}] ✅ OpenAI client initialized successfully.`,
+            );
         } catch (error) {
             logger.error(
-                `❌ Error initializing OpenAI client: ${
+                `[${COMPONENT_ID}] ❌ Error initializing OpenAI client: ${
                     (error as Error).message
                 }`,
             );
@@ -94,19 +123,119 @@ export const useLLMProvider = (apiKey: string): LLMProviderHook => {
         initializeOpenAI();
     }, [initializeOpenAI]);
 
+    const runThread = useCallback(
+        async (
+            openai: OpenAI,
+            formattedMessage: string,
+            assistantId: string,
+        ): Promise<void> => {
+            logger.info(
+                `[${COMPONENT_ID}] 🏃‍♂️ Starting thread run with streaming...`,
+            );
+
+            const thread = await openai.beta.threads.create();
+            logger.debug(
+                `[${COMPONENT_ID}] 🧵 Thread created with ID: ${thread.id}`,
+            );
+
+            await openai.beta.threads.messages.create(thread.id, {
+                role: "user",
+                content: formattedMessage,
+            });
+            logger.debug(`[${COMPONENT_ID}] 💬 User message added to thread`);
+
+            const run = openai.beta.threads.runs.stream(thread.id, {
+                assistant_id: assistantId,
+            });
+
+            run.on("textCreated", () =>
+                logger.info(`[${COMPONENT_ID}] assistant >`),
+            )
+                .on("textDelta", (textDelta) => {
+                    const content = textDelta.value ?? "";
+                    dispatch({
+                        type: "APPEND_STREAMED_CONTENT",
+                        payload: content,
+                    });
+                    streamedContentRef.current += content; // Also append to the ref
+                })
+                .on("toolCallCreated", (toolCall) =>
+                    logger.info(
+                        `[${COMPONENT_ID}] assistant > ${toolCall.type}\n\n`,
+                    ),
+                )
+                .on("toolCallDelta", (toolCallDelta) => {
+                    if (
+                        toolCallDelta.type === "code_interpreter" &&
+                        toolCallDelta.code_interpreter
+                    ) {
+                        if (toolCallDelta.code_interpreter.input) {
+                            logger.info(
+                                `[${COMPONENT_ID}] Code input: ${toolCallDelta.code_interpreter.input}`,
+                            );
+                        }
+                        if (toolCallDelta.code_interpreter.outputs) {
+                            logger.info(`[${COMPONENT_ID}] Code output:`);
+                            toolCallDelta.code_interpreter.outputs.forEach(
+                                (output) => {
+                                    if (output.type === "logs") {
+                                        logger.info(
+                                            `[${COMPONENT_ID}] ${output.logs}`,
+                                        );
+                                    }
+                                },
+                            );
+                        }
+                    }
+                });
+            run.on("messageDone", () => {
+                logger.info(
+                    `[${COMPONENT_ID}] 🏁 Response streaming completed.`,
+                );
+                dispatch({
+                    type: "SET_STREAMING_COMPLETE",
+                    payload: true,
+                });
+
+                // Log the complete response from the ref
+                console.log("Complete Response:", streamedContentRef.current);
+                logger.info(
+                    `[${COMPONENT_ID}] Complete Response: ${streamedContentRef.current}`,
+                );
+            }).on("error", (error) => {
+                handleError(error);
+            });
+
+            await new Promise<void>((resolve, reject) => {
+                run.on("end", resolve);
+                run.on("error", reject);
+            });
+        },
+        [],
+    );
+
     const generateResponse = useCallback(
         async (userMessage: string): Promise<void> => {
             const startTime = performance.now();
             dispatch({ type: "SET_LOADING", payload: true });
             dispatch({ type: "SET_ERROR", payload: null });
-            dispatch({ type: "RESET_STREAMED_CONTENT" }); // Reset streamed content
+            dispatch({ type: "RESET_STREAMED_CONTENT" });
 
-            logger.info("🚀 Starting response generation process");
+            logger.info(
+                `[${COMPONENT_ID}] 🚀 Starting response generation process`,
+            );
 
             try {
-                const formattedMessage = await createUserMessage(userMessage);
+                const formattedMessage = await createUserMessage(
+                    userMessage,
+                    roleDescription,
+                    state.conversationSummary, // Pass the summary
+                    goals,
+                );
+                console.log("Created User Message:", userMessage);
+
                 logger.debug(
-                    `📝 Formatted user message: "${formattedMessage.substring(
+                    `[${COMPONENT_ID}] 📝 Formatted user message: "${formattedMessage.substring(
                         0,
                         50,
                     )}..."`,
@@ -114,12 +243,12 @@ export const useLLMProvider = (apiKey: string): LLMProviderHook => {
 
                 if (!openai) throw new Error("OpenAI client not initialized");
 
-                await runThread(openai, formattedMessage);
+                await runThread(openai, formattedMessage, assistantId);
 
                 const endTime = performance.now();
                 const totalTime = endTime - startTime;
                 logger.performance(
-                    `🎉 Total LLM response generation time: ${totalTime.toFixed(
+                    `[${COMPONENT_ID}] 🎉 Total LLM response generation time: ${totalTime.toFixed(
                         2,
                     )}ms`,
                 );
@@ -129,89 +258,142 @@ export const useLLMProvider = (apiKey: string): LLMProviderHook => {
                 throw error;
             }
         },
-        [openai],
+        [
+            roleDescription,
+            openai,
+            runThread,
+            assistantId,
+            state.conversationSummary,
+            goals,
+        ],
     );
 
-    const runThread = async (
-        openai: OpenAI,
-        formattedMessage: string,
-    ): Promise<void> => {
-        logger.info("🏃‍♂️ Starting thread run with streaming...");
-        let fullResponse = "";
+    // Summarize Conversation History
+    const summarizationInProgressRef = useRef(false);
 
-        const thread = await openai.beta.threads.create();
-
-        await openai.beta.threads.messages.create(thread.id, {
-            role: "user",
-            content: formattedMessage,
-        });
-
-        const run = openai.beta.threads.runs.stream(thread.id, {
-            assistant_id: "asst_sCRom8T3wuUNTYoUC6wBTDSD",
-        });
-
-        run.on("textCreated", () => logger.info("assistant >"))
-            .on("textDelta", (textDelta) => {
-                const content = textDelta.value ?? "";
-                fullResponse += content;
-                dispatch({ type: "APPEND_STREAMED_CONTENT", payload: content });
-                logger.debug(
-                    `📤 Streaming response chunk: "${content.substring(
-                        0,
-                        50,
-                    )}..."`,
+    const summarizeConversation = useCallback(
+        async (history: Message[]): Promise<void> => {
+            if (summarizationInProgressRef.current) {
+                logger.info(
+                    `[${COMPONENT_ID}] 🔄 Summarization already in progress. Skipping this request.`,
                 );
-            })
-            .on("toolCallCreated", (toolCall) =>
-                logger.info(`assistant > ${toolCall.type}\n\n`),
-            )
-            .on("toolCallDelta", (toolCallDelta) => {
-                if (
-                    toolCallDelta.type === "code_interpreter" &&
-                    toolCallDelta.code_interpreter
-                ) {
-                    if (toolCallDelta.code_interpreter.input) {
-                        logger.info(toolCallDelta.code_interpreter.input);
-                    }
-                    if (toolCallDelta.code_interpreter.outputs) {
-                        logger.info("\noutput >\n");
-                        toolCallDelta.code_interpreter.outputs.forEach(
-                            (output) => {
-                                if (output.type === "logs") {
-                                    logger.info(`\n${output.logs}\n`);
-                                }
-                            },
-                        );
-                    }
-                }
-            });
-        run.on("messageDone", () => {
-            logger.info(`🏁 Response streaming completed.`);
-            dispatch({
-                type: "SET_STREAMING_COMPLETE",
-                payload: true, // Mark streaming as complete
-            });
-        }).on("error", (error) => {
-            handleError(error);
-        });
+                return;
+            }
 
-        // Wait for the run to complete
-        await new Promise<void>((resolve, reject) => {
-            run.on("end", resolve);
-            run.on("error", reject);
-        });
-    };
+            if (!openai) {
+                logger.error(
+                    `[${COMPONENT_ID}] ❌ OpenAI client not initialized. Cannot summarize conversation.`,
+                );
+                return;
+            }
 
-    const handleError = (error: unknown) => {
+            summarizationInProgressRef.current = true;
+
+            const conversationText = history
+                .map(
+                    (msg) =>
+                        `${msg.type === "user" ? "User" : "Assistant"}: ${
+                            msg.content
+                        }`,
+                )
+                .join("\n");
+
+            const goalsText =
+                goals.length > 0 ? goals.join("; ") : "No specific goals set.";
+
+            const summaryPrompt = `
+                    You are an AI assistant trained to follow user-defined goals and milestones during conversations.
+                    
+                    Goals/Milestones:
+                    ${goalsText}
+                    
+                    Please provide a concise summary of the following conversation. Focus on key points, decisions, and topics discussed that align with the above goals/milestones.
+                    
+                    Conversation:
+                    ${conversationText}
+                    
+                    Summary:
+                `;
+
+            try {
+                dispatch({ type: "SET_LOADING", payload: true });
+                const response = await openai.chat.completions.create({
+                    model: "gpt-4", // Correct model name
+                    messages: [
+                        {
+                            role: "system",
+                            content: summaryPrompt,
+                        },
+                        { role: "user", content: conversationText },
+                    ],
+                    max_tokens: 150,
+                    temperature: 0.5,
+                });
+
+                const summary =
+                    response.choices[0]?.message.content?.trim() || "";
+                dispatch({
+                    type: "SET_CONVERSATION_SUMMARY",
+                    payload: summary,
+                });
+
+                logger.info(
+                    `[${COMPONENT_ID}] 📝 Conversation summarized successfully.`,
+                );
+            } catch (error) {
+                logger.error(
+                    `[${COMPONENT_ID}] ❌ Error summarizing conversation: ${
+                        (error as Error).message
+                    }`,
+                );
+            } finally {
+                summarizationInProgressRef.current = false;
+                dispatch({ type: "SET_LOADING", payload: false });
+            }
+        },
+        [openai, goals],
+    );
+
+    // Trigger Summarization Based on Conditions
+    useEffect(() => {
+        const shouldSummarize =
+            conversationHistory.length >= 10 || // Example: after 10 messages
+            (conversationHistory.length > 0 && isStreamingComplete); // Or when streaming completes
+
+        if (shouldSummarize) {
+            summarizeConversation(conversationHistory);
+        }
+    }, [conversationHistory, isStreamingComplete, summarizeConversation]);
+
+    // Periodic Summarization (Optional)
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (conversationHistory.length > 0) {
+                summarizeConversation(conversationHistory);
+            }
+        }, 1000 * 60 * 5); // Every 5 minutes
+
+        return () => clearInterval(interval);
+    }, [conversationHistory, summarizeConversation]);
+
+    const handleError = (
+        error: unknown,
+        context: string = "generateResponse",
+    ) => {
         if (error instanceof Error) {
-            logger.error(`❌ Error in generateResponse: ${error.message}`);
+            logger.error(
+                `[${COMPONENT_ID}] ❌ Error in ${context}: ${error.message}`,
+            );
             dispatch({
                 type: "SET_ERROR",
-                payload: error.message ?? "Unknown error",
+                payload: error.message || "An unexpected error occurred.",
             });
         } else {
-            logger.error("❌ Unknown error in generateResponse");
-            dispatch({ type: "SET_ERROR", payload: "Unknown error" });
+            logger.error(`[${COMPONENT_ID}] ❌ Unknown error in ${context}`);
+            dispatch({
+                type: "SET_ERROR",
+                payload: "An unexpected error occurred.",
+            });
         }
     };
 
@@ -221,5 +403,8 @@ export const useLLMProvider = (apiKey: string): LLMProviderHook => {
         error,
         streamedContent,
         isStreamingComplete,
-    }; // Return isStreamingComplete
+        conversationSummary, // Return the summary
+    };
 };
+
+export default useLLMProvider;

@@ -15,7 +15,7 @@ interface SpeechRecognitionProps {
     onResult: (finalTranscript: string, interimTranscript: string) => void;
 }
 
-export const useSpeechRecognition = ({
+const useSpeechRecognition = ({
     onStart,
     onEnd,
     onError,
@@ -26,6 +26,7 @@ export const useSpeechRecognition = ({
     const analyser = useRef<AnalyserNode | null>(null);
     const microphone = useRef<MediaStreamAudioSourceNode | null>(null);
     const animationFrameId = useRef<number | null>(null);
+    const mediaStream = useRef<MediaStream | null>(null);
 
     const start = useCallback(async () => {
         const startTime = performance.now();
@@ -76,8 +77,17 @@ export const useSpeechRecognition = ({
         if (animationFrameId.current) {
             cancelAnimationFrame(animationFrameId.current);
         }
+        if (microphone.current) {
+            microphone.current.disconnect();
+            microphone.current = null;
+        }
+        if (mediaStream.current) {
+            mediaStream.current.getTracks().forEach((track) => track.stop());
+            mediaStream.current = null;
+        }
         if (audioContext.current) {
             audioContext.current.close();
+            audioContext.current = null;
         }
     }, []);
 
@@ -93,9 +103,9 @@ export const useSpeechRecognition = ({
         navigator.mediaDevices
             .getUserMedia({ audio: true, video: false })
             .then((stream) => {
+                mediaStream.current = stream;
                 microphone.current =
                     audioContext.current!.createMediaStreamSource(stream);
-                microphone.current.connect(analyser.current!);
 
                 const bufferLength = analyser.current!.frequencyBinCount;
                 const dataArray = new Uint8Array(bufferLength);
@@ -135,3 +145,5 @@ export const useSpeechRecognition = ({
 
     return { start, stop, startAudioVisualization };
 };
+
+export default useSpeechRecognition;

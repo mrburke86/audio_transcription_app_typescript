@@ -1,275 +1,189 @@
 // src/app/page.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import Header from "@/components/Header";
-import TranscriptionControls from "@/components/TranscriptionControls";
-import { useLLMProvider } from "@/hooks/useLLMProvider";
-import { logger, LogEntry } from "@/modules/Logger";
-import { formatTimestamp } from "@/utils/helpers";
-import {
-    MemoizedLogBox,
-    MemoizedTranscriptionBox,
-} from "@/components/MemoizedComponents";
-import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import Link from "next/link";
+import { Plus, FileAudio, Mail, Bot, Clock } from "lucide-react";
 
-interface Message {
-    content: string;
-    type: "user" | "assistant" | "interim";
-    timestamp: string;
-}
+// Mock data
+const mockAssistants = [
+    {
+        id: "1",
+        name: "Audio Transcription Assistant",
+        description: "Transcribes audio files",
+    },
+    {
+        id: "2",
+        name: "Email Drafting Assistant",
+        description: "Helps draft professional emails",
+    },
+    {
+        id: "3",
+        name: "Data Analysis Assistant",
+        description: "Analyzes data and creates reports",
+    },
+    {
+        id: "4",
+        name: "Code Review Assistant",
+        description: "Reviews code and suggests improvements",
+    },
+    {
+        id: "5",
+        name: "Meeting Notes Assistant",
+        description: "Summarizes meeting notes",
+    },
+];
 
-const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
-    <h2 className="text-lg font-semibold text-white bg-gray-800 p-2 rounded-t-lg">
-        {title}
-    </h2>
-);
+const mockRecentChats = [
+    {
+        id: "1",
+        assistantId: "1",
+        assistantName: "Audio Transcription Assistant",
+        lastMessage: "Transcription completed",
+        timestamp: "2 hours ago",
+    },
+    {
+        id: "2",
+        assistantId: "2",
+        assistantName: "Email Drafting Assistant",
+        lastMessage: "Email draft ready",
+        timestamp: "1 day ago",
+    },
+    {
+        id: "3",
+        assistantId: "3",
+        assistantName: "Data Analysis Assistant",
+        lastMessage: "Analysis report generated",
+        timestamp: "3 days ago",
+    },
+];
 
-const AudioVisualizer: React.FC<{
-    canvasRef: React.RefObject<HTMLCanvasElement>;
-}> = ({ canvasRef }) => (
-    <canvas
-        ref={canvasRef}
-        id="audioVisualizer"
-        width="120"
-        height="30"
-        className="bg-gray-700 rounded"
-    />
-);
+export default function Dashboard() {
+    const [searchTerm, setSearchTerm] = useState("");
 
-const useTranscriptions = (
-    generateResponse: (message: string) => Promise<void>,
-    streamedContent: string,
-    isStreamingComplete: boolean, // Add a flag to know when streaming is done
-) => {
-    const [liveTranscription, setLiveTranscription] = useState<Message[]>([]);
-    const [savedTranscription, setSavedTranscription] = useState<Message[]>([]);
-
-    const handleMove = useCallback(async () => {
-        if (liveTranscription.length > 0) {
-            const userMessage = liveTranscription
-                .filter((msg) => msg.type === "user")
-                .map((msg) => msg.content)
-                .join(" ");
-
-            setSavedTranscription((prev) => [
-                ...prev,
-                {
-                    content: userMessage,
-                    type: "user",
-                    timestamp: formatTimestamp(new Date()),
-                },
-            ]);
-
-            try {
-                await generateResponse(userMessage);
-                // Remove direct appending here. We'll handle updates in the `useEffect`
-            } catch (error) {
-                logger.error(
-                    `Error generating response: ${(error as Error).message}`,
-                );
-            }
-
-            setLiveTranscription([]);
-        }
-    }, [liveTranscription, generateResponse]);
-
-    const handleClear = useCallback(() => {
-        setLiveTranscription([]);
-        setSavedTranscription([]);
-        logger.clearLogs();
-    }, []);
-
-    // New useEffect to update the saved transcription when streaming is complete
-    useEffect(() => {
-        if (isStreamingComplete && streamedContent.trim()) {
-            setSavedTranscription((prev) => [
-                ...prev,
-                {
-                    content: streamedContent,
-                    type: "assistant",
-                    timestamp: formatTimestamp(new Date()),
-                },
-            ]);
-        }
-    }, [isStreamingComplete, streamedContent]); // Only trigger when streaming is done
-
-    return {
-        liveTranscription,
-        setLiveTranscription,
-        savedTranscription,
-        setSavedTranscription,
-        handleMove,
-        handleClear,
-    };
-};
-
-export default function Home() {
-    const [recognitionStatus, setRecognitionStatus] = useState<
-        "inactive" | "active" | "error"
-    >("inactive");
-    const [logs, setLogs] = useState<LogEntry[]>([]);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const visualizationStartedRef = useRef(false);
-
-    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-    const {
-        generateResponse,
-        isLoading,
-        error,
-        streamedContent,
-        isStreamingComplete,
-    } = useLLMProvider(apiKey || "");
-
-    const {
-        liveTranscription,
-        setLiveTranscription,
-        savedTranscription,
-        setSavedTranscription,
-        handleMove,
-        handleClear,
-    } = useTranscriptions(
-        generateResponse,
-        streamedContent,
-        isStreamingComplete,
+    const filteredAssistants = mockAssistants.filter((assistant) =>
+        assistant.name.toLowerCase().includes(searchTerm.toLowerCase()),
     );
-
-    const handleRecognitionStart = useCallback(() => {
-        setRecognitionStatus("active");
-    }, []);
-
-    const handleRecognitionEnd = useCallback(() => {
-        setRecognitionStatus("inactive");
-    }, []);
-
-    const handleRecognitionError = useCallback(
-        (event: SpeechRecognitionErrorEvent) => {
-            setRecognitionStatus("error");
-            logger.error(`Speech recognition error: ${event.error}`);
-        },
-        [],
-    );
-
-    const handleRecognitionResult = useCallback(
-        (finalTranscript: string, interimTranscript: string) => {
-            setLiveTranscription((prev) => {
-                const newTranscription = [...prev];
-                if (finalTranscript) {
-                    newTranscription.push({
-                        content: finalTranscript,
-                        type: "user",
-                        timestamp: formatTimestamp(new Date()),
-                    });
-                }
-                if (interimTranscript) {
-                    const lastMessage =
-                        newTranscription[newTranscription.length - 1];
-                    if (lastMessage && lastMessage.type === "interim") {
-                        lastMessage.content = interimTranscript;
-                    } else {
-                        newTranscription.push({
-                            content: interimTranscript,
-                            type: "interim",
-                            timestamp: formatTimestamp(new Date()),
-                        });
-                    }
-                }
-                return newTranscription;
-            });
-        },
-        [],
-    );
-
-    const { start, stop, startAudioVisualization } = useSpeechRecognition({
-        onStart: handleRecognitionStart,
-        onEnd: handleRecognitionEnd,
-        onError: handleRecognitionError,
-        onResult: handleRecognitionResult,
-    });
-
-    const handleStart = useCallback(() => {
-        start().then(() => {
-            if (canvasRef.current && !visualizationStartedRef.current) {
-                startAudioVisualization(canvasRef.current);
-                visualizationStartedRef.current = true;
-            }
-        });
-    }, [start, startAudioVisualization]);
-
-    useEffect(() => {
-        if (!apiKey) {
-            logger.error("OpenAI API key is missing");
-        }
-        setLogs(logger.getLogs());
-    }, [
-        apiKey,
-        recognitionStatus,
-        liveTranscription,
-        savedTranscription,
-        isLoading,
-        error,
-    ]);
 
     return (
-        <div className="flex flex-col h-screen w-screen overflow-hidden">
-            <Header status={recognitionStatus} />
-            <TranscriptionControls
-                onStart={handleStart}
-                onStop={stop}
-                onMove={handleMove}
-                onClear={handleClear}
-                isRecognitionActive={recognitionStatus === "active"}
-            />
+        <div className="container mx-auto p-4 space-y-6">
+            <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
 
-            <main className="flex-1 grid grid-cols-3 gap-4 p-4 overflow-hidden">
-                {/* 1st Column */}
-                <section className="col-span-2 flex flex-col overflow-hidden">
-                    <MemoizedTranscriptionBox
-                        id="postChat"
-                        title="Saved Transcription"
-                        messages={savedTranscription}
-                        variant="saved"
-                        streamedContent={streamedContent}
-                    />
-                </section>
-                {/* 2nd Column */}
-                <section className="col-span-1 flex flex-col gap-4 overflow-hidden">
-                    {/* Audio Visualizer */}
-                    <div className="bg-transcription-box rounded-lg shadow">
-                        {/* <SectionHeader title="Audio Visualizer" /> */}
-                        <div className="p-1">
-                            <AudioVisualizer canvasRef={canvasRef} />
-                        </div>
-                    </div>
-                    {/* Live Transcription */}
-                    <div className="flex-1 overflow-hidden">
-                        <MemoizedTranscriptionBox
-                            id="preChat"
-                            title="Live Transcription"
-                            messages={liveTranscription}
-                            variant="live"
-                        />
-                    </div>
-                    {/* Placeholder */}
-                    <div className="flex-1 overflow-hidden">
-                        <div className="h-full bg-transcription-box rounded-lg shadow">
-                            <SectionHeader title="Placeholder" />
-                            <div className="p-4 overflow-y-auto h-[calc(100%-2.5rem)]">
-                                {/* Placeholder content */}
-                            </div>
-                        </div>
-                    </div>
-                    {/* Activity Logs */}
-                    <div className="flex-1 overflow-hidden">
-                        <div className="h-full bg-transcription-box rounded-lg shadow">
-                            <SectionHeader title="Activity Logs" />
-                            <div className="p-4 overflow-y-auto h-[calc(100%-2.5rem)]">
-                                <MemoizedLogBox logs={logs} />
-                            </div>
-                        </div>
-                    </div>
-                </section>
-            </main>
+            <div className="flex justify-between items-center mb-6">
+                <Input
+                    type="search"
+                    placeholder="Search assistants..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="max-w-sm"
+                />
+                <Button asChild>
+                    <Link href="/assistants/create">
+                        <Plus className="mr-2 h-4 w-4" /> Create Assistant
+                    </Link>
+                </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <QuickActions />
+
+                <RecentChats />
+
+                <YourAssistants filteredAssistants={filteredAssistants} />
+            </div>
         </div>
+    );
+}
+
+// YourAssistants
+interface YourAssistantsProps {
+    filteredAssistants: { id: string; name: string; description: string }[];
+}
+
+function YourAssistants({ filteredAssistants }: YourAssistantsProps) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Your Assistants</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <ul className="space-y-2">
+                    {filteredAssistants.slice(0, 5).map((assistant) => (
+                        <li key={assistant.id}>
+                            <Link
+                                href={`/chat/${assistant.id}`}
+                                className="flex items-center"
+                            >
+                                <Bot className="mr-2 h-4 w-4" />
+                                <span>{assistant.name}</span>
+                            </Link>
+                        </li>
+                    ))}
+                </ul>
+                {filteredAssistants.length > 5 && (
+                    <Button variant="link" asChild className="mt-2">
+                        <Link href="/assistants">View all assistants</Link>
+                    </Button>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+// RecentChats
+function RecentChats() {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Recent Chats</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <ul className="space-y-2">
+                    {mockRecentChats.map((chat) => (
+                        <li
+                            key={chat.id}
+                            className="flex items-center justify-between"
+                        >
+                            <Link
+                                href={`/chat/${chat.assistantId}`}
+                                className="flex items-center"
+                            >
+                                <Clock className="mr-2 h-4 w-4" />
+                                <span>{chat.assistantName}</span>
+                            </Link>
+                            <span className="text-sm text-muted-foreground">
+                                {chat.timestamp}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            </CardContent>
+        </Card>
+    );
+}
+
+// QuickActions
+function QuickActions() {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+                <Button variant="outline" className="w-full justify-start">
+                    <FileAudio className="mr-2 h-4 w-4" /> New Audio
+                    Transcription
+                </Button>
+                <Button variant="outline" className="w-full justify-start">
+                    <Mail className="mr-2 h-4 w-4" /> Draft Email
+                </Button>
+                <Button variant="outline" className="w-full justify-start">
+                    <Bot className="mr-2 h-4 w-4" /> Chat with AI Assistant
+                </Button>
+            </CardContent>
+        </Card>
     );
 }

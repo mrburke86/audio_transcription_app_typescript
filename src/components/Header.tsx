@@ -1,20 +1,18 @@
 // src/components/Header.tsx
 import React from "react";
-import StatusIndicator from "./StatusIndicator";
+import StatusIndicator from "./chat/StatusIndicator";
 
 interface HeaderProps {
     status: "inactive" | "active" | "error";
 }
 
-const Header: React.FC<HeaderProps> = ({ status }) => {
+export default function Header({ status }: HeaderProps) {
     return (
-        <header className="text-center mb-4">
-            <h1 className="text-2xl font-bold mb-2">
+        <header className="flex flex-row items-center justify-center text-center mb-4 space-x-4">
+            <h1 className="text-2xl font-bold mb-0">
                 iMessage-style Audio Transcription
             </h1>
             <StatusIndicator status={status} />
         </header>
     );
-};
-
-export default Header;
+}

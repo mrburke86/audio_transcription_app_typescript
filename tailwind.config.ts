@@ -1,6 +1,8 @@
 // tailwind.config.ts
 import type { Config } from "tailwindcss";
 import { fontFamily } from "tailwindcss/defaultTheme";
+import animate from "tailwindcss-animate";
+import typography from "@tailwindcss/typography";
 
 const config = {
     darkMode: ["class"],
@@ -24,43 +26,21 @@ const config = {
                 sans: ["var(--font-sans)", ...fontFamily.sans],
             },
             colors: {
-                border: "hsl(var(--border))",
-                input: "hsl(var(--input))",
-                tertiary: "hsl(var(--tertiary))",
-                ring: "hsl(var(--ring))",
-                background: "hsl(var(--background))",
-                foreground: "hsl(var(--foreground))",
-                secondary: {
-                    DEFAULT: "hsl(var(--secondary))",
-                    foreground: "hsl(var(--secondary-foreground))",
-                },
-                destructive: {
-                    DEFAULT: "hsl(var(--destructive))",
-                    foreground: "hsl(var(--destructive-foreground))",
-                },
-                muted: {
-                    DEFAULT: "hsl(var(--muted))",
-                    foreground: "hsl(var(--muted-foreground))",
-                },
-                accent: {
-                    DEFAULT: "hsl(var(--accent))",
-                    foreground: "hsl(var(--accent-foreground))",
-                },
-                popover: {
-                    DEFAULT: "hsl(var(--popover))",
-                    foreground: "hsl(var(--popover-foreground))",
-                },
-                card: {
-                    DEFAULT: "hsl(var(--card))",
-                    foreground: "hsl(var(--card-foreground))",
-                },
-                text: "var(--text)",
-                "text-secondary": "var(--text-secondary)",
-                "user-message": "var(--user-message-background)",
-                primary: "var(--primary)",
-                "saved-user-message": "var(--user-message-background)",
-                "saved-assistant-message": "var(--primary)",
-                "transcription-box": "var(--surface)",
+                primary: "hsl(var(--primary) / <alpha-value>)",
+                secondary: "hsl(var(--secondary) / <alpha-value>)",
+                accent: "hsl(var(--accent) / <alpha-value>)",
+                destructive: "hsl(var(--destructive) / <alpha-value>)",
+                muted: "hsl(var(--muted) / <alpha-value>)",
+                border: "hsl(var(--border) / <alpha-value>)",
+                input: "hsl(var(--input) / <alpha-value>)",
+                background: "hsl(var(--background) / <alpha-value>)",
+                foreground: "hsl(var(--foreground) / <alpha-value>)",
+                popover: "hsl(var(--popover) / <alpha-value>)",
+                card: "hsl(var(--card) / <alpha-value>)",
+                text: "hsl(var(--text) / <alpha-value>)",
+                "text-secondary": "hsl(var(--text-secondary) / <alpha-value>)",
+                "user-message":
+                    "hsl(var(--user-message-background) / <alpha-value>)",
             },
             maxWidth: {
                 "80%": "80%",
@@ -68,11 +48,6 @@ const config = {
             margin: {
                 "20%": "20%",
             },
-            // borderRadius: {
-            //     lg: "var(--radius)",
-            //     md: "calc(var(--radius) - 2px)",
-            //     sm: "calc(var(--radius) - 4px)",
-            // },
             keyframes: {
                 "accordion-down": {
                     from: { height: "0" },
@@ -87,9 +62,42 @@ const config = {
                 "accordion-down": "accordion-down 0.2s ease-out",
                 "accordion-up": "accordion-up 0.2s ease-out",
             },
+            typography: ({ theme }: { theme: (path: string) => string }) => ({
+                DEFAULT: {
+                    css: {
+                        color: theme("colors.foreground"),
+                        a: {
+                            color: theme("colors.primary"),
+                            "&:hover": {
+                                color: theme("colors.primary"),
+                            },
+                        },
+                    },
+                },
+                dark: {
+                    css: {
+                        color: theme("colors.text"),
+                        a: {
+                            color: theme("colors.primary"),
+                            "&:hover": {
+                                color: theme("colors.primary"),
+                            },
+                        },
+                        strong: {
+                            color: theme("colors.text-secondary"),
+                        },
+                        h1: {
+                            color: theme("colors.text"),
+                        },
+                        h2: {
+                            color: theme("colors.text-secondary"),
+                        },
+                    },
+                },
+            }),
         },
     },
-    plugins: [require("tailwindcss-animate")],
+    plugins: [animate, typography],
 } satisfies Config;
 
 export default config;

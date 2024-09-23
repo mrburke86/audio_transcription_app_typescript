@@ -1,0 +1,184 @@
+## Core Principles
+
+-   Write concise, technical TypeScript code with accurate examples.
+-   Use functional and declarative programming patterns; avoid classes.
+-   Prefer iteration and modularization over code duplication.
+-   Use descriptive variable names with auxiliary verbs (e.g., isLoading, hasError).
+-   Implement the Receive an Object, Return an Object (RORO) pattern.
+
+## Code Style and Structure
+
+-   Structure files: exported component, subcomponents, helpers, static content, types.
+-   Use 2 space indentation.
+-   Use single quotes for strings except to avoid escaping.
+-   No semicolons (unless required to disambiguate statements).
+-   No unused variables.
+-   Add a space after keywords and before function declaration parentheses.
+-   Always use === instead of ==.
+-   Infix operators must be spaced.
+-   Commas should have a space after them.
+-   Keep else statements on the same line as their curly braces.
+-   For multi-line if statements, use curly braces.
+-   Always handle the err function parameter.
+-   Use camelcase for variables and functions.
+-   Use PascalCase for React components.
+
+## Naming Conventions
+
+-   Use lowercase with dashes for directories (e.g., components/auth-wizard).
+-   Favor named exports for components.
+
+## TypeScript Usage
+
+-   Use TypeScript for all code; prefer interfaces over types.
+-   Avoid enums; use maps instead.
+-   Use functional components with TypeScript interfaces.
+
+## JavaScript/TypeScript Best Practices
+
+-   Use "function" keyword for pure functions and component definitions.
+-   Avoid unnecessary curly braces in conditionals; use concise syntax for simple statements.
+-   Use early returns for error conditions to avoid deeply nested if statements.
+-   Place the happy path last in the function for improved readability.
+-   Avoid unnecessary else statements; use if-return pattern instead.
+-   Use guard clauses to handle preconditions and invalid states early.
+
+## React and Next.js
+
+-   Use functional components with prop-types for type checking.
+-   Implement hooks correctly (useState, useEffect, useContext, useReducer, useMemo, useCallback).
+-   Follow the Rules of Hooks (only call hooks at the top level, only call hooks from React functions).
+-   Create custom hooks to extract reusable component logic.
+-   Use React.memo() for component memoization when appropriate.
+-   Implement useCallback for memoizing functions passed as props.
+-   Use useMemo for expensive computations.
+-   Avoid inline function definitions in render to prevent unnecessary re-renders.
+-   Prefer composition over inheritance.
+-   Use children prop and render props pattern for flexible, reusable components.
+-   Implement React.lazy() and Suspense for code splitting.
+-   Use refs sparingly and mainly for DOM access.
+-   Prefer controlled components over uncontrolled components.
+-   Implement error boundaries to catch and handle errors gracefully.
+-   Use cleanup functions in useEffect to prevent memory leaks.
+-   Use short-circuit evaluation and ternary operators for conditional rendering.
+
+## State Management
+
+-   Lift state up when needed to share state between components.
+-   Use context for intermediate state sharing when prop drilling becomes cumbersome.
+-   Use 'nuqs' for URL search parameter state management.
+
+## UI and Styling
+
+-   Use ShadCN UI as the primary component library:
+    -   Leverage pre-built, accessible components from ShadCN UI.
+    -   Customize ShadCN UI components using Tailwind CSS classes.
+    -   Use the ShadCN UI CLI to add components to your project as needed.
+-   Understand that ShadCN UI is built on top of Radix UI:
+    -   Benefit from Radix UI's accessibility and composability features.
+    -   Use Radix UI primitives directly when needed for highly customized components.
+-   Implement responsive design with Tailwind CSS; use a mobile-first approach.
+-   Use Tailwind for utility classes and rapid prototyping.
+-   Combine Tailwind utility classes with component-specific styles when needed.
+-   Follow ShadCN UI's theming system for consistent styling across the application.
+-   Use `lucide-react` for icons:
+    -   Maintain consistency in icon usage across the application.
+    -   Leverage the wide variety of icons available in the Lucide library.
+
+##
+
+## Component Usage
+
+-   Prefer ShadCN UI components for common UI elements (buttons, forms, modals, etc.).
+-   Customize ShadCN UI components using Tailwind classes and component variants.
+-   When creating custom components:
+    -   Start with Radix UI primitives if the component needs complex interactions or accessibility features.
+    -   Style the custom components using Tailwind CSS classes.
+-   Use the `cn()` utility function from ShadCN UI to conditionally apply classes.
+-   Incorporate `lucide-react` icons in components:
+    -   Import icons as needed from `lucide-react`.
+    -   Use consistent icon sizes and colors throughout the application.
+    -   Utilize the `strokeWidth` prop to adjust icon weight when necessary.
+
+## Performance Optimization
+
+-   Minimize 'use client', 'useEffect', and 'useState'; favor React Server Components (RSC).
+-   Wrap client components in Suspense with fallback.
+-   Use dynamic loading for non-critical components.
+-   Optimize images: use WebP format, include size data, implement lazy loading.
+-   Implement route-based code splitting in Next.js.
+-   Minimize the use of global styles; prefer modular, scoped styles.
+-   Use PurgeCSS with Tailwind to remove unused styles in production.
+-   Optimize Web Vitals (LCP, CLS, FID).
+-   Import ShadCN UI components individually to minimize bundle size.
+-   Use dynamic imports for larger ShadCN UI components that aren't immediately needed.
+-   Optimize ShadCN UI components with React.memo() when appropriate, especially for frequently re-rendered lists.
+-   When using `lucide-react`, import icons individually to reduce bundle size:
+    -   Example: `import { User } from 'lucide-react'` instead of importing the entire library.
+
+## Forms and Validation
+
+-   Use controlled components for form inputs.
+-   Implement form validation (client-side and server-side).
+-   Use react-hook-form for complex forms.
+-   Use Zod for schema validation.
+-   Use useActionState with react-hook-form for form validation.
+-   Make use of ShadCN UI's form components in conjunction with react-hook-form for efficient form handling.
+
+## Error Handling and Validation
+
+-   Prioritize error handling and edge cases.
+-   Implement proper error logging and user-friendly error messages.
+-   Model expected errors as return values in Server Actions.
+-   Use error boundaries for unexpected errors.
+-   Implement error boundaries using error.tsx and global-error.tsx files.
+
+## Server Actions
+
+-   Use next-safe-action for all server actions:
+    -   Implement type-safe server actions with proper validation.
+    -   Utilize the `action` function from next-safe-action for creating actions.
+    -   Define input schemas using Zod for robust type checking and validation.
+    -   Handle errors gracefully and return appropriate responses.
+    -   Use import type { ActionResponse } from '@/types/actions'
+    -   Ensure all server actions return the ActionResponse type
+    -   Implement consistent error handling and success responses using ActionResponse
+
+## Accessibility (a11y)
+
+-   Leverage the built-in accessibility features of ShadCN UI and Radix UI components.
+-   Use semantic HTML elements.
+-   Implement proper ARIA attributes when creating custom components.
+-   Ensure keyboard navigation support, especially for custom components.
+-   Test with screen readers to ensure compatibility.
+
+## Testing
+
+-   Write unit tests for components using Jest and React Testing Library.
+-   Implement integration tests for critical user flows.
+-   Use snapshot testing judiciously.
+
+## Security
+
+-   Sanitize user inputs to prevent XSS attacks.
+-   Use dangerouslySetInnerHTML sparingly and only with sanitized content.
+
+## Internationalization (i18n)
+
+-   Use libraries like react-intl or next-i18next for internationalization.
+
+## Next.js Specific
+
+-   Follow Next.js documentation for Data Fetching, Rendering, and Routing best practices.
+-   Limit 'use client' usage:
+    -   Favor server components and Next.js SSR features.
+    -   Use 'use client' only for Web API access in small components.
+    -   Avoid using 'use client' for data fetching or state management.
+
+## ShadCN UI Best Practices
+
+-   Use the ShadCN UI CLI to add only the components you need to your project.
+-   Customize the base layers in your `globals.css` file as per ShadCN UI documentation.
+-   Utilize ShadCN UI's dark mode implementation for consistent theming.
+-   When customizing components, try to use Tailwind's configuration extensions rather than arbitrary values.
+-   Integrate `lucide-react` icons seamlessly with ShadCN UI components for a cohesive design.
