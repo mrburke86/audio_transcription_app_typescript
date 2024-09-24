@@ -6,6 +6,13 @@ import { logger } from "@/modules/Logger";
 import { createUserMessage } from "@/utils/createUserMessage";
 import type OpenAI from "openai";
 import { Message } from "@/types/Message";
+import { OpenAIModelName } from "@/types/openai-models";
+import {
+    usePerformance,
+    ExtendedPerformanceEntry,
+} from "@/contexts/PerformanceContext"; // Import usePerformance
+import { v4 as uuidv4 } from "uuid";
+import { loglog } from "@/modules/log-log";
 
 const COMPONENT_ID = "useLLMProvider";
 
@@ -91,6 +98,9 @@ const useLLMProvider = (
     const [openai, setOpenai] = useState<OpenAI | null>(null);
 
     const streamedContentRef = useRef<string>("");
+    const firstChunkReceivedRef = useRef<boolean>(false);
+
+    const { addEntry } = usePerformance(); // Use the performance context
 
     const initializeOpenAI = useCallback(async () => {
         if (!apiKey) {
@@ -128,28 +138,31 @@ const useLLMProvider = (
             openai: OpenAI,
             formattedMessage: string,
             assistantId: string,
+            queryId: string, // Accept queryId as a parameter
         ): Promise<void> => {
             logger.info(
-                `[${COMPONENT_ID}] 🏃‍♂️ Starting thread run with streaming...`,
+                `[${COMPONENT_ID}][${queryId}] 🏃‍♂️ Starting thread run with streaming...`,
             );
 
             const thread = await openai.beta.threads.create();
             logger.debug(
-                `[${COMPONENT_ID}] 🧵 Thread created with ID: ${thread.id}`,
+                `[${COMPONENT_ID}][${queryId}] 🧵 Thread created with ID: ${thread.id}`,
             );
 
             await openai.beta.threads.messages.create(thread.id, {
                 role: "user",
                 content: formattedMessage,
             });
-            logger.debug(`[${COMPONENT_ID}] 💬 User message added to thread`);
+            logger.debug(
+                `[${COMPONENT_ID}][${queryId}] 💬 User message added to thread`,
+            );
 
             const run = openai.beta.threads.runs.stream(thread.id, {
                 assistant_id: assistantId,
             });
 
             run.on("textCreated", () =>
-                logger.info(`[${COMPONENT_ID}] assistant >`),
+                logger.info(`[${COMPONENT_ID}][${queryId}] assistant >`),
             )
                 .on("textDelta", (textDelta) => {
                     const content = textDelta.value ?? "";
@@ -157,11 +170,57 @@ const useLLMProvider = (
                         type: "APPEND_STREAMED_CONTENT",
                         payload: content,
                     });
-                    streamedContentRef.current += content; // Also append to the ref
+                    streamedContentRef.current += content;
+
+                    if (!firstChunkReceivedRef.current) {
+                        performance.mark("generateResponse_firstChunk");
+                        performance.measure(
+                            `MoveToFirstChunk_duration_${queryId}`, // Unique measure name
+                            "generateResponse_start",
+                            "generateResponse_firstChunk",
+                        );
+
+                        const measures = performance.getEntriesByName(
+                            `MoveToFirstChunk_duration_${queryId}`,
+                        );
+                        if (measures.length > 0) {
+                            const measure = measures[0];
+                            const duration = measure.duration;
+
+                            console.log(
+                                `[${COMPONENT_ID}][${queryId}] Move to first chunk took ${duration.toFixed(
+                                    2,
+                                )}ms`,
+                            );
+
+                            logger.performance(
+                                `[${COMPONENT_ID}][${queryId}] Move to first chunk took ${duration.toFixed(
+                                    2,
+                                )}ms`,
+                            );
+                            loglog.performance(
+                                `Move to first chunk took ${duration.toFixed(
+                                    2,
+                                )}ms`,
+                                queryId,
+                            );
+
+                            const entry: ExtendedPerformanceEntry = {
+                                name: "MoveToFirstChunk",
+                                duration: duration,
+                                startTime: measure.startTime,
+                                endTime: measure.startTime + measure.duration,
+                                queryId, // Include queryId
+                            };
+                            addEntry(entry);
+                        }
+
+                        firstChunkReceivedRef.current = true;
+                    }
                 })
                 .on("toolCallCreated", (toolCall) =>
                     logger.info(
-                        `[${COMPONENT_ID}] assistant > ${toolCall.type}\n\n`,
+                        `[${COMPONENT_ID}][${queryId}] assistant > ${toolCall.type}\n\n`,
                     ),
                 )
                 .on("toolCallDelta", (toolCallDelta) => {
@@ -171,17 +230,25 @@ const useLLMProvider = (
                     ) {
                         if (toolCallDelta.code_interpreter.input) {
                             logger.info(
-                                `[${COMPONENT_ID}] Code input: ${toolCallDelta.code_interpreter.input}`,
+                                `[${COMPONENT_ID}][${queryId}] Code input: ${toolCallDelta.code_interpreter.input}`,
+                            );
+                            loglog.info(
+                                `Code input: ${toolCallDelta.code_interpreter.input}`,
+                                queryId,
                             );
                         }
                         if (toolCallDelta.code_interpreter.outputs) {
-                            logger.info(`[${COMPONENT_ID}] Code output:`);
+                            logger.info(
+                                `[${COMPONENT_ID}][${queryId}] Code output:`,
+                            );
+                            loglog.info(`Code output:`, queryId);
                             toolCallDelta.code_interpreter.outputs.forEach(
                                 (output) => {
                                     if (output.type === "logs") {
                                         logger.info(
-                                            `[${COMPONENT_ID}] ${output.logs}`,
+                                            `[${COMPONENT_ID}][${queryId}] ${output.logs}`,
                                         );
+                                        loglog.info(`${output.logs}`, queryId);
                                     }
                                 },
                             );
@@ -190,20 +257,27 @@ const useLLMProvider = (
                 });
             run.on("messageDone", () => {
                 logger.info(
-                    `[${COMPONENT_ID}] 🏁 Response streaming completed.`,
+                    `[${COMPONENT_ID}][${queryId}] 🏁 Response streaming completed.`,
                 );
+                loglog.info("Response streaming completed.", queryId);
                 dispatch({
                     type: "SET_STREAMING_COMPLETE",
                     payload: true,
                 });
 
-                // Log the complete response from the ref
-                console.log("Complete Response:", streamedContentRef.current);
+                console.log(
+                    `[${queryId}] Complete Response:`,
+                    streamedContentRef.current,
+                );
                 logger.info(
-                    `[${COMPONENT_ID}] Complete Response: ${streamedContentRef.current}`,
+                    `[${COMPONENT_ID}][${queryId}] Complete Response: ${streamedContentRef.current}`,
+                );
+                loglog.info(
+                    `Complete Response: ${streamedContentRef.current}`,
+                    queryId,
                 );
             }).on("error", (error) => {
-                handleError(error);
+                handleError(error, queryId);
             });
 
             await new Promise<void>((resolve, reject) => {
@@ -211,49 +285,91 @@ const useLLMProvider = (
                 run.on("error", reject);
             });
         },
-        [],
+        [addEntry],
     );
 
     const generateResponse = useCallback(
         async (userMessage: string): Promise<void> => {
-            const startTime = performance.now();
+            // Start measuring generateResponse
+            const queryId = uuidv4(); // Generate a unique ID for the query
+            performance.mark("generateResponse_start");
+
+            // Reset the firstChunkReceivedRef for each new query
+            firstChunkReceivedRef.current = false;
+
             dispatch({ type: "SET_LOADING", payload: true });
             dispatch({ type: "SET_ERROR", payload: null });
             dispatch({ type: "RESET_STREAMED_CONTENT" });
 
             logger.info(
-                `[${COMPONENT_ID}] 🚀 Starting response generation process`,
+                `[${COMPONENT_ID}][${queryId}] 🚀 Starting response generation process`,
             );
+            loglog.info("🚀 Starting response generation process", queryId);
 
             try {
                 const formattedMessage = await createUserMessage(
                     userMessage,
                     roleDescription,
-                    state.conversationSummary, // Pass the summary
+                    state.conversationSummary,
                     goals,
                 );
-                console.log("Created User Message:", userMessage);
+                console.log(`[${queryId}] Created User Message:`, userMessage);
+                loglog.debug(`Created User Message: ${userMessage}`, queryId);
 
                 logger.debug(
-                    `[${COMPONENT_ID}] 📝 Formatted user message: "${formattedMessage.substring(
+                    `[${COMPONENT_ID}][${queryId}] 📝 Formatted user message: "${formattedMessage.substring(
                         0,
                         50,
                     )}..."`,
                 );
+                loglog.debug(
+                    `Formatted user message: "${formattedMessage.substring(
+                        0,
+                        50,
+                    )}..."`,
+                    queryId,
+                );
 
                 if (!openai) throw new Error("OpenAI client not initialized");
 
-                await runThread(openai, formattedMessage, assistantId);
+                // Run the thread
+                await runThread(openai, formattedMessage, assistantId, queryId);
 
-                const endTime = performance.now();
-                const totalTime = endTime - startTime;
-                logger.performance(
-                    `[${COMPONENT_ID}] 🎉 Total LLM response generation time: ${totalTime.toFixed(
-                        2,
-                    )}ms`,
+                // End measuring generateResponse
+                performance.mark("generateResponse_end");
+                performance.measure(
+                    `generateResponse_duration_${queryId}`,
+                    "generateResponse_start",
+                    "generateResponse_end",
                 );
+
+                const measures = performance.getEntriesByName(
+                    `generateResponse_duration_${queryId}`,
+                );
+                if (measures.length > 0) {
+                    const measure = measures[0];
+                    const entry: ExtendedPerformanceEntry = {
+                        name: "generateResponse",
+                        duration: measure.duration,
+                        startTime: measure.startTime,
+                        endTime: measure.startTime + measure.duration,
+                        queryId, // Include queryId
+                    };
+                    addEntry(entry);
+                    logger.performance(
+                        `[${COMPONENT_ID}][${queryId}] 🎉 generateResponse took ${measure.duration.toFixed(
+                            2,
+                        )}ms`,
+                    );
+                    loglog.performance(
+                        `generateResponse took ${measure.duration.toFixed(
+                            2,
+                        )}ms`,
+                        queryId,
+                    );
+                }
             } catch (error) {
-                handleError(error);
+                handleError(error, queryId);
                 dispatch({ type: "SET_LOADING", payload: false });
                 throw error;
             }
@@ -265,6 +381,7 @@ const useLLMProvider = (
             assistantId,
             state.conversationSummary,
             goals,
+            addEntry,
         ],
     );
 
@@ -274,9 +391,9 @@ const useLLMProvider = (
     const summarizeConversation = useCallback(
         async (history: Message[]): Promise<void> => {
             if (summarizationInProgressRef.current) {
-                logger.info(
-                    `[${COMPONENT_ID}] 🔄 Summarization already in progress. Skipping this request.`,
-                );
+                // logger.info(
+                //     `[${COMPONENT_ID}] 🔄 Summarization already in progress. Skipping this request.`,
+                // );
                 return;
             }
 
@@ -317,8 +434,10 @@ const useLLMProvider = (
 
             try {
                 dispatch({ type: "SET_LOADING", payload: true });
+                const modelName: OpenAIModelName = "gpt-4o-mini";
+
                 const response = await openai.chat.completions.create({
-                    model: "gpt-4", // Correct model name
+                    model: modelName, // Correct model name
                     messages: [
                         {
                             role: "system",
@@ -378,18 +497,23 @@ const useLLMProvider = (
 
     const handleError = (
         error: unknown,
+        queryId: string = "general", // Default to "general" if not provided
         context: string = "generateResponse",
     ) => {
         if (error instanceof Error) {
             logger.error(
-                `[${COMPONENT_ID}] ❌ Error in ${context}: ${error.message}`,
+                `[${COMPONENT_ID}][${queryId}] ❌ Error in ${context}: ${error.message}`,
             );
+            loglog.error(`Error in ${context}: ${error.message}`, queryId);
             dispatch({
                 type: "SET_ERROR",
                 payload: error.message || "An unexpected error occurred.",
             });
         } else {
-            logger.error(`[${COMPONENT_ID}] ❌ Unknown error in ${context}`);
+            logger.error(
+                `[${COMPONENT_ID}][${queryId}] ❌ Unknown error in ${context}`,
+            );
+            loglog.error("Unknown error occurred.", queryId);
             dispatch({
                 type: "SET_ERROR",
                 payload: "An unexpected error occurred.",

@@ -1,12 +1,15 @@
 // src/types/assistant.ts
 import { Assistant as OpenAIAssistant } from "openai/resources/beta/assistants";
+// import openAIModels, { OpenAIModel } from "./openai-models";
 
 export interface MyCustomAssistant extends OpenAIAssistant {
     metadata: Metadata;
+    // model: OpenAIModel; // Type-safe model selection from the predefined models
 }
 
 export interface Metadata {
     category?: string;
+    role_description?: string;
 }
 
 export interface VectorStoreFile {

@@ -22,6 +22,8 @@ import { Message } from "../../types/Message"; // Import the Message interface
 import { Badge, Button } from "@/components/ui";
 import AudioVisualizer from "./AudioVisualizer";
 import LiveTranscriptionBox from "./LiveTranscriptionBox";
+import LogBox from "./LogBox";
+import { loglog, LogLogEntry } from "@/modules/log-log";
 
 interface ChatComponentProps {
     assistantId: string;
@@ -38,7 +40,6 @@ const ChatComponent: React.FC<ChatComponentProps> = ({
     assistantId,
     roleDescription,
 }) => {
-    // console.log("🚀 ~ ChatComponent ~ assistantId:", assistantId);
     // Unified Conversation History (from userMessages)
     const [conversationHistory, setConversationHistory] = useState<Message[]>(
         [],
@@ -50,7 +51,7 @@ const ChatComponent: React.FC<ChatComponentProps> = ({
     const [recognitionStatus, setRecognitionStatus] = useState<
         "inactive" | "active" | "error"
     >("inactive");
-    // const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [logs, setLogs] = useState<LogLogEntry[]>([]); // Manage logs locally
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const visualizationStartedRef = useRef(false);
 
@@ -93,7 +94,13 @@ const ChatComponent: React.FC<ChatComponentProps> = ({
         if (!apiKey) {
             logger.error("🔑❌ OpenAI API key is missing");
         }
-        // setLogs(logger.getLogs());
+        const unsubscribe = loglog.subscribe((newLog: LogLogEntry) => {
+            setLogs((prevLogs) => [...prevLogs, newLog]);
+        });
+
+        return () => {
+            unsubscribe();
+        };
     }, [apiKey, recognitionStatus, userMessages, isLoading, error]);
 
     useEffect(() => {
@@ -129,6 +136,7 @@ const ChatComponent: React.FC<ChatComponentProps> = ({
         onError: handleRecognitionError,
         onResult: handleRecognitionResult,
     });
+
     const handleStart = useCallback(() => {
         logger.info("🎙️ Starting speech recognition");
         start()
@@ -247,14 +255,14 @@ const ChatComponent: React.FC<ChatComponentProps> = ({
                         </div>
                     </div>
                     {/* Activity Logs */}
-                    {/* <div className="flex-1 overflow-hidden bg-muted/50 rounded-lg shadow">
+                    <div className="flex-1 overflow-hidden bg-muted/50 rounded-lg shadow">
                         <div className="h-full bg-transcription-box ">
                             <SectionHeader title="Activity Logs" />
                             <div className="p-4 overflow-y-auto h-[calc(100%-2.5rem)]">
-                                <MemoizedLogBox logs={logs} />
+                                <LogBox logs={logs} />
                             </div>
                         </div>
-                    </div> */}
+                    </div>
                 </section>
             </div>
         </div>

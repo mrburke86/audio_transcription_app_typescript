@@ -103,7 +103,7 @@ const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({
                         className={`message ${message.type} ${
                             message.type === "user"
                                 ? "bg-[#e0e0e0] dark:bg-[#27262b] text-foreground"
-                                : "bg-[#007bff] dark:bg-[#0a85ff] text-white"
+                                : "bg-[#007bff] dark:bg-[#0a85ff] text-white text-base"
                         } p-2 rounded-lg mb-2 break-words`}
                     >
                         {message.type === "assistant" ? (

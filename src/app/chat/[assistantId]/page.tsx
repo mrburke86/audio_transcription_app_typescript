@@ -2,7 +2,8 @@
 
 import React from "react";
 import ChatComponent from "@/components/chat/ChatComponent";
-import { getAssistantById } from "@/lib/openai";
+import { getAssistantById } from "@/app/actions/fetch-assistants";
+// import { getAssistantById } from "@/lib/openai";
 
 export default async function ChatPage({
     params,
@@ -17,10 +18,8 @@ export default async function ChatPage({
 
     return (
         <ChatComponent
-            assistantId={assistant.assistant.id}
-            roleDescription={
-                assistant.assistant.metadata.role_description || ""
-            }
+            assistantId={assistant.id}
+            roleDescription={assistant.metadata.role_description || ""}
         />
     );
 }

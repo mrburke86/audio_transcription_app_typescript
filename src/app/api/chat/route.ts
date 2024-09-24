@@ -1,5 +1,6 @@
 // app/api/chat/route.ts
 
+import { OpenAIModelName } from "@/types/openai-models";
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
@@ -20,8 +21,9 @@ export async function POST(request: NextRequest) {
         }
 
         // Create a chat completion using OpenAI's API
+        const modelName: OpenAIModelName = "gpt-4o-mini";
         const response = await openai.chat.completions.create({
-            model: "gpt-4", // or the model you prefer
+            model: modelName,
             messages: [
                 { role: "system", content: roleDescription },
                 { role: "user", content: userMessage },
@@ -32,8 +34,11 @@ export async function POST(request: NextRequest) {
         const assistantMessage = response.choices[0]?.message?.content;
 
         return NextResponse.json({ response: assistantMessage });
-    } catch (error: any) {
-        console.error("Error in /api/chat:", error.message || error);
+    } catch (error: unknown) {
+        console.error(
+            "Error in /api/chat:",
+            error instanceof Error ? error.message : String(error),
+        );
         return NextResponse.json(
             { error: "Failed to generate response." },
             { status: 500 },

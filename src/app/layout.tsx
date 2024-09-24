@@ -8,6 +8,9 @@ import "@/styles/globals.css";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarLayout, SidebarTrigger } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
+// import { PerformanceProvider } from "@/contexts/PerformanceContext";
+import ClientProviders from "@/components/ClientProviders";
+import { TailwindIndicator } from "@/components/global/tailwind-indicator";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -42,22 +45,16 @@ export default async function RootLayout({
                     >
                         <AppSidebar />
 
-                        {/* <div className="flex h-screen overflow-hidden">
-                        <Sidebar />
-                        <div className="flex flex-col flex-1 overflow-hidden">
-                            <Nav /> */}
-                        <main className="flex flex-1 flex-col transition-all duration-300 ease-in-out rounded-sm p-1 h-screen">
-                            {/* <div className="border border-orange-500 p-1 h-full"> */}
-                            <SidebarTrigger />
-
-                            {children}
-                            {/* </div> */}
-                        </main>
-                        {/* </div>
-                    </div> */}
+                        <ClientProviders>
+                            <main className="flex flex-1 flex-col transition-all duration-300 ease-in-out rounded-sm p-1 h-screen">
+                                <SidebarTrigger />
+                                {children}
+                            </main>
+                        </ClientProviders>
                     </SidebarLayout>
 
                     <CustomToaster />
+                    <TailwindIndicator />
                 </ThemeProvider>
             </body>
         </html>

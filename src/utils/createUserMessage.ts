@@ -23,7 +23,6 @@ ${goalsText}
 
 User: ${question}
 
-Provide your response in Markdown format. Your answer should showcase your expertise, confidence, and ability to engage effectively while maintaining a professional and thoughtful tone.
 `;
 
     logger.debug("✅ User message created successfully");

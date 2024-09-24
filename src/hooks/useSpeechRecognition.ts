@@ -1,6 +1,7 @@
 // src/lib/useSpeechRecognition.ts
 import { useCallback, useRef } from "react";
 import { logger } from "@/modules/Logger";
+import { usePerformance } from "@/contexts/PerformanceContext"; // Import usePerformance
 
 interface SpeechRecognitionHook {
     start: () => Promise<void>;
@@ -28,8 +29,10 @@ const useSpeechRecognition = ({
     const animationFrameId = useRef<number | null>(null);
     const mediaStream = useRef<MediaStream | null>(null);
 
+    const { addEntry } = usePerformance(); // Use the performance context
+
     const start = useCallback(async () => {
-        const startTime = performance.now();
+        // const startTime = performance.now();
         if (!recognition.current) {
             recognition.current = new (window.SpeechRecognition ||
                 window.webkitSpeechRecognition)();
@@ -38,10 +41,30 @@ const useSpeechRecognition = ({
 
             recognition.current.onstart = () => {
                 onStart();
-                const setupTime = performance.now() - startTime;
-                logger.performance(
-                    `Speech recognition setup time: ${setupTime.toFixed(2)}ms`,
+                performance.mark("speechRecognition_onstart");
+                performance.measure(
+                    "speechRecognition_setup_time",
+                    "speechRecognition_start",
+                    "speechRecognition_onstart",
                 );
+                const measures = performance.getEntriesByName(
+                    "speechRecognition_setup_time",
+                );
+                if (measures.length > 0) {
+                    const measure = measures[0];
+                    addEntry({
+                        name: "speechRecognition_setup_time",
+                        duration: measure.duration,
+                        startTime: measure.startTime,
+                        endTime: measure.startTime + measure.duration,
+                    });
+                    // Log to console and LogBox via logger
+                    logger.performance(
+                        `Speech recognition setup time: ${measure.duration.toFixed(
+                            2,
+                        )}ms`,
+                    );
+                }
             };
             recognition.current.onend = onEnd;
             recognition.current.onerror = onError;
@@ -67,8 +90,9 @@ const useSpeechRecognition = ({
             };
         }
 
+        performance.mark("speechRecognition_start");
         recognition.current.start();
-    }, [onStart, onEnd, onError, onResult]);
+    }, [onStart, onEnd, onError, onResult, addEntry]);
 
     const stop = useCallback(() => {
         if (recognition.current) {
