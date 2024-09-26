@@ -4,170 +4,201 @@ import { logger } from "@/modules/Logger";
 import { usePerformance } from "@/contexts/PerformanceContext"; // Import usePerformance
 
 interface SpeechRecognitionHook {
-    start: () => Promise<void>;
-    stop: () => void;
-    startAudioVisualization: (canvas: HTMLCanvasElement) => void;
+  start: () => Promise<void>;
+  stop: () => void;
+  startAudioVisualization: (canvas: HTMLCanvasElement) => void;
 }
 
 interface SpeechRecognitionProps {
-    onStart: () => void;
-    onEnd: () => void;
-    onError: (event: SpeechRecognitionErrorEvent) => void;
-    onResult: (finalTranscript: string, interimTranscript: string) => void;
+  onStart: () => void;
+  onEnd: () => void;
+  onError: (event: SpeechRecognitionErrorEvent) => void;
+  onResult: (finalTranscript: string, interimTranscript: string) => void;
 }
 
 const useSpeechRecognition = ({
-    onStart,
-    onEnd,
-    onError,
-    onResult,
+  onStart,
+  onEnd,
+  onError,
+  onResult,
 }: SpeechRecognitionProps): SpeechRecognitionHook => {
-    const recognition = useRef<SpeechRecognition | null>(null);
-    const audioContext = useRef<AudioContext | null>(null);
-    const analyser = useRef<AnalyserNode | null>(null);
-    const microphone = useRef<MediaStreamAudioSourceNode | null>(null);
-    const animationFrameId = useRef<number | null>(null);
-    const mediaStream = useRef<MediaStream | null>(null);
+  const recognition = useRef<SpeechRecognition | null>(null);
+  const audioContext = useRef<AudioContext | null>(null);
+  const analyser = useRef<AnalyserNode | null>(null);
+  const microphone = useRef<MediaStreamAudioSourceNode | null>(null);
+  const animationFrameId = useRef<number | null>(null);
+  const mediaStream = useRef<MediaStream | null>(null);
+  const shouldRestart = useRef(false);
 
-    const { addEntry } = usePerformance(); // Use the performance context
+  const { addEntry } = usePerformance(); // Use the performance context
 
-    const start = useCallback(async () => {
-        // const startTime = performance.now();
-        if (!recognition.current) {
-            recognition.current = new (window.SpeechRecognition ||
-                window.webkitSpeechRecognition)();
-            recognition.current.continuous = true;
-            recognition.current.interimResults = true;
+  const start = useCallback(async () => {
+    shouldRestart.current = true; // Enable automatic restarting
 
-            recognition.current.onstart = () => {
-                onStart();
-                performance.mark("speechRecognition_onstart");
-                performance.measure(
-                    "speechRecognition_setup_time",
-                    "speechRecognition_start",
-                    "speechRecognition_onstart",
-                );
-                const measures = performance.getEntriesByName(
-                    "speechRecognition_setup_time",
-                );
-                if (measures.length > 0) {
-                    const measure = measures[0];
-                    addEntry({
-                        name: "speechRecognition_setup_time",
-                        duration: measure.duration,
-                        startTime: measure.startTime,
-                        endTime: measure.startTime + measure.duration,
-                    });
-                    // Log to console and LogBox via logger
-                    logger.performance(
-                        `Speech recognition setup time: ${measure.duration.toFixed(
-                            2,
-                        )}ms`,
-                    );
-                }
-            };
-            recognition.current.onend = onEnd;
-            recognition.current.onerror = onError;
+    if (!recognition.current) {
+      recognition.current = new (window.SpeechRecognition ||
+        window.webkitSpeechRecognition)();
+      recognition.current.continuous = true;
+      recognition.current.interimResults = true;
 
-            recognition.current.onresult = (event: SpeechRecognitionEvent) => {
-                let interimTranscript = "";
-                let finalTranscript = "";
+      // onstart - start the recognition
+      recognition.current.onstart = () => {
+        onStart();
+        performance.mark("speechRecognition_onstart");
+        performance.measure(
+          "speechRecognition_setup_time",
+          "speechRecognition_start",
+          "speechRecognition_onstart"
+        );
+        const measures = performance.getEntriesByName(
+          "speechRecognition_setup_time"
+        );
+        if (measures.length > 0) {
+          const measure = measures[0];
+          addEntry({
+            name: "speechRecognition_setup_time",
+            duration: measure.duration,
+            startTime: measure.startTime,
+            endTime: measure.startTime + measure.duration,
+          });
+          // Log to console and LogBox via logger
+          logger.performance(
+            `Speech recognition setup time: ${measure.duration.toFixed(2)}ms`
+          );
+        }
+      };
 
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript;
-                    } else {
-                        interimTranscript += event.results[i][0].transcript;
-                    }
-                }
+      // onend - restart the recognition
+      recognition.current.onend = () => {
+        onEnd();
+        if (shouldRestart.current) {
+          try {
+            recognition.current?.start();
+          } catch (error) {
+            logger.error(
+              `Failed to restart speech recognition: ${
+                (error as Error).message
+              }`
+            );
+          }
+        }
+      };
 
-                onResult(finalTranscript, interimTranscript);
-                // logger.performance(
-                //     `Speech recognition result processing time: ${(
-                //         performance.now() - event.timeStamp
-                //     ).toFixed(2)}ms`,
-                // );
-            };
+      // onerror - restart the recognition
+      recognition.current.onerror = (event: SpeechRecognitionErrorEvent) => {
+        onError(event);
+        if (shouldRestart.current) {
+          // Optionally implement a delay or retry mechanism here
+          try {
+            recognition.current?.start();
+          } catch (error) {
+            logger.error(
+              `Failed to restart speech recognition after error: ${
+                (error as Error).message
+              }`
+            );
+          }
+        }
+      };
+
+      // onresult - process the result
+      recognition.current.onresult = (event: SpeechRecognitionEvent) => {
+        let interimTranscript = "";
+        let finalTranscript = "";
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
         }
 
-        performance.mark("speechRecognition_start");
-        recognition.current.start();
-    }, [onStart, onEnd, onError, onResult, addEntry]);
+        onResult(finalTranscript, interimTranscript);
+        // logger.performance(
+        //     `Speech recognition result processing time: ${(
+        //         performance.now() - event.timeStamp
+        //     ).toFixed(2)}ms`,
+        // );
+      };
+    }
 
-    const stop = useCallback(() => {
-        if (recognition.current) {
-            recognition.current.stop();
-        }
-        if (animationFrameId.current) {
-            cancelAnimationFrame(animationFrameId.current);
-        }
-        if (microphone.current) {
-            microphone.current.disconnect();
-            microphone.current = null;
-        }
-        if (mediaStream.current) {
-            mediaStream.current.getTracks().forEach((track) => track.stop());
-            mediaStream.current = null;
-        }
-        if (audioContext.current) {
-            audioContext.current.close();
-            audioContext.current = null;
-        }
-    }, []);
+    performance.mark("speechRecognition_start");
+    recognition.current.start();
+  }, [onStart, onEnd, onError, onResult, addEntry]);
 
-    const startAudioVisualization = useCallback((canvas: HTMLCanvasElement) => {
-        const canvasCtx = canvas.getContext("2d");
-        if (!canvasCtx) return;
+  const stop = useCallback(() => {
+    shouldRestart.current = false; // Disable automatic restarting
 
-        audioContext.current = new (window.AudioContext ||
-            window.AudioContext)();
-        analyser.current = audioContext.current.createAnalyser();
-        analyser.current.fftSize = 256;
+    if (recognition.current) {
+      recognition.current.stop();
+    }
+    if (animationFrameId.current) {
+      cancelAnimationFrame(animationFrameId.current);
+    }
+    if (microphone.current) {
+      microphone.current.disconnect();
+      microphone.current = null;
+    }
+    if (mediaStream.current) {
+      mediaStream.current.getTracks().forEach((track) => track.stop());
+      mediaStream.current = null;
+    }
+    if (audioContext.current) {
+      audioContext.current.close();
+      audioContext.current = null;
+    }
+  }, []);
 
-        navigator.mediaDevices
-            .getUserMedia({ audio: true, video: false })
-            .then((stream) => {
-                mediaStream.current = stream;
-                microphone.current =
-                    audioContext.current!.createMediaStreamSource(stream);
+  const startAudioVisualization = useCallback((canvas: HTMLCanvasElement) => {
+    const canvasCtx = canvas.getContext("2d");
+    if (!canvasCtx) return;
 
-                const bufferLength = analyser.current!.frequencyBinCount;
-                const dataArray = new Uint8Array(bufferLength);
+    audioContext.current = new (window.AudioContext || window.AudioContext)();
+    analyser.current = audioContext.current.createAnalyser();
+    analyser.current.fftSize = 256;
 
-                const draw = () => {
-                    animationFrameId.current = requestAnimationFrame(draw);
-                    analyser.current!.getByteFrequencyData(dataArray);
+    navigator.mediaDevices
+      .getUserMedia({ audio: true, video: false })
+      .then((stream) => {
+        mediaStream.current = stream;
+        microphone.current =
+          audioContext.current!.createMediaStreamSource(stream);
 
-                    canvasCtx.fillStyle = "rgb(25, 25, 25)";
-                    canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+        const bufferLength = analyser.current!.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
 
-                    const barWidth = (canvas.width / bufferLength) * 2.5;
-                    let x = 0;
+        const draw = () => {
+          animationFrameId.current = requestAnimationFrame(draw);
+          analyser.current!.getByteFrequencyData(dataArray);
 
-                    for (let i = 0; i < bufferLength; i++) {
-                        const barHeight =
-                            (dataArray[i] / 255) * (canvas.height * 0.6); // Reduce bar height to 60% of canvas height
+          canvasCtx.fillStyle = "rgb(25, 25, 25)";
+          canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-                        canvasCtx.fillStyle = `rgb(50, ${
-                            dataArray[i] + 100
-                        }, 50)`;
-                        canvasCtx.fillRect(
-                            x,
-                            canvas.height - barHeight,
-                            barWidth,
-                            barHeight,
-                        );
+          const barWidth = (canvas.width / bufferLength) * 2.5;
+          let x = 0;
 
-                        x += barWidth + 1;
-                    }
-                };
+          for (let i = 0; i < bufferLength; i++) {
+            const barHeight = (dataArray[i] / 255) * (canvas.height * 0.6); // Reduce bar height to 60% of canvas height
 
-                draw();
-            })
-            .catch((err) => console.error("Error accessing microphone:", err));
-    }, []);
+            canvasCtx.fillStyle = `rgb(50, ${dataArray[i] + 100}, 50)`;
+            canvasCtx.fillRect(
+              x,
+              canvas.height - barHeight,
+              barWidth,
+              barHeight
+            );
 
-    return { start, stop, startAudioVisualization };
+            x += barWidth + 1;
+          }
+        };
+
+        draw();
+      })
+      .catch((err) => console.error("Error accessing microphone:", err));
+  }, []);
+
+  return { start, stop, startAudioVisualization };
 };
 
 export default useSpeechRecognition;

@@ -84,6 +84,7 @@
         "ts-jest": "^29.2.5",
         "uuid": "^10.0.0",
         "vaul": "^0.9.4",
+        "vosk-browser": "^0.0.8",
         "zod": "^3.23.8"
     },
     "devDependencies": {
