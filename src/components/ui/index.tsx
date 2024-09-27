@@ -11,3 +11,4 @@ export * from "./textarea";
 export * from "./use-toast";
 export * from "./badge";
 export * from "./alert-dialog";
+export * from "./skeleton";

@@ -55,3 +55,21 @@ export interface CodeProps
 export interface VectorStoreFileBatch {
     files: VectorStoreFile[];
 }
+
+export interface AssistantConfig {
+    id: string; // OpenAI Assistant ID
+    name: string;
+    description: string;
+    roleDescription: string;
+    systemPrompt: string;
+    tools: Tool[];
+    toolResources: ToolResources;
+}
+
+interface ToolResources {
+    [toolType: string]: {
+        file_ids?: string[];
+        vector_store_ids?: string[];
+        // Other resource types
+    };
+}

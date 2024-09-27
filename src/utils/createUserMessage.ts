@@ -1,6 +1,12 @@
 // src/utils/createUserMessage.ts
 import { logger } from "@/modules/Logger";
 
+/**
+ * Constructs the user message for the assistant.
+ *
+ * @param question - The user's question.
+ * @returns A formatted user message.
+ */
 export async function createUserMessage(
     question: string,
     roleDescription: string,
@@ -13,16 +19,17 @@ export async function createUserMessage(
         goals.length > 0 ? goals.join("; ") : "No specific goals set.";
 
     const message = `
+**Role Description:**
 ${roleDescription}
 
-Conversation Summary:
+**Conversation Summary:**
 ${conversationSummary}
 
-Goals/Milestones:
+**Goals/Milestones:**
 ${goalsText}
 
-User: ${question}
-
+**User Question/Statement:**
+${question}
 `;
 
     logger.debug("✅ User message created successfully");

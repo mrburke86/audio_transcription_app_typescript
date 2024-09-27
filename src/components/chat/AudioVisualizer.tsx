@@ -6,13 +6,13 @@ interface AudioVisualizerProps {
 }
 
 const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ canvasRef }) => (
-    <div className="bg-transcription-box rounded-lg shadow p-1">
+    <div className="bg-muted rounded-lg shadow p-1">
         <canvas
             ref={canvasRef}
             id="audioVisualizer"
-            width="120"
-            height="30"
-            className="bg-gray-700 rounded"
+            width="500" // Increased width
+            height="100" // Increased height
+            className="bg-background rounded"
         />
     </div>
 );

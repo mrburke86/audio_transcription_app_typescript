@@ -1,6 +1,7 @@
 // src/components/chat/GoalsInput.tsx
 "use client";
 import React, { useState } from "react";
+import { Button } from "../ui";
 
 interface GoalsInputProps {
     goals: string[];
@@ -24,7 +25,7 @@ const GoalsInput: React.FC<GoalsInputProps> = ({ goals, setGoals }) => {
 
     return (
         <div className="p-4">
-            <h3 className="text-lg font-semibold mb-2">
+            <h3 className="text-base font-semibold mb-2">
                 Set Conversation Goals
             </h3>
             <div className="flex items-center mb-2">
@@ -33,14 +34,14 @@ const GoalsInput: React.FC<GoalsInputProps> = ({ goals, setGoals }) => {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Enter a goal or milestone"
-                    className="flex-1 p-2 border border-gray-300 rounded mr-2"
+                    className="flex-1 mr-2"
                 />
-                <button
+                <Button
                     onClick={handleAddGoal}
-                    className="bg-blue-500 text-white px-4 py-2 rounded"
+                    // className="bg-blue-500 text-white px-4 py-2 rounded"
                 >
                     Add
-                </button>
+                </Button>
             </div>
             {goals.length > 0 && (
                 <ul className="list-disc list-inside">
@@ -50,12 +51,13 @@ const GoalsInput: React.FC<GoalsInputProps> = ({ goals, setGoals }) => {
                             className="flex justify-between items-center"
                         >
                             <span>{goal}</span>
-                            <button
+                            <Button
+                                variant="destructive"
+                                size="sm"
                                 onClick={() => handleRemoveGoal(index)}
-                                className="text-red-500 hover:text-red-700"
                             >
                                 Remove
-                            </button>
+                            </Button>
                         </li>
                     ))}
                 </ul>
