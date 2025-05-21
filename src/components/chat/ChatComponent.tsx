@@ -242,10 +242,6 @@ const ChatComponent: React.FC<ChatComponentProps> = ({
                                     <AudioVisualizer canvasRef={canvasRef} />
                                 </div>
                             </div>
-                            {/* <div className="pt-4"></div>
-                            <div className="col-span-2 bg-transcription-box rounded-lg shadow pt-4">
-                                <div className="p-1"></div>
-                            </div> */}
                         </div>
                     </div>
                 </div>
