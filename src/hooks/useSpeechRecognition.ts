@@ -1,7 +1,7 @@
-// src/lib/useSpeechRecognition.ts
+// src/hooks/useSpeechRecognition.ts
 import { useCallback, useRef } from "react";
 import { logger } from "@/modules/Logger";
-import { usePerformance } from "@/contexts/PerformanceContext"; // Import usePerformance
+import { usePerformance } from "@/contexts/PerformanceContext";
 
 interface SpeechRecognitionHook {
     start: () => Promise<void>;
@@ -29,8 +29,9 @@ const useSpeechRecognition = ({
     const animationFrameId = useRef<number | null>(null);
     const mediaStream = useRef<MediaStream | null>(null);
     const shouldRestart = useRef(false);
+    const isRestartingRef = useRef(false); // New ref to track if we're in the process of restarting
 
-    const { addEntry } = usePerformance(); // Use the performance context
+    const { addEntry } = usePerformance();
 
     const start = useCallback(async () => {
         shouldRestart.current = true; // Enable automatic restarting
@@ -61,47 +62,73 @@ const useSpeechRecognition = ({
                         startTime: measure.startTime,
                         endTime: measure.startTime + measure.duration,
                     });
-                    // Log to console and LogBox via logger
                     logger.performance(
                         `Speech recognition setup time: ${measure.duration.toFixed(
                             2,
                         )}ms`,
                     );
                 }
+                isRestartingRef.current = false; // Clear the restarting flag when successfully started
             };
 
-            // onend - restart the recognition
+            // onend - restart the recognition with a delay
             recognition.current.onend = () => {
                 onEnd();
-                if (shouldRestart.current) {
-                    try {
-                        recognition.current?.start();
-                    } catch (error) {
-                        logger.error(
-                            `Failed to restart speech recognition: ${
-                                (error as Error).message
-                            }`,
-                        );
-                    }
+                if (shouldRestart.current && !isRestartingRef.current) {
+                    isRestartingRef.current = true; // Set the restarting flag
+                    // Add a delay before restarting
+                    setTimeout(() => {
+                        try {
+                            recognition.current?.start();
+                        } catch (error) {
+                            isRestartingRef.current = false; // Clear the flag if failed
+                            logger.error(
+                                `Failed to restart speech recognition after end: ${
+                                    (error as Error).message
+                                }`,
+                            );
+                        }
+                    }, 500); // 500ms delay
                 }
             };
 
-            // onerror - restart the recognition
+            // onerror - handle errors with a delayed restart approach
             recognition.current.onerror = (
                 event: SpeechRecognitionErrorEvent,
             ) => {
                 onError(event);
-                if (shouldRestart.current) {
-                    // Optionally implement a delay or retry mechanism here
+
+                if (shouldRestart.current && !isRestartingRef.current) {
+                    isRestartingRef.current = true; // Set the restarting flag
+
+                    // For network errors, use a longer delay
+                    const delay = event.error === "network" ? 2000 : 1000;
+
+                    // Attempt to stop recognition first (ignore errors if already stopped)
                     try {
-                        recognition.current?.start();
-                    } catch (error) {
-                        logger.error(
-                            `Failed to restart speech recognition after error: ${
-                                (error as Error).message
+                        recognition.current?.stop();
+                    } catch (stopError) {
+                        // Just log the error but continue with restart
+                        logger.debug(
+                            `Error while stopping recognition for restart: ${
+                                (stopError as Error).message
                             }`,
                         );
                     }
+
+                    // Attempt to restart after delay
+                    setTimeout(() => {
+                        try {
+                            recognition.current?.start();
+                        } catch (error) {
+                            isRestartingRef.current = false; // Clear the flag if failed
+                            logger.error(
+                                `Failed to restart speech recognition after error: ${
+                                    (error as Error).message
+                                }`,
+                            );
+                        }
+                    }, delay);
                 }
             };
 
@@ -119,37 +146,69 @@ const useSpeechRecognition = ({
                 }
 
                 onResult(finalTranscript, interimTranscript);
-                // logger.performance(
-                //     `Speech recognition result processing time: ${(
-                //         performance.now() - event.timeStamp
-                //     ).toFixed(2)}ms`,
-                // );
             };
         }
 
         performance.mark("speechRecognition_start");
-        recognition.current.start();
+
+        // Ensure we're not trying to start while already starting
+        if (!isRestartingRef.current) {
+            isRestartingRef.current = true; // Indicate we're starting
+
+            // Give a small delay before the initial start
+            // This helps ensure any previous sessions are fully cleaned up
+            setTimeout(() => {
+                try {
+                    recognition.current?.start();
+                } catch (error) {
+                    isRestartingRef.current = false;
+                    logger.error(
+                        `Failed to start speech recognition: ${
+                            (error as Error).message
+                        }`,
+                    );
+                }
+            }, 100);
+        }
     }, [onStart, onEnd, onError, onResult, addEntry]);
 
     const stop = useCallback(() => {
         shouldRestart.current = false; // Disable automatic restarting
+        isRestartingRef.current = false; // Clear the restarting flag
 
         if (recognition.current) {
-            recognition.current.stop();
+            try {
+                recognition.current.stop();
+            } catch (error) {
+                logger.error(
+                    `Error stopping recognition: ${(error as Error).message}`,
+                );
+            }
         }
+
         if (animationFrameId.current) {
             cancelAnimationFrame(animationFrameId.current);
+            animationFrameId.current = null;
         }
+
         if (microphone.current) {
             microphone.current.disconnect();
             microphone.current = null;
         }
+
         if (mediaStream.current) {
             mediaStream.current.getTracks().forEach((track) => track.stop());
             mediaStream.current = null;
         }
+
         if (audioContext.current) {
-            audioContext.current.close();
+            try {
+                audioContext.current.close();
+            } catch (error) {
+                logger.error(
+                    `Error closing audio context: ${(error as Error).message}`,
+                );
+            }
             audioContext.current = null;
         }
     }, []);
