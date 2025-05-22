@@ -14,7 +14,6 @@ import {
 import { logger } from "@/modules/Logger";
 // import { formatTimestamp } from "@/utils/helpers";
 import { Badge, Button } from "@/components/ui";
-import { loglog, LogLogEntry } from "@/modules/log-log";
 // import { listAudioInputDevices } from "@/utils/list-audio-input-devices";
 import { ArrowRight } from "lucide-react";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -50,7 +49,6 @@ const ChatComponent: React.FC<ChatComponentProps> = ({
     const [recognitionStatus, setRecognitionStatus] = useState<
         "inactive" | "active" | "error"
     >("inactive");
-    const [logs, setLogs] = useState<LogLogEntry[]>([]); // Manage logs locally
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const visualizationStartedRef = useRef(false);
 
@@ -109,15 +107,8 @@ const ChatComponent: React.FC<ChatComponentProps> = ({
         if (!apiKey) {
             logger.error("🔑❌ OpenAI API key is missing");
         }
-        const unsubscribe = loglog.subscribe((newLog: LogLogEntry) => {
-            setLogs((prevLogs) => [...prevLogs, newLog]);
-        });
-
-        return () => {
-            unsubscribe();
-        };
+        // Removed logs subscription since logs state is unused
     }, [apiKey, recognitionStatus, userMessages, isLoading, error]);
-
     useEffect(() => {
         logger.info(`🤖 Initializing chat for assistant ${assistantId}`);
         logger.info(`📝 Role description: ${roleDescription}`);

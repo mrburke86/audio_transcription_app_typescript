@@ -6,8 +6,7 @@ import { PanelLeft } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
-
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 export const SIDEBAR_STATE_COOKIE = "sidebar:state";
 
 type SidebarContext = {
@@ -110,8 +109,9 @@ const Sidebar = React.forwardRef<HTMLDivElement, React.ComponentProps<"div">>(
                         className="w-[260px] p-0 md:w-[--sidebar-width] [&>button]:hidden"
                         side="left"
                     >
+                        <SheetTitle className="sr-only">Sidebar</SheetTitle>
                         {sidebar}
-                    </SheetContent>
+                    </SheetContent>{" "}
                 </Sheet>
             );
         }
