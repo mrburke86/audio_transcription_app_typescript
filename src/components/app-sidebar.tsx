@@ -1,20 +1,7 @@
 "use client";
 
-import {
-    Atom,
-    LifeBuoy,
-    Eclipse,
-    Send,
-    Settings2,
-    SquareTerminal,
-} from "lucide-react";
-
-import { NavMain } from "@/components/nav-main";
-import { NavProjects } from "@/components/nav-projects";
-import { NavSecondary } from "@/components/nav-secondary";
-import { NavUser } from "@/components/nav-user";
-import { StorageCard } from "@/components/storage-card";
-import { TeamSwitcher } from "@/components/team-switcher";
+import Link from "next/link";
+import { Bot, Settings2, LifeBuoy, LogOut } from "lucide-react";
 import {
     Sidebar,
     SidebarContent,
@@ -23,136 +10,76 @@ import {
     SidebarItem,
     SidebarLabel,
 } from "@/components/ui/sidebar";
-const data = {
-    teams: [
-        {
-            name: "Mark Burke",
-            logo: Atom,
-            plan: "Enterprise",
-        },
-        {
-            name: "Jane Smith",
-            logo: Eclipse,
-            plan: "Startup",
-        },
-    ],
-    user: {
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+
+export function AppSidebar() {
+    const user = {
         name: "Mark Rhys Burke",
         email: "hello@markrhysburke.com",
         avatar: "/mark_rhys_burke_profile_pic.jpg",
-    },
-    navMain: [
-        // Assistants
-        {
-            title: "Assistants",
-            url: "/assistants",
-            icon: SquareTerminal,
-            isActive: true,
-            items: [
-                {
-                    title: "View Assistants",
-                    url: "/assistants",
-                    icon: SquareTerminal,
-                    description: "View and chat with assistants",
-                },
-                // Remove "Create Assistant" item
-            ],
-        },
-        {
-            title: "Settings",
-            url: "#",
-            icon: Settings2,
-            items: [
-                {
-                    title: "General",
-                    url: "#",
-                },
-                {
-                    title: "Team",
-                    url: "#",
-                },
-                {
-                    title: "Billing",
-                    url: "#",
-                },
-                {
-                    title: "Limits",
-                    url: "#",
-                },
-            ],
-        },
-    ],
+    };
 
-    navSecondary: [
-        {
-            title: "Support",
-            url: "#",
-            icon: LifeBuoy,
-        },
-        {
-            title: "Feedback",
-            url: "#",
-            icon: Send,
-        },
-    ],
-    projects: [],
-    searchResults: [
-        {
-            title: "Routing Fundamentals",
-            teaser: "The skeleton of every application is routing. This page will introduce you to the fundamental concepts of routing for the web and how to handle routing in Next.js.",
-            url: "#",
-        },
-        {
-            title: "Layouts and Templates",
-            teaser: "The special files layout.js and template.js allow you to create UI that is shared between routes. This page will guide you through how and when to use these special files.",
-            url: "#",
-        },
-        {
-            title: "Data Fetching, Caching, and Revalidating",
-            teaser: "Data fetching is a core part of any application. This page goes through how you can fetch, cache, and revalidate data in React and Next.js.",
-            url: "#",
-        },
-        {
-            title: "Server and Client Composition Patterns",
-            teaser: "When building React applications, you will need to consider what parts of your application should be rendered on the server or the client. ",
-            url: "#",
-        },
-        {
-            title: "Server Actions and Mutations",
-            teaser: "Server Actions are asynchronous functions that are executed on the server. They can be used in Server and Client Components to handle form submissions and data mutations in Next.js applications.",
-            url: "#",
-        },
-    ],
-};
-
-export function AppSidebar() {
     return (
         <Sidebar>
             <SidebarHeader>
-                <TeamSwitcher teams={data.teams} />
+                <div className="flex items-center gap-2 px-2 py-4">
+                    <Bot className="h-8 w-8 text-primary" />
+                    <span className="text-lg font-bold">TalkSmart</span>
+                </div>
             </SidebarHeader>
+
             <SidebarContent>
                 <SidebarItem>
-                    <SidebarLabel>Platform</SidebarLabel>
-                    <NavMain
-                        items={data.navMain}
-                        searchResults={data.searchResults}
-                    />
-                </SidebarItem>
-                <SidebarItem>
-                    <SidebarLabel>Projects</SidebarLabel>
-                    <NavProjects projects={data.projects} />
-                </SidebarItem>
-                <SidebarItem className="mt-auto">
-                    <SidebarLabel>Help</SidebarLabel>
-                    <NavSecondary items={data.navSecondary} />
-                </SidebarItem>
-                <SidebarItem>
-                    <StorageCard />
+                    <SidebarLabel>Navigation</SidebarLabel>
+                    <nav className="grid gap-1 px-2">
+                        <Link
+                            href="/assistants"
+                            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
+                        >
+                            <Bot className="h-4 w-4" />
+                            Assistants
+                        </Link>
+                        <Link
+                            href="#"
+                            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
+                        >
+                            <Settings2 className="h-4 w-4" />
+                            Settings
+                        </Link>
+                        <Link
+                            href="#"
+                            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
+                        >
+                            <LifeBuoy className="h-4 w-4" />
+                            Support
+                        </Link>
+                    </nav>
                 </SidebarItem>
             </SidebarContent>
+
             <SidebarFooter>
-                <NavUser user={data.user} />
+                <div className="flex items-center gap-2 px-2 py-3 border-t">
+                    <Avatar className="h-8 w-8">
+                        <AvatarImage src={user.avatar} alt={user.name} />
+                        <AvatarFallback>MB</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">
+                            {user.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">
+                            {user.email}
+                        </div>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                    >
+                        <LogOut className="h-4 w-4" />
+                    </Button>
+                </div>
             </SidebarFooter>
         </Sidebar>
     );

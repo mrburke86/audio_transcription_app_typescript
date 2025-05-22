@@ -67,6 +67,30 @@ const useSpeechRecognition = ({
     // Enhanced error handling for speech recognition errors
     const enhancedSpeechRecognitionErrorHandler = useCallback(
         (event: SpeechRecognitionErrorEvent) => {
+            // Handle "no-speech" silently - this is normal behavior
+            if (event.error === "no-speech") {
+                // No logging, no error reporting - just restart quietly
+                if (shouldRestart.current && !isRestartingRef.current) {
+                    isRestartingRef.current = true;
+                    setTimeout(() => {
+                        try {
+                            if (shouldRestart.current && recognition.current) {
+                                recognition.current.start();
+                            }
+                        } catch (restartError) {
+                            isRestartingRef.current = false;
+                            // Only log if restart actually fails
+                            logger.debug(
+                                `Silent restart failed: ${
+                                    (restartError as Error).message
+                                }`,
+                            );
+                        }
+                    }, 500);
+                }
+                return;
+            }
+
             const now = Date.now();
             const timeSinceLastError = now - lastErrorTime.current;
 
@@ -91,10 +115,10 @@ const useSpeechRecognition = ({
                     userMessage =
                         "Speech recognition service not allowed. Check browser settings and ensure HTTPS.";
                     break;
-                case "no-speech":
-                    userMessage =
-                        "No speech detected. Try speaking closer to the microphone.";
-                    break;
+                // case "no-speech":
+                //     userMessage =
+                //         "No speech detected. Try speaking closer to the microphone.";
+                //     break;
                 case "audio-capture":
                     userMessage =
                         "Audio capture failed. Check microphone connection and permissions.";
@@ -143,9 +167,9 @@ const useSpeechRecognition = ({
                 case "language-not-supported":
                     shouldAttemptRestart = false;
                     break;
-                case "no-speech":
-                    restartDelay = 500;
-                    break;
+                // case "no-speech":
+                //     restartDelay = 500;
+                //     break;
                 case "audio-capture":
                     restartDelay = 2000;
                     if (consecutiveErrors.current > 2)
