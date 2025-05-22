@@ -22,6 +22,7 @@ import AudioVisualizer from "./AudioVisualizer";
 import ConversationSuggestions from "./ConversationSuggestions"; // Import new component
 import LiveTranscriptionBox from "./LiveTranscriptionBox";
 import RoleDescriptionModal from "./RoleDescriptionModal";
+import { CustomSpeechError } from "@/hooks/useSpeechRecognition";
 
 interface ChatComponentProps {
     assistantId: string;
@@ -52,12 +53,34 @@ const ChatComponent: React.FC<ChatComponentProps> = ({
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const visualizationStartedRef = useRef(false);
 
-    // State to manage roleDescription
     const [roleDescriptionState, setRoleDescriptionState] =
         useState<string>(roleDescription);
-
-    // State to manage the display of the modal
     const [showRoleModal, setShowRoleModal] = useState<boolean>(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+    // Memoize getUserFriendlyError with useCallback
+    const getUserFriendlyError = useCallback((errorCode: string): string => {
+        switch (errorCode) {
+            case "network":
+                return "Network error. Please check your internet connection.";
+            case "not-allowed":
+                return "Microphone access denied. Please allow microphone access in your browser settings.";
+            case "service-not-allowed":
+                return "Speech recognition service not allowed. Please check your browser settings.";
+            case "no-speech":
+                return "No speech detected. Please try speaking again.";
+            case "audio-capture":
+                return "Audio capture failed. Please check your microphone.";
+            case "aborted":
+                return "Speech recognition was aborted.";
+            case "language-not-supported":
+                return "Language not supported. Please try a different language.";
+            case "bad-grammar":
+                return "Grammar configuration issue. Please contact support.";
+            default:
+                return "An unexpected error occurred with speech recognition.";
+        }
+    }, []); // Empty dependency array since it doesn’t depend on any state/props
 
     // Show modal on mount if roleDescription is empty
     useEffect(() => {
@@ -103,12 +126,15 @@ const ChatComponent: React.FC<ChatComponentProps> = ({
         setConversationHistory(userMessages);
     }, [userMessages]);
 
+    // Check if API key is missing
     useEffect(() => {
         if (!apiKey) {
             logger.error("🔑❌ OpenAI API key is missing");
         }
         // Removed logs subscription since logs state is unused
     }, [apiKey, recognitionStatus, userMessages, isLoading, error]);
+
+    // Initialize chat on mount
     useEffect(() => {
         logger.info(`🤖 Initializing chat for assistant ${assistantId}`);
         logger.info(`📝 Role description: ${roleDescription}`);
@@ -118,24 +144,42 @@ const ChatComponent: React.FC<ChatComponentProps> = ({
         };
     }, [assistantId, roleDescription]);
 
+    // Handle speech recognition start
     const handleRecognitionStart = useCallback(() => {
         logger.info("🎙️✅ Speech recognition started");
         setRecognitionStatus("active");
+        setErrorMessage(null); // Clear error message
     }, []);
 
+    // Handle speech recognition end
     const handleRecognitionEnd = useCallback(() => {
         logger.info("🎙️⏹️ Speech recognition ended");
         setRecognitionStatus("inactive");
     }, []);
 
+    // Handle speech recognition error
     const handleRecognitionError = useCallback(
-        (event: SpeechRecognitionErrorEvent) => {
-            logger.error(`🎙️❌ Speech recognition error: ${event.error}`);
-            setRecognitionStatus("error");
-        },
-        [],
-    );
+        (error: SpeechRecognitionErrorEvent | CustomSpeechError) => {
+            let errorCode: string;
+            let errorMessage: string;
 
+            if ("error" in error) {
+                // Handle SpeechRecognitionErrorEvent
+                errorCode = error.error;
+                errorMessage = getUserFriendlyError(error.error);
+            } else {
+                // Handle CustomSpeechError
+                errorCode = error.code;
+                errorMessage = error.message;
+            }
+
+            logger.error(`🎙️❌ Speech recognition error: ${errorCode}`);
+            setRecognitionStatus("error");
+            setErrorMessage(errorMessage);
+        },
+        [getUserFriendlyError, setRecognitionStatus, setErrorMessage],
+    );
+    // Initialize speech recognition
     const { start, stop, startAudioVisualization } = useSpeechRecognition({
         onStart: handleRecognitionStart,
         onEnd: handleRecognitionEnd,
@@ -143,6 +187,7 @@ const ChatComponent: React.FC<ChatComponentProps> = ({
         onResult: handleRecognitionResult,
     });
 
+    // Handle speech recognition start
     const handleStart = useCallback(() => {
         logger.info("🎙️ Starting speech recognition");
         start()
@@ -164,25 +209,7 @@ const ChatComponent: React.FC<ChatComponentProps> = ({
             });
     }, [start, startAudioVisualization]);
 
-    // **New State for Audio Devices**
-    // const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>(
-    //   []
-    // );
-    // const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
-
-    // **List Audio Input Devices on Component Mount**
-    // useEffect(() => {
-    //   const fetchAudioDevices = async () => {
-    //     const devices = await listAudioInputDevices();
-    //     setAudioInputDevices(devices);
-    //     if (devices.length > 0) {
-    //       setSelectedDeviceId(devices[0].deviceId); // Select the first device by default
-    //     }
-    //   };
-
-    //   fetchAudioDevices();
-    // }, []);
-
+    // Handle suggestion generation
     const handleSuggest = useCallback(async () => {
         try {
             await generateSuggestions();
@@ -195,6 +222,16 @@ const ChatComponent: React.FC<ChatComponentProps> = ({
 
     return (
         <div className="flex flex-col h-full overflow-hidden p-1 container gap-4 ">
+            {errorMessage && (
+                <div className="bg-red-100 text-red-700 p-2 rounded mb-4">
+                    Speech Recognition Error: {errorMessage}
+                </div>
+            )}
+            {error && (
+                <div className="bg-red-100 text-red-700 p-2 rounded mb-4">
+                    Chat Error: {error}
+                </div>
+            )}{" "}
             {showRoleModal && (
                 <RoleDescriptionModal
                     onSubmit={(newRoleDescription) => {
@@ -203,7 +240,6 @@ const ChatComponent: React.FC<ChatComponentProps> = ({
                     }}
                 />
             )}
-
             <div className="flex flex-col h-full overflow-hidden p-1 container gap-4 ">
                 <Header status={recognitionStatus} />
 

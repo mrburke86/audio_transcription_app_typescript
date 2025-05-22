@@ -494,6 +494,11 @@ const useLLMProvider = (
                         (error as Error).message
                     }`,
                 );
+                dispatch({
+                    type: "SET_ERROR",
+                    payload:
+                        "Failed to summarize conversation. Please try again.",
+                });
             } finally {
                 summarizationInProgressRef.current = false;
                 dispatch({ type: "SET_LOADING", payload: false });
@@ -696,8 +701,11 @@ ${conversationText}
                     (error as Error).message
                 }`,
             );
+            dispatch({
+                type: "SET_ERROR",
+                payload: "Failed to generate suggestions. Please try again.",
+            });
         } finally {
-            // Reset the loading state
             suggestionsInProgressRef.current = false;
             dispatch({ type: "SET_LOADING", payload: false });
         }
@@ -736,30 +744,38 @@ ${conversationText}
 
     const handleError = (
         error: unknown,
-        queryId: string = "general", // Default to "general" if not provided
+        queryId: string = "general",
         context: string = "generateResponse",
     ) => {
+        let errorMessage = "An unexpected error occurred.";
         if (error instanceof Error) {
+            const errorText = error.message.toLowerCase();
+            if (errorText.includes("invalid_api_key")) {
+                errorMessage =
+                    "Invalid API key. Please check your OpenAI API key.";
+            } else if (errorText.includes("rate_limit_exceeded")) {
+                errorMessage = "Rate limit exceeded. Please try again later.";
+            } else if (errorText.includes("network")) {
+                errorMessage =
+                    "Network error. Please check your internet connection.";
+            } else {
+                errorMessage = error.message;
+            }
             logger.error(
-                `[${COMPONENT_ID}][${queryId}] ❌ Error in ${context}: ${error.message}`,
+                `[${COMPONENT_ID}][${queryId}] ❌ Error in ${context}: ${errorMessage}`,
             );
-            loglog.error(`Error in ${context}: ${error.message}`, queryId);
-            dispatch({
-                type: "SET_ERROR",
-                payload: error.message || "An unexpected error occurred.",
-            });
+            loglog.error(`Error in ${context}: ${errorMessage}`, queryId);
         } else {
             logger.error(
                 `[${COMPONENT_ID}][${queryId}] ❌ Unknown error in ${context}`,
             );
             loglog.error("Unknown error occurred.", queryId);
-            dispatch({
-                type: "SET_ERROR",
-                payload: "An unexpected error occurred.",
-            });
         }
+        dispatch({
+            type: "SET_ERROR",
+            payload: errorMessage,
+        });
     };
-
     return {
         generateResponse,
         generateSuggestions, // Return generateSuggestions
