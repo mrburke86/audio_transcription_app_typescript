@@ -13,13 +13,12 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Play, Settings } from "lucide-react";
+import { Play } from "lucide-react";
 import Link from "next/link";
-// import { MyAssistant } from "@/types/assistant";
 import { MyCustomAssistant } from "@/types/assistant";
 
 interface AssistantTabsProps {
-    assistants: MyCustomAssistant[]; // Updated type
+    assistants: MyCustomAssistant[];
 }
 
 export const AssistantTabs: FC<AssistantTabsProps> = ({ assistants }) => {
@@ -118,27 +117,22 @@ function AssistantCard({ assistant }: { assistant: MyCustomAssistant }) {
                     </Avatar>
                     <div>
                         <CardTitle>{assistant.name}</CardTitle>
+                        <p className="text-sm text-muted-foreground">
+                            {assistant.metadata?.category || "uncategorized"}
+                        </p>
                     </div>
                 </div>
             </CardHeader>
             <CardContent className="flex-grow">
                 <p>{assistant.description || "No description available."}</p>
             </CardContent>
-            <CardFooter className="flex justify-between space-x-2">
+            <CardFooter>
                 <Button asChild variant="default" className="w-full">
                     <Link
                         href={`/chat/${assistant.id}`}
                         className="flex items-center justify-center"
                     >
-                        <Play className="mr-2 h-4 w-4" /> Use
-                    </Link>
-                </Button>
-                <Button asChild variant="outline" className="w-full">
-                    <Link
-                        href={`/assistants/${assistant.id}`}
-                        className="flex items-center justify-center"
-                    >
-                        <Settings className="mr-2 h-4 w-4" /> Edit
+                        <Play className="mr-2 h-4 w-4" /> Start Chat
                     </Link>
                 </Button>
             </CardFooter>

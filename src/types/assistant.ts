@@ -1,10 +1,8 @@
 // src/types/assistant.ts
 import { Assistant as OpenAIAssistant } from "openai/resources/beta/assistants";
-// import openAIModels, { OpenAIModel } from "./openai-models";
 
 export interface MyCustomAssistant extends OpenAIAssistant {
     metadata: Metadata;
-    // model: OpenAIModel; // Type-safe model selection from the predefined models
 }
 
 export interface Metadata {
@@ -28,48 +26,4 @@ export interface VectorStoreFile {
         };
     };
     name?: string;
-}
-
-export interface Tool {
-    type: string;
-}
-
-export type ValidToolType = "function" | "code_interpreter" | "file_search";
-
-export type ComponentProps = React.HTMLAttributes<HTMLElement>;
-
-export interface CodeProps
-    extends React.ClassAttributes<HTMLElement>,
-        React.HTMLAttributes<HTMLElement> {
-    inline?: boolean;
-    className?: string;
-    children: string;
-}
-
-// export interface AssistantCategory {
-//     name: string;
-//     slug: string;
-//     assistants: Assistant[];
-// }
-
-export interface VectorStoreFileBatch {
-    files: VectorStoreFile[];
-}
-
-export interface AssistantConfig {
-    id: string; // OpenAI Assistant ID
-    name: string;
-    description: string;
-    roleDescription: string;
-    systemPrompt: string;
-    tools: Tool[];
-    toolResources: ToolResources;
-}
-
-interface ToolResources {
-    [toolType: string]: {
-        file_ids?: string[];
-        vector_store_ids?: string[];
-        // Other resource types
-    };
 }

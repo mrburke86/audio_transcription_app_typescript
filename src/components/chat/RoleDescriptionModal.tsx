@@ -7,6 +7,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogFooter,
+    DialogDescription,
 } from "@/components/ui/dialog";
 import { Button, Textarea } from "@/components/ui";
 
@@ -24,9 +25,11 @@ const RoleDescriptionModal: React.FC<RoleDescriptionModalProps> = ({
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Set Role Description</DialogTitle>
+                    <DialogDescription>
+                        Please enter the role description for the assistant:
+                    </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
-                    <p>Please enter the role description for the assistant:</p>
                     <Textarea
                         // type="text"
                         value={inputValue}
