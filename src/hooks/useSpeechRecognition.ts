@@ -2,6 +2,10 @@
 import { useCallback, useRef } from "react";
 import { logger } from "@/modules/Logger";
 import { usePerformance } from "@/contexts/PerformanceContext";
+import {
+    performanceTracker,
+    measureTranscription,
+} from "@/modules/PerformanceTracker";
 
 // Define custom error type for non-standard errors
 export interface CustomSpeechError {
@@ -40,12 +44,20 @@ const useSpeechRecognition = ({
     const consecutiveErrors = useRef(0);
     const lastErrorTime = useRef(0);
 
+    // 🚀 PERFORMANCE: Track speech recognition metrics
+    const speechSessionId = useRef<string>("");
+    const firstResultReceived = useRef(false);
+
     const { addEntry } = usePerformance();
 
-    // Check browser support for speech recognition
     const checkBrowserSupport = useCallback(() => {
+        // 🚀 PERFORMANCE: Track browser support check
+        performanceTracker.startTimer("browser_support_check", "system");
+
         const hasWebkitSpeechRecognition = "webkitSpeechRecognition" in window;
         const hasSpeechRecognition = "SpeechRecognition" in window;
+
+        performanceTracker.endTimer("browser_support_check");
 
         if (!hasWebkitSpeechRecognition && !hasSpeechRecognition) {
             const error: CustomSpeechError = {
@@ -64,12 +76,15 @@ const useSpeechRecognition = ({
         return true;
     }, [onError]);
 
-    // Enhanced error handling for speech recognition errors
     const enhancedSpeechRecognitionErrorHandler = useCallback(
         (event: SpeechRecognitionErrorEvent) => {
-            // Handle "no-speech" silently - this is normal behavior
+            // 🚀 PERFORMANCE: Track error events
+            performanceTracker.logMilestone(
+                `Speech recognition error: ${event.error}`,
+                "transcription",
+            );
+
             if (event.error === "no-speech") {
-                // No logging, no error reporting - just restart quietly
                 if (shouldRestart.current && !isRestartingRef.current) {
                     isRestartingRef.current = true;
                     setTimeout(() => {
@@ -79,7 +94,6 @@ const useSpeechRecognition = ({
                             }
                         } catch (restartError) {
                             isRestartingRef.current = false;
-                            // Only log if restart actually fails
                             logger.debug(
                                 `Silent restart failed: ${
                                     (restartError as Error).message
@@ -115,10 +129,6 @@ const useSpeechRecognition = ({
                     userMessage =
                         "Speech recognition service not allowed. Check browser settings and ensure HTTPS.";
                     break;
-                // case "no-speech":
-                //     userMessage =
-                //         "No speech detected. Try speaking closer to the microphone.";
-                //     break;
                 case "audio-capture":
                     userMessage =
                         "Audio capture failed. Check microphone connection and permissions.";
@@ -167,9 +177,6 @@ const useSpeechRecognition = ({
                 case "language-not-supported":
                     shouldAttemptRestart = false;
                     break;
-                // case "no-speech":
-                //     restartDelay = 500;
-                //     break;
                 case "audio-capture":
                     restartDelay = 2000;
                     if (consecutiveErrors.current > 2)
@@ -236,6 +243,22 @@ const useSpeechRecognition = ({
     const start = useCallback(async () => {
         if (!checkBrowserSupport()) return;
 
+        // 🚀 PERFORMANCE: Start comprehensive speech recognition tracking
+        speechSessionId.current = `speech_${Date.now()}`;
+        firstResultReceived.current = false;
+
+        performanceTracker.logMilestone(
+            `🎤 Starting speech recognition session: ${speechSessionId.current}`,
+            "transcription",
+        );
+        performanceTracker.startTimer(
+            `speech_session_${speechSessionId.current}`,
+            "transcription",
+        );
+
+        // Use convenience function for speech measurement
+        measureTranscription.startSpeech();
+
         shouldRestart.current = true;
         consecutiveErrors.current = 0;
 
@@ -249,6 +272,13 @@ const useSpeechRecognition = ({
                 recognition.current.maxAlternatives = 1;
 
                 recognition.current.onstart = () => {
+                    // 🚀 PERFORMANCE: Speech recognition started - use convenience function
+                    measureTranscription.firstRecognition();
+                    performanceTracker.logMilestone(
+                        `🎤 Speech recognition active for ${speechSessionId.current}`,
+                        "transcription",
+                    );
+
                     logger.debug("🎤 Speech recognition started");
                     onStart();
                     consecutiveErrors.current = 0;
@@ -278,6 +308,12 @@ const useSpeechRecognition = ({
                 };
 
                 recognition.current.onend = () => {
+                    // 🚀 PERFORMANCE: Speech recognition ended
+                    performanceTracker.logMilestone(
+                        `🎤 Speech recognition ended for ${speechSessionId.current}`,
+                        "transcription",
+                    );
+
                     logger.debug("🎤 Speech recognition ended");
                     onEnd();
 
@@ -310,6 +346,16 @@ const useSpeechRecognition = ({
                 recognition.current.onresult = (
                     event: SpeechRecognitionEvent,
                 ) => {
+                    // 🚀 PERFORMANCE: Track first result timing
+                    if (!firstResultReceived.current) {
+                        performanceTracker.logMilestone(
+                            `🎯 First speech result received for ${speechSessionId.current}`,
+                            "transcription",
+                        );
+                        measureTranscription.startTranscriptProcessing();
+                        firstResultReceived.current = true;
+                    }
+
                     let interimTranscript = "";
                     let finalTranscript = "";
                     for (
@@ -321,6 +367,17 @@ const useSpeechRecognition = ({
                         const transcript = result.transcript;
                         if (event.results[i].isFinal) {
                             finalTranscript += transcript;
+
+                            // 🚀 PERFORMANCE: Track final transcript timing using convenience function
+                            measureTranscription.endTranscriptProcessing();
+                            measureTranscription.finalTranscript();
+                            performanceTracker.logMilestone(
+                                `✅ Final transcript: "${transcript}" (confidence: ${
+                                    result.confidence?.toFixed(2) || "N/A"
+                                })`,
+                                "transcription",
+                            );
+
                             logger.debug(
                                 `🎯 Final: "${transcript}" (confidence: ${
                                     result.confidence?.toFixed(2) || "N/A"
@@ -381,6 +438,17 @@ const useSpeechRecognition = ({
     ]);
 
     const stop = useCallback(() => {
+        // 🚀 PERFORMANCE: End speech session tracking
+        if (speechSessionId.current) {
+            performanceTracker.endTimer(
+                `speech_session_${speechSessionId.current}`,
+            );
+            performanceTracker.logMilestone(
+                `🛑 Stopping speech recognition session: ${speechSessionId.current}`,
+                "transcription",
+            );
+        }
+
         logger.info("🛑 Stopping speech recognition");
         shouldRestart.current = false;
         isRestartingRef.current = false;
@@ -438,9 +506,13 @@ const useSpeechRecognition = ({
 
     const startAudioVisualization = useCallback(
         (canvas: HTMLCanvasElement) => {
+            // 🚀 PERFORMANCE: Track audio visualization setup
+            performanceTracker.startTimer("audio_visualization_setup", "ui");
+
             logger.info("🎨 Starting audio visualization");
             const canvasCtx = canvas.getContext("2d");
             if (!canvasCtx) {
+                performanceTracker.endTimer("audio_visualization_setup");
                 const error: CustomSpeechError = {
                     code: "canvas-context-failed",
                     message:
@@ -457,6 +529,7 @@ const useSpeechRecognition = ({
                 analyser.current = audioContext.current.createAnalyser();
                 analyser.current.fftSize = 256;
             } catch (error) {
+                performanceTracker.endTimer("audio_visualization_setup");
                 const err: CustomSpeechError = {
                     code: "audio-visualization-init",
                     message:
@@ -472,6 +545,8 @@ const useSpeechRecognition = ({
             navigator.mediaDevices
                 .getUserMedia({ audio: true, video: false })
                 .then((stream) => {
+                    performanceTracker.endTimer("audio_visualization_setup");
+
                     mediaStream.current = stream;
                     microphone.current =
                         audioContext.current!.createMediaStreamSource(stream);
@@ -513,10 +588,11 @@ const useSpeechRecognition = ({
                     logger.debug("✅ Audio visualization started");
                 })
                 .catch((err) => {
+                    performanceTracker.endTimer("audio_visualization_setup");
                     const error: CustomSpeechError = {
                         code: "microphone-access-failed",
                         message:
-                            "Couldn’t access your microphone. Please check permissions.",
+                            "Couldn't access your microphone. Please check permissions.",
                     };
                     logger.error(`Mic access error: ${err.message}`);
                     onError(error);

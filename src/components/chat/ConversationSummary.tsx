@@ -1,3 +1,4 @@
+// src\components\chat\ConversationSummary.tsx
 "use client";
 import React, { useEffect, useRef } from "react";
 import { logger } from "@/modules/Logger";

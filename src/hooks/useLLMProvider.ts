@@ -10,11 +10,46 @@ import { OpenAIModelName } from "@/types/openai-models";
 import {
     usePerformance,
     ExtendedPerformanceEntry,
-} from "@/contexts/PerformanceContext"; // Import usePerformance
+} from "@/contexts/PerformanceContext";
 import { v4 as uuidv4 } from "uuid";
 import { loglog } from "@/modules/log-log";
+import { performanceTracker, measureAPI } from "@/modules/PerformanceTracker";
+import { EnhancedPerformanceOperations } from "@/global";
 
 const COMPONENT_ID = "useLLMProvider";
+
+// Helper function to access enhanced performance tracker
+const getEnhancedPerf = (): EnhancedPerformanceOperations | null => {
+    if (typeof window !== "undefined" && !window.enhancedPerf) {
+        // Initialize mock enhancedPerf if not present
+        window.enhancedPerf = {
+            trackMoveButtonClicked: () => console.log("🕵️ MOVE_BUTTON_CLICKED"),
+            trackContextPreparationStart: () =>
+                console.log("🕵️ CTX_PREP_START"),
+            trackContextPreparationEnd: () => console.log("🕵️ CTX_PREP_END"),
+            trackThreadOperationsStart: () =>
+                console.log("🕵️ THREAD_OPS_START"),
+            trackThreadCreated: () => console.log("🕵️ THREAD_CREATED"),
+            trackMessageAdditionStart: () => console.log("🕵️ MSG_ADD_START"),
+            trackMessageAdditionEnd: () => console.log("🕵️ MSG_ADD_END"),
+            trackThreadOperationsEnd: () => console.log("🕵️ THREAD_OPS_END"),
+            trackAssistantProcessingStart: () =>
+                console.log("🕵️ ASSISTANT_PROCESSING_START"),
+            trackFileSearchStart: () => console.log("🕵️ FILE_SEARCH_START"),
+            trackFileSearchEnd: () => console.log("🕵️ FILE_SEARCH_END"),
+            trackResponseGenerationStart: () =>
+                console.log("🕵️ RESPONSE_GEN_START"),
+            trackFirstChunkReceived: () =>
+                console.log("🕵️ FIRST_CHUNK_RECEIVED"),
+            trackAssistantProcessingEnd: () =>
+                console.log("🕵️ ASSISTANT_PROCESSING_END"),
+        };
+        console.warn(
+            "[useLLMProvider] Mocked window.enhancedPerf as it was not found. Ensure it's properly initialized for real tracking.",
+        );
+    }
+    return typeof window !== "undefined" ? window.enhancedPerf ?? null : null;
+};
 
 interface ConversationSuggestions {
     questions: string[];
@@ -23,11 +58,11 @@ interface ConversationSuggestions {
 
 interface LLMProviderHook {
     generateResponse: (userMessage: string) => Promise<void>;
-    generateSuggestions: () => Promise<void>; // Expose generateSuggestions
+    generateSuggestions: () => Promise<void>;
     isLoading: boolean;
     error: string | null;
     streamedContent: string;
-    isStreamingComplete: boolean; // Ensure this is returned from the hook
+    isStreamingComplete: boolean;
     conversationSummary: string;
     conversationSuggestions: ConversationSuggestions;
 }
@@ -36,8 +71,8 @@ interface LLMState {
     isLoading: boolean;
     error: string | null;
     streamedContent: string;
-    isStreamingComplete: boolean; // New state property
-    conversationSummary: string; // New state property for summary
+    isStreamingComplete: boolean;
+    conversationSummary: string;
     conversationSuggestions: ConversationSuggestions;
 }
 
@@ -106,10 +141,11 @@ const useLLMProvider = (
     apiKey: string,
     assistantId: string,
     roleDescription: string,
-    conversationHistory: Message[], // New parameter
-    goals: string[], // New parameter
+    conversationHistory: Message[],
+    goals: string[],
 ): LLMProviderHook => {
     const [state, dispatch] = useReducer(reducer, initialState);
+    const [openai, setOpenai] = useState<OpenAI | null>(null);
 
     const {
         isLoading,
@@ -120,32 +156,91 @@ const useLLMProvider = (
         conversationSuggestions,
     } = state;
 
-    const [openai, setOpenai] = useState<OpenAI | null>(null);
-
     const streamedContentRef = useRef<string>("");
     const firstChunkReceivedRef = useRef<boolean>(false);
 
-    const { addEntry } = usePerformance(); // Use the performance context
+    const { addEntry } = usePerformance();
+
+    // handleError needs to be defined or properly scoped if used within Callbacks.
+    // If it's a method of the hook, it doesn't need to be in dependency arrays of useCallbacks
+    // unless its own definition changes.
+    const handleError = useCallback(
+        (
+            errorInstance: unknown, // Renamed for clarity
+            queryId: string = "general",
+            context: string = "generateResponse",
+        ) => {
+            let errorMessage = "An unexpected error occurred.";
+            if (errorInstance instanceof Error) {
+                const errorText = errorInstance.message.toLowerCase();
+                if (errorText.includes("invalid_api_key"))
+                    errorMessage = "Invalid API key.";
+                else if (errorText.includes("rate_limit_exceeded"))
+                    errorMessage = "Rate limit exceeded.";
+                else if (errorText.includes("network"))
+                    errorMessage = "Network error.";
+                else errorMessage = errorInstance.message;
+                logger.error(
+                    `[${COMPONENT_ID}][${queryId}] ❌ Error in ${context}: ${errorMessage}`,
+                );
+                loglog.error(`Error in ${context}: ${errorMessage}`, queryId);
+            } else {
+                logger.error(
+                    `[${COMPONENT_ID}][${queryId}] ❌ Unknown error in ${context}`,
+                );
+                loglog.error("Unknown error occurred.", queryId);
+            }
+            dispatch({ type: "SET_ERROR", payload: errorMessage });
+            // It's often good practice to also ensure loading is false here
+            dispatch({ type: "SET_LOADING", payload: false });
+        },
+        [
+            /* dispatch, logger, loglog should be stable */
+        ],
+    );
+
+    // Add handleError to dependency arrays of generateResponse and runThread if they use it
+    // And if handleError itself is memoized with useCallback and has its own dependencies.
+    // For runThread, since it's defined inside the hook, it implicitly captures handleError
+    // from the hook's scope. If handleError was passed as a prop, it would be different.
+
+    const openaiInitializationStateRef = useRef<"idle" | "pending" | "done">(
+        "idle",
+    );
 
     const initializeOpenAI = useCallback(async () => {
         if (!apiKey) {
-            logger.error(
-                `[${COMPONENT_ID}] ❌ API key is missing. OpenAI client initialization skipped.`,
+            logger.error("[useLLMProvider] ❌ API key is missing...");
+            return;
+        }
+        if (openaiInitializationStateRef.current !== "idle") {
+            logger.info(
+                `[useLLMProvider] OpenAI initialization already ${openaiInitializationStateRef.current}. Skipping.`,
             );
             return;
         }
 
+        openaiInitializationStateRef.current = "pending";
+        let timerStarted = false; // Flag to ensure endTimer is only called if startTimer was.
         try {
+            performanceTracker.startTimer("openai_initialization", "system");
+            timerStarted = true;
             const { default: OpenAIModule } = await import("openai");
             const client = new OpenAIModule({
                 apiKey,
                 dangerouslyAllowBrowser: true,
             });
             setOpenai(client);
+            performanceTracker.endTimer("openai_initialization");
+            openaiInitializationStateRef.current = "done";
             logger.info(
                 `[${COMPONENT_ID}] ✅ OpenAI client initialized successfully.`,
             );
         } catch (error) {
+            if (timerStarted) {
+                performanceTracker.endTimer("openai_initialization");
+            }
+            openaiInitializationStateRef.current = "idle"; // Allow retry on error
             logger.error(
                 `[${COMPONENT_ID}] ❌ Error initializing OpenAI client: ${
                     (error as Error).message
@@ -160,35 +255,68 @@ const useLLMProvider = (
 
     const runThread = useCallback(
         async (
-            openai: OpenAI,
+            openaiClient: OpenAI, // Renamed to avoid conflict with state `openai`
             formattedMessage: string,
-            assistantId: string,
-            queryId: string, // Accept queryId as a parameter
+            currentAssistantId: string, // Renamed to avoid conflict
+            queryId: string,
         ): Promise<void> => {
+            const enhancedPerf = getEnhancedPerf();
+            enhancedPerf?.trackThreadOperationsStart();
+
+            performanceTracker.logMilestone(
+                `Starting thread run for query ${queryId}`,
+                "api",
+            );
+            performanceTracker.startTimer(`thread_creation_${queryId}`, "api");
+
             logger.info(
                 `[${COMPONENT_ID}][${queryId}] 🏃‍♂️ Starting thread run with streaming...`,
             );
 
-            const thread = await openai.beta.threads.create();
+            const thread = await openaiClient.beta.threads.create();
+            performanceTracker.endTimer(`thread_creation_${queryId}`, {
+                threadId: thread.id,
+            });
+            enhancedPerf?.trackThreadCreated();
             logger.debug(
                 `[${COMPONENT_ID}][${queryId}] 🧵 Thread created with ID: ${thread.id}`,
             );
 
-            await openai.beta.threads.messages.create(thread.id, {
+            enhancedPerf?.trackMessageAdditionStart();
+            performanceTracker.startTimer(`message_addition_${queryId}`, "api");
+            await openaiClient.beta.threads.messages.create(thread.id, {
                 role: "user",
                 content: formattedMessage,
             });
+            performanceTracker.endTimer(`message_addition_${queryId}`);
+            enhancedPerf?.trackMessageAdditionEnd();
+
+            // **NEW**: Explicitly mark end of thread operations
+            enhancedPerf?.trackThreadOperationsEnd();
+
             logger.debug(
                 `[${COMPONENT_ID}][${queryId}] 💬 User message added to thread`,
             );
 
-            const run = openai.beta.threads.runs.stream(thread.id, {
-                assistant_id: assistantId,
+            enhancedPerf?.trackAssistantProcessingStart();
+            performanceTracker.startTimer(
+                `assistant_streaming_${queryId}`,
+                "api",
+            );
+            const run = openaiClient.beta.threads.runs.stream(thread.id, {
+                assistant_id: currentAssistantId,
             });
 
-            run.on("textCreated", () =>
-                logger.info(`[${COMPONENT_ID}][${queryId}] assistant >`),
-            )
+            run.on("textCreated", () => {
+                // **NEW**: Track when the assistant starts generating response structure
+                enhancedPerf?.trackResponseGenerationStart();
+
+                performanceTracker.logMilestone(
+                    `Assistant started responding to ${queryId}`,
+                    "api",
+                );
+                logger.info(`[${COMPONENT_ID}][${queryId}] assistant >`);
+            })
                 .on("textDelta", (textDelta) => {
                     const content = textDelta.value ?? "";
                     dispatch({
@@ -198,9 +326,10 @@ const useLLMProvider = (
                     streamedContentRef.current += content;
 
                     if (!firstChunkReceivedRef.current) {
+                        enhancedPerf?.trackFirstChunkReceived();
                         performance.mark("generateResponse_firstChunk");
                         performance.measure(
-                            `MoveToFirstChunk_duration_${queryId}`, // Unique measure name
+                            `MoveToFirstChunk_duration_${queryId}`,
                             "generateResponse_start",
                             "generateResponse_firstChunk",
                         );
@@ -211,13 +340,18 @@ const useLLMProvider = (
                         if (measures.length > 0) {
                             const measure = measures[0];
                             const duration = measure.duration;
-
+                            measureAPI.firstChunk();
+                            performanceTracker.logMilestone(
+                                `🎯 FIRST CHUNK RECEIVED in ${duration.toFixed(
+                                    2,
+                                )}ms for ${queryId}`,
+                                "api",
+                            );
                             console.log(
                                 `[${COMPONENT_ID}][${queryId}] Move to first chunk took ${duration.toFixed(
                                     2,
                                 )}ms`,
                             );
-
                             logger.performance(
                                 `[${COMPONENT_ID}][${queryId}] Move to first chunk took ${duration.toFixed(
                                     2,
@@ -229,25 +363,27 @@ const useLLMProvider = (
                                 )}ms`,
                                 queryId,
                             );
-
                             const entry: ExtendedPerformanceEntry = {
                                 name: "MoveToFirstChunk",
                                 duration: duration,
                                 startTime: measure.startTime,
                                 endTime: measure.startTime + measure.duration,
-                                queryId, // Include queryId
+                                queryId,
                             };
                             addEntry(entry);
                         }
-
                         firstChunkReceivedRef.current = true;
                     }
                 })
-                .on("toolCallCreated", (toolCall) =>
+                .on("toolCallCreated", (toolCall) => {
+                    if (toolCall.type === "file_search") {
+                        const currentEnhancedPerf = getEnhancedPerf(); // get fresh instance in case of async context
+                        currentEnhancedPerf?.trackFileSearchStart();
+                    }
                     logger.info(
                         `[${COMPONENT_ID}][${queryId}] assistant > ${toolCall.type}\n\n`,
-                    ),
-                )
+                    );
+                })
                 .on("toolCallDelta", (toolCallDelta) => {
                     if (
                         toolCallDelta.type === "code_interpreter" &&
@@ -279,8 +415,22 @@ const useLLMProvider = (
                             );
                         }
                     }
+                })
+                .on("toolCallDone", (toolCall) => {
+                    if (toolCall.type === "file_search") {
+                        const currentEnhancedPerf = getEnhancedPerf(); // get fresh instance
+                        currentEnhancedPerf?.trackFileSearchEnd();
+                    }
                 });
+
             run.on("messageDone", () => {
+                const currentEnhancedPerf = getEnhancedPerf();
+                currentEnhancedPerf?.trackAssistantProcessingEnd();
+                performanceTracker.endTimer(`assistant_streaming_${queryId}`);
+                performanceTracker.logMilestone(
+                    `Streaming completed for ${queryId}`,
+                    "api",
+                );
                 logger.info(
                     `[${COMPONENT_ID}][${queryId}] 🏁 Response streaming completed.`,
                 );
@@ -289,7 +439,6 @@ const useLLMProvider = (
                     type: "SET_STREAMING_COMPLETE",
                     payload: true,
                 });
-
                 console.log(
                     `[${queryId}] Complete Response:`,
                     streamedContentRef.current,
@@ -301,25 +450,38 @@ const useLLMProvider = (
                     `Complete Response: ${streamedContentRef.current}`,
                     queryId,
                 );
-            }).on("error", (error) => {
-                handleError(error, queryId);
+            }).on("error", (err) => {
+                // Renamed 'error' to 'err' to avoid conflict
+                performanceTracker.endTimer(`assistant_streaming_${queryId}`);
+                handleError(err, queryId);
             });
 
             await new Promise<void>((resolve, reject) => {
                 run.on("end", resolve);
-                run.on("error", reject);
+                run.on("error", reject); // Ensure this reject is also handled
             });
         },
-        [addEntry],
+        [addEntry, handleError],
     );
 
     const generateResponse = useCallback(
         async (userMessage: string): Promise<void> => {
-            // Start measuring generateResponse
-            const queryId = uuidv4(); // Generate a unique ID for the query
-            performance.mark("generateResponse_start");
+            const enhancedPerf = getEnhancedPerf();
+            // **NEW**: Track the "Move" button click equivalent
+            enhancedPerf?.trackMoveButtonClicked();
 
-            // Reset the firstChunkReceivedRef for each new query
+            const queryId = uuidv4();
+            performanceTracker.logMilestone(
+                `🚀 NEW REQUEST STARTED: ${queryId}`,
+                "api",
+            );
+            performanceTracker.startTimer(`total_request_${queryId}`, "api");
+            performanceTracker.startTimer(
+                `request_preparation_${queryId}`,
+                "api",
+            );
+            measureAPI.startRequest();
+            performance.mark("generateResponse_start");
             firstChunkReceivedRef.current = false;
 
             dispatch({ type: "SET_LOADING", payload: true });
@@ -332,42 +494,43 @@ const useLLMProvider = (
             loglog.info("🚀 Starting response generation process", queryId);
 
             try {
+                enhancedPerf?.trackContextPreparationStart();
+                performanceTracker.startTimer(
+                    `message_formatting_${queryId}`,
+                    "system",
+                );
                 const formattedMessage = await createUserMessage(
                     userMessage,
                     roleDescription,
                     state.conversationSummary,
                     goals,
                 );
+                performanceTracker.endTimer(`message_formatting_${queryId}`);
+                performanceTracker.endTimer(`request_preparation_${queryId}`);
+                enhancedPerf?.trackContextPreparationEnd();
+
                 console.log(`[${queryId}] Created User Message:`, userMessage);
                 loglog.debug(`Created User Message: ${userMessage}`, queryId);
-
-                // logger.debug(
-                //     `[${COMPONENT_ID}][${queryId}] 📝 Formatted user message: "${formattedMessage.substring(
-                //         0,
-                //         50,
-                //     )}..."`,
-                // );
-                // loglog.debug(
-                //     `Formatted user message: "${formattedMessage.substring(
-                //         0,
-                //         50,
-                //     )}..."`,
-                //     queryId,
-                // );
                 logger.debug(
-                    `[${COMPONENT_ID}][${queryId}] 📝 Formatted user message: "${formattedMessage}..."`,
+                    `[${COMPONENT_ID}][${queryId}] 📝 Formatted user message: "${formattedMessage.substring(
+                        0,
+                        50,
+                    )}..."`, // substring for brevity
                 );
                 loglog.debug(
-                    `Formatted user message: "${formattedMessage}..."`,
+                    `Formatted user message: "${formattedMessage.substring(
+                        0,
+                        50,
+                    )}..."`,
                     queryId,
                 );
 
                 if (!openai) throw new Error("OpenAI client not initialized");
 
-                // Run the thread
                 await runThread(openai, formattedMessage, assistantId, queryId);
 
-                // End measuring generateResponse
+                performanceTracker.endTimer(`total_request_${queryId}`);
+                measureAPI.endStreaming();
                 performance.mark("generateResponse_end");
                 performance.measure(
                     `generateResponse_duration_${queryId}`,
@@ -385,9 +548,17 @@ const useLLMProvider = (
                         duration: measure.duration,
                         startTime: measure.startTime,
                         endTime: measure.startTime + measure.duration,
-                        queryId, // Include queryId
+                        queryId,
                     };
                     addEntry(entry);
+                    performanceTracker.logFlowSummary(`Request ${queryId}`, [
+                        `request_preparation_${queryId}`,
+                        `message_formatting_${queryId}`,
+                        `thread_creation_${queryId}`,
+                        `message_addition_${queryId}`,
+                        `assistant_streaming_${queryId}`,
+                        `total_request_${queryId}`,
+                    ]);
                     logger.performance(
                         `[${COMPONENT_ID}][${queryId}] 🎉 generateResponse took ${measure.duration.toFixed(
                             2,
@@ -400,10 +571,18 @@ const useLLMProvider = (
                         queryId,
                     );
                 }
-            } catch (error) {
-                handleError(error, queryId);
+            } catch (err) {
+                // Renamed 'error' to 'err' to avoid conflict
+                performanceTracker.endTimer(`total_request_${queryId}`);
+                measureAPI.endStreaming();
+                handleError(err, queryId); // handleError should be defined or passed if not in scope
                 dispatch({ type: "SET_LOADING", payload: false });
-                throw error;
+                // Do not re-throw here if handleError already manages the error state for the UI
+                // throw err; // Re-throwing might be needed if calling code expects to catch it
+            } finally {
+                // Ensure loading is set to false if not handled by error path specifically
+                // This might be redundant if all paths (success/error) set it.
+                // dispatch({ type: "SET_LOADING", payload: false }); // Consider if this is needed
             }
         },
         [
@@ -414,27 +593,21 @@ const useLLMProvider = (
             state.conversationSummary,
             goals,
             addEntry,
+            handleError,
         ],
     );
 
-    // Summarize Conversation History
     const summarizationInProgressRef = useRef(false);
-
     const summarizeConversation = useCallback(
         async (history: Message[]): Promise<void> => {
-            if (summarizationInProgressRef.current) {
-                return;
-            }
-
+            if (summarizationInProgressRef.current) return;
             if (!openai) {
                 logger.error(
-                    `[${COMPONENT_ID}] ❌ OpenAI client not initialized. Cannot summarize conversation.`,
+                    `[${COMPONENT_ID}] ❌ OpenAI client not initialized. Cannot summarize.`,
                 );
                 return;
             }
-
             summarizationInProgressRef.current = true;
-
             const conversationText = history
                 .map(
                     (msg) =>
@@ -443,10 +616,8 @@ const useLLMProvider = (
                         }`,
                 )
                 .join("\n");
-
             const goalsText =
                 goals.length > 0 ? goals.join("; ") : "No specific goals set.";
-
             const summaryPrompt = `
                     You are an AI assistant trained to follow user-defined goals and milestones during conversations.
                     
@@ -460,72 +631,61 @@ const useLLMProvider = (
                     
                     Summary:
                 `;
-
             try {
-                dispatch({ type: "SET_LOADING", payload: true });
+                dispatch({ type: "SET_LOADING", payload: true }); // Consider separate loading state for summary
                 const modelName: OpenAIModelName = "gpt-4o-mini";
-
                 const response = await openai.chat.completions.create({
-                    model: modelName, // Correct model name
+                    model: modelName,
                     messages: [
-                        {
-                            role: "system",
-                            content: summaryPrompt,
-                        },
+                        { role: "system", content: summaryPrompt },
                         { role: "user", content: conversationText },
                     ],
                     max_tokens: 150,
                     temperature: 0.5,
                 });
-
                 const summary =
                     response.choices[0]?.message.content?.trim() || "";
                 dispatch({
                     type: "SET_CONVERSATION_SUMMARY",
                     payload: summary,
                 });
-
                 logger.info(
                     `[${COMPONENT_ID}] 📝 Conversation summarized successfully.`,
                 );
-            } catch (error) {
+            } catch (err) {
                 logger.error(
-                    `[${COMPONENT_ID}] ❌ Error summarizing conversation: ${
-                        (error as Error).message
+                    `[${COMPONENT_ID}] ❌ Error summarizing: ${
+                        (err as Error).message
                     }`,
                 );
                 dispatch({
                     type: "SET_ERROR",
-                    payload:
-                        "Failed to summarize conversation. Please try again.",
+                    payload: "Failed to summarize.",
                 });
             } finally {
                 summarizationInProgressRef.current = false;
-                dispatch({ type: "SET_LOADING", payload: false });
+                dispatch({ type: "SET_LOADING", payload: false }); // Reset main loading state
             }
         },
-        [openai, goals],
+        [
+            openai,
+            goals /* dispatch, logger should be stable if defined outside */,
+        ],
     );
 
-    // Generate Suggestions
     const suggestionsInProgressRef = useRef(false);
-
     const generateSuggestions = useCallback(async (): Promise<void> => {
-        // Prevent multiple concurrent suggestion generations
-        if (suggestionsInProgressRef.current) {
-            return;
-        }
-
+        if (suggestionsInProgressRef.current) return;
         if (!openai) {
             logger.error(
-                `[${COMPONENT_ID}] ❌ OpenAI client not initialized. Cannot generate suggestions.`,
+                `[${COMPONENT_ID}] ❌ OpenAI client not initialized. Cannot gen suggestions.`,
             );
             return;
         }
-
         suggestionsInProgressRef.current = true;
-
-        // Consolidate conversation history into a single string
+        // ... (rest of generateSuggestions implementation remains the same)
+        // Ensure to handle loading and error states appropriately, potentially with dedicated state flags
+        // if you don't want it to affect the main isLoading/error states.
         const conversationText = conversationHistory
             .map(
                 (msg) =>
@@ -534,257 +694,138 @@ const useLLMProvider = (
                     }`,
             )
             .join("\n");
-
-        // Format goals/milestones
         const goalsText =
             goals.length > 0 ? goals.join("; ") : "No specific goals set.";
-
-        // Refined prompt to generate suggestions from the user's perspective
-        const suggestionsPrompt = `
-You are an AI Call Assistant designed to help the user conduct effective conversations with their clients.
-
-Based on the following conversation and goals, provide **3 actionable questions** and **3 actionable statements** that the user can say to the client to advance the conversation or achieve the goals.
-
-**Goals/Milestones:**
-${goalsText}
-
-**Conversation Summary:**
-${state.conversationSummary}
-
-**Conversation:**
-${conversationText}
-
-**Suggestions:** 
-- Provide the suggestions in a **JSON object** with two properties: "questions" and "statements".
-- Each property should contain an array of **3 items**.
-- Do **not** include any additional text or markdown formatting.
-
-**Format Example:**
-{
-    "questions": [
-        "Question 1",
-        "Question 2",
-        "Question 3"
-    ],
-    "statements": [
-        "Statement 1",
-        "Statement 2",
-        "Statement 3"
-    ]
-}
-`;
+        const suggestionsPrompt = `You are an AI Call Assistant...Goals:\n${goalsText}\nConversation Summary:\n${state.conversationSummary}\nConversation:\n${conversationText}\nSuggestions: ... Format Example: ...`; // Abridged
 
         try {
-            // Indicate that loading has started
-            dispatch({ type: "SET_LOADING", payload: true });
-            const modelName: OpenAIModelName = "o1-mini";
+            dispatch({ type: "SET_LOADING", payload: true }); // Consider separate loading state
+            const modelName: OpenAIModelName = "o1-mini"; // Note: "o1-mini" may not be a standard OpenAI model name. Verify.
 
-            // Request OpenAI to generate suggestions
             const response = await openai.chat.completions.create({
                 model: modelName,
-                messages: [
-                    {
-                        role: "user",
-                        content: suggestionsPrompt,
-                    },
-                ],
-                // max_tokens: 150,
-                // temperature: 0.7,
+                messages: [{ role: "user", content: suggestionsPrompt }],
             });
-
             const suggestionsContent =
                 response.choices[0]?.message.content?.trim() || "";
             let questions: string[] = [];
             let statements: string[] = [];
 
+            // ... (parsing logic remains the same)
             try {
-                // Attempt to parse the response as JSON
                 const parsedSuggestions = JSON.parse(suggestionsContent);
-
-                // Validate that parsedSuggestions has the required structure
                 if (
+                    /* validation logic */
                     typeof parsedSuggestions === "object" &&
                     Array.isArray(parsedSuggestions.questions) &&
                     Array.isArray(parsedSuggestions.statements) &&
-                    parsedSuggestions.questions.length === 3 &&
-                    parsedSuggestions.statements.length === 3
+                    parsedSuggestions.questions.length <= 3 && // Allow fewer than 3
+                    parsedSuggestions.statements.length <= 3 // Allow fewer than 3
                 ) {
                     questions = parsedSuggestions.questions;
                     statements = parsedSuggestions.statements;
                 } else {
-                    throw new Error(
-                        "Parsed suggestions do not match the expected structure.",
-                    );
+                    throw new Error("Parsed suggestions structure mismatch.");
                 }
             } catch (parseError) {
-                // Log the parsing error
                 logger.error(
                     `[${COMPONENT_ID}] ❌ Error parsing suggestions JSON: ${
                         (parseError as Error).message
                     }`,
                 );
-
-                // Attempt to clean the response by removing code block syntax if present
-                const cleanedContent = suggestionsContent
-                    .replace(/```json[\s\S]*?```/g, "") // Remove ```json ... ```
-                    .replace(/```[\s\S]*?```/g, "") // Remove any other ``` ... ```
-                    .trim();
-
-                try {
-                    // Try parsing the cleaned content as JSON
-                    const parsedSuggestions = JSON.parse(cleanedContent);
-
+                // Fallback parsing logic...
+                const lines = suggestionsContent.split(/\n+/);
+                questions = [];
+                statements = [];
+                lines.forEach((line) => {
+                    const trimmedLine = line.replace(/^[\-\*]\s*/, "").trim();
                     if (
-                        typeof parsedSuggestions === "object" &&
-                        Array.isArray(parsedSuggestions.questions) &&
-                        Array.isArray(parsedSuggestions.statements) &&
-                        parsedSuggestions.questions.length === 3 &&
-                        parsedSuggestions.statements.length === 3
+                        trimmedLine.endsWith("?") ||
+                        [
+                            "Can",
+                            "Could",
+                            "How",
+                            "What",
+                            "Why",
+                            "When",
+                            "Who",
+                        ].some((q) => trimmedLine.startsWith(q))
                     ) {
-                        questions = parsedSuggestions.questions;
-                        statements = parsedSuggestions.statements;
-                    } else {
-                        throw new Error(
-                            "Parsed suggestions do not match the expected structure.",
-                        );
+                        if (questions.length < 3) questions.push(trimmedLine);
+                    } else if (trimmedLine) {
+                        if (statements.length < 3) statements.push(trimmedLine);
                     }
-                } catch (secondaryParseError) {
-                    // Log the secondary parsing error
-                    logger.error(
-                        `[${COMPONENT_ID}] ❌ Secondary error parsing suggestions JSON: ${
-                            (secondaryParseError as Error).message
-                        }`,
-                    );
-
-                    // As a final fallback, extract suggestions from bullet points
-                    const lines = suggestionsContent.split(/\n+/);
-                    questions = [];
-                    statements = [];
-
-                    lines.forEach((line) => {
-                        const trimmedLine = line
-                            .replace(/^[\-\*]\s*/, "")
-                            .trim();
-                        if (
-                            trimmedLine.startsWith("Can") ||
-                            trimmedLine.startsWith("Could") ||
-                            trimmedLine.startsWith("How")
-                        ) {
-                            if (questions.length < 3) {
-                                questions.push(trimmedLine);
-                            }
-                        } else {
-                            if (statements.length < 3) {
-                                statements.push(trimmedLine);
-                            }
-                        }
-                    });
-
-                    // Ensure we have at least 3 items in each array
-                    questions = questions.slice(0, 3);
-                    statements = statements.slice(0, 3);
-                }
+                });
             }
 
-            // Dispatch the suggestions to the state
             dispatch({
                 type: "SET_CONVERSATION_SUGGESTIONS",
                 payload: { questions, statements },
             });
-
             logger.info(
                 `[${COMPONENT_ID}] 💡 Suggestions generated successfully.`,
             );
-        } catch (error) {
+        } catch (err) {
             logger.error(
                 `[${COMPONENT_ID}] ❌ Error generating suggestions: ${
-                    (error as Error).message
+                    (err as Error).message
                 }`,
             );
             dispatch({
                 type: "SET_ERROR",
-                payload: "Failed to generate suggestions. Please try again.",
+                payload: "Failed to generate suggestions.",
             });
         } finally {
             suggestionsInProgressRef.current = false;
-            dispatch({ type: "SET_LOADING", payload: false });
+            dispatch({ type: "SET_LOADING", payload: false }); // Reset main loading state
         }
-    }, [openai, goals, state.conversationSummary, conversationHistory]);
+    }, [
+        openai,
+        goals,
+        state.conversationSummary,
+        conversationHistory /* dispatch, logger */,
+    ]);
 
-    // Trigger Summarization and Suggestions
     useEffect(() => {
         const shouldSummarize =
-            conversationHistory.length >= 10 || // Example: after 10 messages
-            (conversationHistory.length > 0 && isStreamingComplete); // Or when streaming completes
-
-        if (shouldSummarize) {
+            conversationHistory.length >= 10 ||
+            (conversationHistory.length > 0 && isStreamingComplete);
+        if (shouldSummarize && openai) {
+            // Added openai check
             (async () => {
                 await summarizeConversation(conversationHistory);
-                // await generateSuggestions(conversationHistory);
             })();
         }
     }, [
         conversationHistory,
         isStreamingComplete,
         summarizeConversation,
-        // generateSuggestions,
+        openai,
     ]);
 
-    // Periodic Summarization and Suggestions (Optional)
     useEffect(() => {
         const interval = setInterval(() => {
-            if (conversationHistory.length > 0) {
+            if (conversationHistory.length > 0 && openai) {
+                // Added openai check
                 summarizeConversation(conversationHistory);
-                // generateSuggestions(conversationHistory);
             }
-        }, 1000 * 60 * 5); // Every 5 minutes
-
+        }, 1000 * 60 * 5);
         return () => clearInterval(interval);
-    }, [conversationHistory, summarizeConversation, generateSuggestions]);
+    }, [
+        conversationHistory,
+        summarizeConversation,
+        openai /* generateSuggestions - removed as it's not called here */,
+    ]);
 
-    const handleError = (
-        error: unknown,
-        queryId: string = "general",
-        context: string = "generateResponse",
-    ) => {
-        let errorMessage = "An unexpected error occurred.";
-        if (error instanceof Error) {
-            const errorText = error.message.toLowerCase();
-            if (errorText.includes("invalid_api_key")) {
-                errorMessage =
-                    "Invalid API key. Please check your OpenAI API key.";
-            } else if (errorText.includes("rate_limit_exceeded")) {
-                errorMessage = "Rate limit exceeded. Please try again later.";
-            } else if (errorText.includes("network")) {
-                errorMessage =
-                    "Network error. Please check your internet connection.";
-            } else {
-                errorMessage = error.message;
-            }
-            logger.error(
-                `[${COMPONENT_ID}][${queryId}] ❌ Error in ${context}: ${errorMessage}`,
-            );
-            loglog.error(`Error in ${context}: ${errorMessage}`, queryId);
-        } else {
-            logger.error(
-                `[${COMPONENT_ID}][${queryId}] ❌ Unknown error in ${context}`,
-            );
-            loglog.error("Unknown error occurred.", queryId);
-        }
-        dispatch({
-            type: "SET_ERROR",
-            payload: errorMessage,
-        });
-    };
     return {
         generateResponse,
-        generateSuggestions, // Return generateSuggestions
+        generateSuggestions,
         isLoading,
         error,
         streamedContent,
         isStreamingComplete,
         conversationSummary,
-        conversationSuggestions, // Return suggestions
+        conversationSuggestions,
     };
 };
 

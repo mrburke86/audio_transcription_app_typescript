@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import ClientProviders from "@/components/ClientProviders";
 import { TailwindIndicator } from "@/components/global/tailwind-indicator";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import PerformanceProvider from "@/components/PerformanceProvider";
+import { KnowledgeProvider } from "@/contexts/KnowledgeProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -36,24 +38,30 @@ export default async function RootLayout({
                     defaultTheme="dark"
                     enableSystem
                 >
-                    <SidebarLayout
-                        defaultOpen={
-                            cookies().get("sidebar:state")?.value === "true"
-                        }
-                    >
-                        <AppSidebar />
+                    <PerformanceProvider>
+                        {/* Add KnowledgeProvider to load ETQ markdown files */}
+                        <KnowledgeProvider basePath="/knowledge">
+                            <SidebarLayout
+                                defaultOpen={
+                                    cookies().get("sidebar:state")?.value ===
+                                    "true"
+                                }
+                            >
+                                <AppSidebar />
 
-                        <ClientProviders>
-                            <main className="flex flex-1 flex-col transition-all duration-300 ease-in-out rounded-sm p-1 h-screen">
-                                <SidebarTrigger />
-                                {children}
-                            </main>
-                        </ClientProviders>
-                    </SidebarLayout>
+                                <ClientProviders>
+                                    <main className="flex flex-1 flex-col transition-all duration-300 ease-in-out rounded-sm p-1 h-screen">
+                                        <SidebarTrigger />
+                                        {children}
+                                    </main>
+                                </ClientProviders>
+                            </SidebarLayout>
+                        </KnowledgeProvider>
 
-                    <CustomToaster />
-                    <TailwindIndicator />
-                    <ThemeToggle />
+                        <CustomToaster />
+                        <TailwindIndicator />
+                        <ThemeToggle />
+                    </PerformanceProvider>
                 </ThemeProvider>
             </body>
         </html>
