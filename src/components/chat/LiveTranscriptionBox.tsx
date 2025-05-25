@@ -1,5 +1,5 @@
 // src/components/chat/LiveTranscriptionBox.tsx
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Message } from "@/types/Message";
 import { logger } from "@/modules/Logger";
@@ -17,21 +17,21 @@ const LiveTranscriptionBox: React.FC<LiveTranscriptionBoxProps> = ({
     currentInterimTranscript,
     className,
 }) => {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const prevTranscriptionCountRef = useRef(interimTranscriptions.length);
+    // const containerRef = useRef<HTMLDivElement>(null);
+    // const prevTranscriptionCountRef = useRef(interimTranscriptions.length);
 
-    const scrollToBottom = () => {
-        try {
-            containerRef.current?.scrollIntoView({ behavior: "smooth" });
-            logger.debug("📜 Auto-scrolled transcription box to bottom");
-        } catch (error) {
-            logger.error(
-                `❌ Failed to scroll transcription box: ${
-                    error instanceof Error ? error.message : "Unknown error"
-                }`,
-            );
-        }
-    };
+    // const scrollToBottom = () => {
+    //     try {
+    //         containerRef.current?.scrollIntoView({ behavior: "smooth" });
+    //         logger.debug("📜 Auto-scrolled transcription box to bottom");
+    //     } catch (error) {
+    //         logger.error(
+    //             `❌ Failed to scroll transcription box: ${
+    //                 error instanceof Error ? error.message : "Unknown error"
+    //             }`,
+    //         );
+    //     }
+    // };
 
     useEffect(() => {
         try {
@@ -60,31 +60,31 @@ const LiveTranscriptionBox: React.FC<LiveTranscriptionBoxProps> = ({
         };
     }, [id, interimTranscriptions.length]);
 
-    useEffect(() => {
-        try {
-            const currentCount = interimTranscriptions.length;
-            const previousCount = prevTranscriptionCountRef.current;
+    // useEffect(() => {
+    //     try {
+    //         const currentCount = interimTranscriptions.length;
+    //         const previousCount = prevTranscriptionCountRef.current;
 
-            if (currentCount !== previousCount) {
-                logger.debug(
-                    `📈 Transcription count changed: ${previousCount} → ${currentCount}`,
-                );
-                prevTranscriptionCountRef.current = currentCount;
-            }
+    //         if (currentCount !== previousCount) {
+    //             logger.debug(
+    //                 `📈 Transcription count changed: ${previousCount} → ${currentCount}`,
+    //             );
+    //             prevTranscriptionCountRef.current = currentCount;
+    //         }
 
-            scrollToBottom();
-        } catch (error) {
-            logger.error(
-                `❌ Error processing transcription changes: ${
-                    error instanceof Error ? error.message : "Unknown error"
-                }`,
-            );
-        }
-    }, [
-        interimTranscriptions,
-        currentInterimTranscript,
-        interimTranscriptions.length,
-    ]);
+    //         scrollToBottom();
+    //     } catch (error) {
+    //         logger.error(
+    //             `❌ Error processing transcription changes: ${
+    //                 error instanceof Error ? error.message : "Unknown error"
+    //             }`,
+    //         );
+    //     }
+    // }, [
+    //     interimTranscriptions,
+    //     currentInterimTranscript,
+    //     interimTranscriptions.length,
+    // ]);
 
     useEffect(() => {
         if (currentInterimTranscript) {
@@ -106,7 +106,8 @@ const LiveTranscriptionBox: React.FC<LiveTranscriptionBoxProps> = ({
                     className,
                 )}
             >
-                <div ref={containerRef} className="flex-1 overflow-y-auto p-4">
+                {/* Remove ref={containerRef} from this div */}
+                <div className="flex-1 overflow-y-auto p-4">
                     {interimTranscriptions.map((message, index) => {
                         try {
                             return (

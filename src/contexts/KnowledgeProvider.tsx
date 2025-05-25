@@ -7,6 +7,7 @@ import React, {
     useEffect,
     useState,
     ReactNode,
+    useRef,
 } from "react";
 import { logger } from "@/modules/Logger";
 
@@ -62,76 +63,98 @@ export const KnowledgeProvider: React.FC<KnowledgeProviderProps> = ({
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // 🔧 FIX: Add loading state guards to prevent duplicate loading
+    const loadingStateRef = useRef<"idle" | "loading" | "loaded">("idle");
+
     // Load all markdown files at startup
     useEffect(() => {
         const loadFiles = async () => {
+            // 🔧 Prevent duplicate loading
+            if (loadingStateRef.current !== "idle") {
+                logger.debug(
+                    `[KnowledgeProvider] Already ${loadingStateRef.current}, skipping load`,
+                );
+                return;
+            }
+
+            loadingStateRef.current = "loading";
             logger.info(
                 "[KnowledgeProvider] 📚 Starting to load knowledge files...",
             );
-            const startTime = performance.now();
 
             try {
-                const loadPromises = MARKDOWN_FILES.map(async (filename) => {
+                const startTime = performance.now();
+
+                // Load all files in parallel
+                const filePromises = MARKDOWN_FILES.map(async (filename) => {
                     try {
                         const response = await fetch(`${basePath}/${filename}`);
                         if (!response.ok) {
-                            throw new Error(
-                                `Failed to load ${filename}: ${response.status}`,
+                            logger.debug(
+                                `[KnowledgeProvider] ⚠️ Failed to fetch ${filename}: ${response.status}`,
                             );
+                            return null;
                         }
 
                         const content = await response.text();
-                        const wordCount = content
-                            .split(/\s+/)
-                            .filter((word) => word.length > 0).length;
+                        if (!content.trim()) {
+                            logger.debug(
+                                `[KnowledgeProvider] ⚠️ Empty content for ${filename}`,
+                            );
+                            return null;
+                        }
 
-                        const file: KnowledgeFile = {
-                            id: filename.replace(".md", ""),
-                            name: filename,
-                            content: content,
-                            size: content.length,
-                            wordCount: wordCount,
-                        };
+                        const wordCount = content.split(/\s+/).length;
+                        const size = content.length;
 
                         logger.debug(
                             `[KnowledgeProvider] ✅ Loaded ${filename} (${wordCount} words)`,
                         );
-                        return file;
+
+                        return {
+                            id: filename.replace(".md", ""),
+                            name: filename,
+                            content,
+                            size,
+                            wordCount,
+                        } as KnowledgeFile;
                     } catch (fileError) {
                         logger.error(
-                            `[KnowledgeProvider] ❌ Failed to load ${filename}: ${fileError}`,
+                            `[KnowledgeProvider] ❌ Error loading ${filename}: ${fileError}`,
                         );
                         return null;
                     }
                 });
 
-                const loadedFiles = await Promise.all(loadPromises);
-                const validFiles = loadedFiles.filter(
+                const results = await Promise.all(filePromises);
+
+                const successfullyLoadedFiles = results.filter(
                     (file): file is KnowledgeFile => file !== null,
                 );
 
                 const endTime = performance.now();
-                const totalWords = validFiles.reduce(
+                const totalWords = successfullyLoadedFiles.reduce(
                     (sum, file) => sum + file.wordCount,
                     0,
                 );
-                const totalSize = validFiles.reduce(
+                const totalSize = successfullyLoadedFiles.reduce(
                     (sum, file) => sum + file.size,
                     0,
                 );
 
-                setFiles(validFiles);
+                setFiles(successfullyLoadedFiles);
                 setError(null);
+                loadingStateRef.current = "loaded";
 
                 logger.info(
-                    `[KnowledgeProvider] 🎉 Successfully loaded ${validFiles.length}/${MARKDOWN_FILES.length} files ` +
-                        `(${totalWords.toLocaleString()} words, ${(
-                            totalSize / 1024
-                        ).toFixed(1)}KB) in ${(endTime - startTime).toFixed(
-                            1,
-                        )}ms`,
+                    `[KnowledgeProvider] 🎉 Successfully loaded ${
+                        successfullyLoadedFiles.length
+                    }/${MARKDOWN_FILES.length} files (${totalWords} words, ${(
+                        totalSize / 1024
+                    ).toFixed(1)}KB) in ${(endTime - startTime).toFixed(1)}ms`,
                 );
             } catch (err) {
+                loadingStateRef.current = "idle";
                 const errorMessage =
                     err instanceof Error
                         ? err.message
@@ -144,9 +167,15 @@ export const KnowledgeProvider: React.FC<KnowledgeProviderProps> = ({
                 setIsLoading(false);
             }
         };
-
         loadFiles();
-    }, [basePath]);
+    }, [basePath]); // Only reload if basePath changes
+
+    // 🔧 FIX: Add cleanup to reset loading state on unmount
+    useEffect(() => {
+        return () => {
+            loadingStateRef.current = "idle";
+        };
+    }, []);
 
     // Simple relevance scoring for context selection
     const searchRelevantFiles = (
