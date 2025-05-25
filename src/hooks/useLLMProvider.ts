@@ -185,7 +185,7 @@ export const useLLMProvider = (
 
     // Auto-summarization effect
     useEffect(() => {
-        if (conversationHistory.length >= 10 && isStreamingComplete && openaiClient && !isSummarizing) {
+        if (conversationHistory.length >= 1 && isStreamingComplete && openaiClient && !isSummarizing) {
             logger.info(`[${COMPONENT_ID}] 📝 Auto-summarizing conversation (${conversationHistory.length} messages)`);
             summarizeConversation(conversationHistory);
         }

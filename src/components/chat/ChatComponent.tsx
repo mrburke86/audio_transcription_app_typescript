@@ -1,4 +1,4 @@
-// src/components/chat/ChatComponent.tsx
+// src/components/chat/ChatComponent.tsx - WITH DEBUG PANEL
 'use client';
 
 import Header from '@/components/Header';
@@ -17,6 +17,7 @@ import AudioVisualizer from './AudioVisualizer';
 import ConversationSuggestions from './ConversationSuggestions';
 import LiveTranscriptionBox from './LiveTranscriptionBox';
 import RoleDescriptionModal from './RoleDescriptionModal';
+import { SpeechDebugPanel } from '@/app/chat/SpeechDebugPanel';
 
 interface ChatComponentProps {
     assistantId: string;
@@ -138,23 +139,29 @@ const ChatComponent: React.FC<ChatComponentProps> = ({ roleDescription }) => {
     }, []);
 
     const handleRecognitionError = useCallback(
-        (error: SpeechRecognitionErrorEvent | CustomSpeechError) => {
-            let errorCode: string;
-            let errorMessage: string;
+        // (error: SpeechRecognitionErrorEvent | CustomSpeechError) => {
+        //     let errorCode: string;
+        //     let errorMessage: string;
 
-            if ('error' in error) {
-                errorCode = error.error;
-                errorMessage = getUserFriendlyError(error.error);
-            } else {
-                errorCode = error.code;
-                errorMessage = error.message;
-            }
+        //     if ('error' in error) {
+        //         errorCode = error.error;
+        //         errorMessage = getUserFriendlyError(error.error);
+        //     } else {
+        //         errorCode = error.code;
+        //         errorMessage = error.message;
+        //     }
 
-            logger.error(`🎙️❌ Speech recognition error: ${errorCode}`);
+        //     logger.error(`🎙️❌ Speech recognition error: ${errorCode}`);
+        (customError: CustomSpeechError) => {
+            // Expect CustomSpeechError
+            // The message in CustomSpeechError is already user-friendly
+            logger.error(`🎙️❌ Speech recognition error reported to UI [${customError.code}]: ${customError.message}`);
             setRecognitionStatus('error');
-            setErrorMessage(errorMessage);
+
+            setRecognitionStatus('error');
+            setErrorMessage(customError.message);
         },
-        [getUserFriendlyError]
+        []
     );
 
     // Speech recognition hook
@@ -178,9 +185,24 @@ const ChatComponent: React.FC<ChatComponentProps> = ({ roleDescription }) => {
                 }
             })
             .catch(error => {
-                logger.error(`🎙️❌ Failed to start speech recognition: ${error.message}`);
+                // logger.error(`🎙️❌ Failed to start speech recognition: ${error.message}`);
+                const message = error instanceof Error ? error.message : 'Unknown error starting speech recognition';
+                logger.error(`🎙️❌ Failed to start speech recognition: ${message}`);
+
+                let customErrorToSend: CustomSpeechError;
+                if (message.toLowerCase().includes('microphone access denied') || message.toLowerCase().includes('permission denied')) {
+                    customErrorToSend = { code: 'not-allowed', message: getUserFriendlyError('not-allowed') };
+                } else if (message.toLowerCase().includes('speech recognition not supported')) {
+                    // This error is thrown by useSpeechRecognitionCore if browser doesn't support it
+                    customErrorToSend = { code: 'not-supported', message: 'Speech recognition is not supported by your browser.' };
+                } else {
+                    // For other errors from start(), create a generic CustomSpeechError
+                    customErrorToSend = { code: 'start-failed', message: `Failed to start: ${message}` };
+                }
+                // Call handleRecognitionError directly to update UI
+                handleRecognitionError(customErrorToSend);
             });
-    }, [start, startAudioVisualization]);
+    }, [start, startAudioVisualization, handleRecognitionError, getUserFriendlyError]);
 
     const handleSuggest = useCallback(async () => {
         try {
@@ -236,6 +258,13 @@ const ChatComponent: React.FC<ChatComponentProps> = ({ roleDescription }) => {
                 error={knowledgeError}
                 totalFiles={knowledgeStats.totalFiles}
                 totalWords={knowledgeStats.totalWords}
+            />
+
+            {/* ✅ DEBUG PANEL - ADD THIS TEMPORARILY */}
+            <SpeechDebugPanel
+                isRecognitionActive={recognitionStatus === 'active'}
+                currentInterimTranscript={currentInterimTranscript}
+                recognitionStatus={recognitionStatus}
             />
 
             {/* Error Messages */}

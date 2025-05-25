@@ -3,11 +3,12 @@
 import { useSpeechRecognitionCore } from './useSpeechRecognitionCore';
 import { useSpeechErrorHandler } from './useSpeechErrorHandler';
 import { useAudioVisualization } from './useAudioVisualization';
+import { CustomSpeechError } from './useSpeechErrorHandler'; // Import CustomSpeechError
 
 interface SpeechRecognitionProps {
     onStart: () => void;
     onEnd: () => void;
-    onError: (error: { code: string; message: string }) => void;
+    onError: (error: CustomSpeechError) => void;
     onResult: (finalTranscript: string, interimTranscript: string) => void;
 }
 

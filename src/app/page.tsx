@@ -1,6 +1,7 @@
 // src/app/page.tsx
-import { redirect } from "next/navigation";
+import { redirect } from 'next/navigation';
 
 export default function RootPage() {
-    redirect("/assistants");
+    // Direct to chat instead of assistants selection
+    redirect('/chat');
 }
