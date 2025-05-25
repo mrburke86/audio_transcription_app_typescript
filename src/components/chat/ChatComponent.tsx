@@ -12,7 +12,7 @@ import { logger } from '@/modules/Logger';
 import { Badge, Button } from '@/components/ui';
 import { ArrowRight, AlertTriangle, CheckCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Message } from '@/types/openai';
+import { Message } from '@/types';
 import AudioVisualizer from './AudioVisualizer';
 import ConversationSuggestions from './ConversationSuggestions';
 import LiveTranscriptionBox from './LiveTranscriptionBox';
