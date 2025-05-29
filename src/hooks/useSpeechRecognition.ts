@@ -1,27 +1,29 @@
 // src/hooks/useSpeechRecognition.ts
-import { useCallback, useRef } from "react";
-import { logger } from "@/modules/Logger";
-import { usePerformance } from "@/contexts/PerformanceContext";
+import { useCallback, useRef } from 'react';
+import { logger } from '@/modules/Logger';
+// import { usePerformance } from "@/contexts/PerformanceContext";
 
+// Define custom error type for non-standard errors
+export interface CustomSpeechError {
+    code: SpeechRecognitionErrorCode; // e.g., "browser-not-supported", "init-failed"
+    message: string;
+}
+
+// Define the hook's return type
 interface SpeechRecognitionHook {
     start: () => Promise<void>;
     stop: () => void;
     startAudioVisualization: (canvas: HTMLCanvasElement) => void;
 }
-
+// Define props with extended error handling
 interface SpeechRecognitionProps {
     onStart: () => void;
     onEnd: () => void;
-    onError: (event: SpeechRecognitionErrorEvent) => void;
+    onError: (error: SpeechRecognitionErrorEvent | CustomSpeechError) => void;
     onResult: (finalTranscript: string, interimTranscript: string) => void;
 }
 
-const useSpeechRecognition = ({
-    onStart,
-    onEnd,
-    onError,
-    onResult,
-}: SpeechRecognitionProps): SpeechRecognitionHook => {
+export const useSpeechRecognition = ({ onStart, onEnd, onError, onResult }: SpeechRecognitionProps): SpeechRecognitionHook => {
     const recognition = useRef<SpeechRecognition | null>(null);
     const audioContext = useRef<AudioContext | null>(null);
     const analyser = useRef<AnalyserNode | null>(null);
@@ -31,43 +33,32 @@ const useSpeechRecognition = ({
     const shouldRestart = useRef(false);
     const isRestartingRef = useRef(false); // New ref to track if we're in the process of restarting
 
-    const { addEntry } = usePerformance();
+    // const { addEntry } = usePerformance();
 
     const start = useCallback(async () => {
         shouldRestart.current = true; // Enable automatic restarting
 
         if (!recognition.current) {
-            recognition.current = new (window.SpeechRecognition ||
-                window.webkitSpeechRecognition)();
+            recognition.current = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
             recognition.current.continuous = true;
             recognition.current.interimResults = true;
 
             // onstart - start the recognition
             recognition.current.onstart = () => {
                 onStart();
-                performance.mark("speechRecognition_onstart");
-                performance.measure(
-                    "speechRecognition_setup_time",
-                    "speechRecognition_start",
-                    "speechRecognition_onstart",
-                );
-                const measures = performance.getEntriesByName(
-                    "speechRecognition_setup_time",
-                );
-                if (measures.length > 0) {
-                    const measure = measures[0];
-                    addEntry({
-                        name: "speechRecognition_setup_time",
-                        duration: measure.duration,
-                        startTime: measure.startTime,
-                        endTime: measure.startTime + measure.duration,
-                    });
-                    logger.performance(
-                        `Speech recognition setup time: ${measure.duration.toFixed(
-                            2,
-                        )}ms`,
-                    );
-                }
+                // performance.mark('speechRecognition_onstart');
+                // performance.measure('speechRecognition_setup_time', 'speechRecognition_start', 'speechRecognition_onstart');
+                // const measures = performance.getEntriesByName('speechRecognition_setup_time');
+                // if (measures.length > 0) {
+                //     const measure = measures[0];
+                // addEntry({
+                //     name: "speechRecognition_setup_time",
+                //     duration: measure.duration,
+                //     startTime: measure.startTime,
+                //     endTime: measure.startTime + measure.duration,
+                // });
+                //     logger.performance(`Speech recognition setup time: ${measure.duration.toFixed(2)}ms`);
+                // }
                 isRestartingRef.current = false; // Clear the restarting flag when successfully started
             };
 
@@ -82,38 +73,28 @@ const useSpeechRecognition = ({
                             recognition.current?.start();
                         } catch (error) {
                             isRestartingRef.current = false; // Clear the flag if failed
-                            logger.error(
-                                `Failed to restart speech recognition after end: ${
-                                    (error as Error).message
-                                }`,
-                            );
+                            logger.error(`Failed to restart speech recognition after end: ${(error as Error).message}`);
                         }
                     }, 500); // 500ms delay
                 }
             };
 
             // onerror - handle errors with a delayed restart approach
-            recognition.current.onerror = (
-                event: SpeechRecognitionErrorEvent,
-            ) => {
+            recognition.current.onerror = (event: SpeechRecognitionErrorEvent) => {
                 onError(event);
 
                 if (shouldRestart.current && !isRestartingRef.current) {
                     isRestartingRef.current = true; // Set the restarting flag
 
                     // For network errors, use a longer delay
-                    const delay = event.error === "network" ? 2000 : 1000;
+                    const delay = event.error === 'network' ? 2000 : 1000;
 
                     // Attempt to stop recognition first (ignore errors if already stopped)
                     try {
                         recognition.current?.stop();
                     } catch (stopError) {
                         // Just log the error but continue with restart
-                        logger.debug(
-                            `Error while stopping recognition for restart: ${
-                                (stopError as Error).message
-                            }`,
-                        );
+                        logger.debug(`Error while stopping recognition for restart: ${(stopError as Error).message}`);
                     }
 
                     // Attempt to restart after delay
@@ -122,11 +103,7 @@ const useSpeechRecognition = ({
                             recognition.current?.start();
                         } catch (error) {
                             isRestartingRef.current = false; // Clear the flag if failed
-                            logger.error(
-                                `Failed to restart speech recognition after error: ${
-                                    (error as Error).message
-                                }`,
-                            );
+                            logger.error(`Failed to restart speech recognition after error: ${(error as Error).message}`);
                         }
                     }, delay);
                 }
@@ -134,8 +111,8 @@ const useSpeechRecognition = ({
 
             // onresult - process the result
             recognition.current.onresult = (event: SpeechRecognitionEvent) => {
-                let interimTranscript = "";
-                let finalTranscript = "";
+                let interimTranscript = '';
+                let finalTranscript = '';
 
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
@@ -149,7 +126,7 @@ const useSpeechRecognition = ({
             };
         }
 
-        performance.mark("speechRecognition_start");
+        // performance.mark('speechRecognition_start');
 
         // Ensure we're not trying to start while already starting
         if (!isRestartingRef.current) {
@@ -162,15 +139,11 @@ const useSpeechRecognition = ({
                     recognition.current?.start();
                 } catch (error) {
                     isRestartingRef.current = false;
-                    logger.error(
-                        `Failed to start speech recognition: ${
-                            (error as Error).message
-                        }`,
-                    );
+                    logger.error(`Failed to start speech recognition: ${(error as Error).message}`);
                 }
             }, 100);
         }
-    }, [onStart, onEnd, onError, onResult, addEntry]);
+    }, [onStart, onEnd, onError, onResult]);
 
     const stop = useCallback(() => {
         shouldRestart.current = false; // Disable automatic restarting
@@ -180,9 +153,7 @@ const useSpeechRecognition = ({
             try {
                 recognition.current.stop();
             } catch (error) {
-                logger.error(
-                    `Error stopping recognition: ${(error as Error).message}`,
-                );
+                logger.error(`Error stopping recognition: ${(error as Error).message}`);
             }
         }
 
@@ -197,7 +168,7 @@ const useSpeechRecognition = ({
         }
 
         if (mediaStream.current) {
-            mediaStream.current.getTracks().forEach((track) => track.stop());
+            mediaStream.current.getTracks().forEach(track => track.stop());
             mediaStream.current = null;
         }
 
@@ -205,29 +176,70 @@ const useSpeechRecognition = ({
             try {
                 audioContext.current.close();
             } catch (error) {
-                logger.error(
-                    `Error closing audio context: ${(error as Error).message}`,
-                );
+                logger.error(`Error closing audio context: ${(error as Error).message}`);
             }
             audioContext.current = null;
         }
     }, []);
 
+    // const startAudioVisualization = useCallback((canvas: HTMLCanvasElement) => {
+    //     const canvasCtx = canvas.getContext('2d');
+    //     if (!canvasCtx) return;
+
+    //     audioContext.current = new (window.AudioContext || window.AudioContext)();
+    //     analyser.current = audioContext.current.createAnalyser();
+    //     analyser.current.fftSize = 256;
+
+    //     navigator.mediaDevices
+    //         .getUserMedia({ audio: true, video: false })
+    //         .then(stream => {
+    //             mediaStream.current = stream;
+    //             microphone.current = audioContext.current!.createMediaStreamSource(stream);
+    //             microphone.current.connect(analyser.current!);
+
+    //             const bufferLength = analyser.current!.frequencyBinCount;
+    //             const dataArray = new Uint8Array(bufferLength);
+
+    //             const draw = () => {
+    //                 animationFrameId.current = requestAnimationFrame(draw);
+    //                 analyser.current!.getByteFrequencyData(dataArray);
+
+    //                 canvasCtx.fillStyle = 'rgb(25, 25, 25)';
+    //                 canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+    //                 const barWidth = (canvas.width / bufferLength) * 2.5;
+    //                 let x = 0;
+
+    //                 for (let i = 0; i < bufferLength; i++) {
+    //                     const barHeight = (dataArray[i] / 255) * (canvas.height * 0.6); // Reduce bar height to 60% of canvas height
+
+    //                     canvasCtx.fillStyle = `rgb(50, ${dataArray[i] + 100}, 50)`;
+    //                     canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+
+    //                     x += barWidth + 1;
+    //                     if (x > canvas.width) break; // Prevent drawing outside the canvas
+    //                 }
+    //             };
+
+    //             draw();
+    //         })
+    //         .catch(err => console.error('Error accessing microphone:', err));
+    // }, []);
+
     const startAudioVisualization = useCallback((canvas: HTMLCanvasElement) => {
-        const canvasCtx = canvas.getContext("2d");
+        const canvasCtx = canvas.getContext('2d');
         if (!canvasCtx) return;
 
-        audioContext.current = new (window.AudioContext ||
-            window.AudioContext)();
+        audioContext.current = new (window.AudioContext || window.AudioContext)();
         analyser.current = audioContext.current.createAnalyser();
-        analyser.current.fftSize = 256;
+        analyser.current.fftSize = 128; // Reduced for fewer bars in narrow space
+        analyser.current.smoothingTimeConstant = 0.8;
 
         navigator.mediaDevices
             .getUserMedia({ audio: true, video: false })
-            .then((stream) => {
+            .then(stream => {
                 mediaStream.current = stream;
-                microphone.current =
-                    audioContext.current!.createMediaStreamSource(stream);
+                microphone.current = audioContext.current!.createMediaStreamSource(stream);
                 microphone.current.connect(analyser.current!);
 
                 const bufferLength = analyser.current!.frequencyBinCount;
@@ -237,37 +249,43 @@ const useSpeechRecognition = ({
                     animationFrameId.current = requestAnimationFrame(draw);
                     analyser.current!.getByteFrequencyData(dataArray);
 
-                    canvasCtx.fillStyle = "rgb(25, 25, 25)";
+                    // Clear canvas with dark background
+                    canvasCtx.fillStyle = 'rgb(25, 25, 25)';
                     canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-                    const barWidth = (canvas.width / bufferLength) * 2.5;
-                    let x = 0;
+                    // Calculate bar dimensions for vertical layout
+                    const barHeight = (canvas.height / bufferLength) * 1.5; // Spacing between bars
+                    const maxBarWidth = canvas.width * 0.8; // Maximum width of bars
+                    let y = 0;
 
-                    for (let i = 0; i < bufferLength; i++) {
-                        const barHeight =
-                            (dataArray[i] / 255) * (canvas.height * 0.6); // Reduce bar height to 60% of canvas height
+                    // Draw vertical bars from bottom to top
+                    for (let i = 0; i < Math.min(bufferLength, Math.floor(canvas.height / (barHeight + 1))); i++) {
+                        const barWidth = (dataArray[i] / 255) * maxBarWidth;
 
-                        canvasCtx.fillStyle = `rgb(50, ${
-                            dataArray[i] + 100
-                        }, 50)`;
-                        canvasCtx.fillRect(
-                            x,
-                            canvas.height - barHeight,
-                            barWidth,
-                            barHeight,
-                        );
+                        // Create gradient effect based on frequency data
+                        const intensity = dataArray[i];
+                        canvasCtx.fillStyle = `rgb(${Math.min(intensity + 50, 255)}, ${Math.min(intensity + 100, 255)}, 50)`;
 
-                        x += barWidth + 1;
-                        if (x > canvas.width) break; // Prevent drawing outside the canvas
+                        // Center the bar horizontally
+                        const x = (canvas.width - barWidth) / 2;
+
+                        // Draw from bottom up
+                        const barY = canvas.height - y - barHeight;
+                        canvasCtx.fillRect(x, barY, barWidth, barHeight - 1);
+
+                        y += barHeight;
+                        if (y > canvas.height) break;
                     }
                 };
 
                 draw();
             })
-            .catch((err) => console.error("Error accessing microphone:", err));
+            .catch(err => console.error('Error accessing microphone:', err));
     }, []);
 
-    return { start, stop, startAudioVisualization };
+    return {
+        start,
+        stop,
+        startAudioVisualization,
+    };
 };
-
-export default useSpeechRecognition;

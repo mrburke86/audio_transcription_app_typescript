@@ -1,8 +1,8 @@
 // src/hooks/useTranscriptions.ts
-import { useCallback, useState, useEffect } from "react";
-import { Message } from "../types/Message";
-import { logger } from "@/modules/Logger";
-import { formatTimestamp } from "@/utils/helpers";
+import { useCallback, useState, useEffect } from 'react';
+import { Message } from '../types/Message';
+import { logger } from '@/modules/Logger';
+import { formatTimestamp } from '@/utils/helpers';
 
 interface UseTranscriptionsProps {
     generateResponse: (message: string) => Promise<void>;
@@ -10,16 +10,9 @@ interface UseTranscriptionsProps {
     isStreamingComplete: boolean;
 }
 
-const useTranscriptions = ({
-    generateResponse,
-    streamedContent,
-    isStreamingComplete,
-}: UseTranscriptionsProps) => {
-    const [interimTranscriptions, setInterimTranscriptions] = useState<
-        Message[]
-    >([]);
-    const [currentInterimTranscript, setCurrentInterimTranscript] =
-        useState<string>("");
+export const useTranscriptions = ({ generateResponse, streamedContent, isStreamingComplete }: UseTranscriptionsProps) => {
+    const [interimTranscriptions, setInterimTranscriptions] = useState<Message[]>([]);
+    const [currentInterimTranscript, setCurrentInterimTranscript] = useState<string>('');
     const [userMessages, setUserMessages] = useState<Message[]>([]);
 
     // Handle the recognition result
@@ -30,7 +23,7 @@ const useTranscriptions = ({
                     ...prev,
                     {
                         content: finalTranscript.trim(),
-                        type: "interim",
+                        type: 'interim',
                         timestamp: formatTimestamp(new Date()),
                     },
                 ]);
@@ -38,27 +31,22 @@ const useTranscriptions = ({
             if (interimTranscript) {
                 setCurrentInterimTranscript(interimTranscript.trim());
             } else {
-                setCurrentInterimTranscript("");
+                setCurrentInterimTranscript('');
             }
         },
-        [setInterimTranscriptions, setCurrentInterimTranscript],
+        [setInterimTranscriptions, setCurrentInterimTranscript]
     );
 
     const handleMove = useCallback(async () => {
-        const allTranscriptions = [
-            ...interimTranscriptions.map((msg) => msg.content),
-            currentInterimTranscript,
-        ]
-            .join(" ")
-            .trim();
+        const allTranscriptions = [...interimTranscriptions.map(msg => msg.content), currentInterimTranscript].join(' ').trim();
 
-        if (allTranscriptions === "") return;
+        if (allTranscriptions === '') return;
 
         setUserMessages((prev: Message[]) => [
             ...prev,
             {
                 content: allTranscriptions,
-                type: "user",
+                type: 'user',
                 timestamp: formatTimestamp(new Date()),
             },
         ]);
@@ -66,18 +54,16 @@ const useTranscriptions = ({
         try {
             await generateResponse(allTranscriptions);
         } catch (error) {
-            logger.error(
-                `Error generating response: ${(error as Error).message}`,
-            );
+            logger.error(`Error generating response: ${(error as Error).message}`);
         }
 
         setInterimTranscriptions([]);
-        setCurrentInterimTranscript("");
+        setCurrentInterimTranscript('');
     }, [interimTranscriptions, currentInterimTranscript, generateResponse]);
 
     const handleClear = useCallback(() => {
         setInterimTranscriptions([]);
-        setCurrentInterimTranscript("");
+        setCurrentInterimTranscript('');
         setUserMessages([]);
         logger.clearLogs();
     }, []);
@@ -88,7 +74,7 @@ const useTranscriptions = ({
                 ...prev,
                 {
                     content: streamedContent,
-                    type: "assistant",
+                    type: 'assistant',
                     timestamp: formatTimestamp(new Date()),
                 },
             ]);
@@ -105,5 +91,3 @@ const useTranscriptions = ({
         handleRecognitionResult,
     };
 };
-
-export default useTranscriptions;
