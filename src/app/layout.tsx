@@ -2,16 +2,10 @@
 import { Inter } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
 import { CustomToaster } from '@/components/ui/custom-toaster';
-// import Nav from "@/components/layout/Nav";
-// import Sidebar from "@/components/layout/Sidebar";
-import '@/styles/globals.css';
-// import { AppSidebar } from '@/components/app-sidebar';
-// import { SidebarLayout, SidebarTrigger } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
-// import { PerformanceProvider } from "@/contexts/PerformanceContext";
-// import ClientProviders from "@/components/ClientProviders";
+import '@/styles/globals.css';
 import { TailwindIndicator } from '@/components/global/tailwind-indicator';
-import { ThemeToggle } from '@/components/layout/theme-toggle';
+import { ThemeToggle } from '@/components/global/theme-toggle';
 import { KnowledgeProvider } from '@/contexts/KnowledgeProvider';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -32,16 +26,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 )}
             >
                 <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-                    {/* Add KnowledgeProvider to load ETQ markdown files */}
                     <KnowledgeProvider basePath="/knowledge">
-                        {/* <SidebarLayout defaultOpen={cookies().get('sidebar:state')?.value === 'true'}> */} {/* <AppSidebar /> */}
-                        {/* <ClientProviders> */}
                         <main className="flex flex-1 flex-col transition-all duration-300 ease-in-out rounded-sm p-1 h-screen">
-                            {/* <SidebarTrigger /> */}
                             {children}
                         </main>
-                        {/* </ClientProviders> */}
-                        {/* </SidebarLayout> */}
                     </KnowledgeProvider>
                     <CustomToaster />
                     <TailwindIndicator />

@@ -1,5 +1,4 @@
-// // src/components/chat/RoleDescriptionModal.tsx
-
+// //
 // import React, { useEffect, useState } from 'react';
 // import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 // import { Button, Textarea } from '@/components/ui';
@@ -9,7 +8,7 @@
 //     onSubmit: (roleDescription: string) => void;
 // }
 
-// const RoleDescriptionModal: React.FC<RoleDescriptionModalProps> = ({ onSubmit }) => {
+// export const RoleDescriptionModal: React.FC<RoleDescriptionModalProps> = ({ onSubmit }) => {
 //     const [inputValue, setInputValue] = useState('');
 //     const [error, setError] = useState('');
 
@@ -141,5 +140,3 @@
 //         );
 //     }
 // };
-
-// export default RoleDescriptionModal;

@@ -1,22 +1,24 @@
 // src\app\chat\page.tsx
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-    TopNavigationBar,
-    RoleDescriptionModal,
-    LiveTranscriptionBox,
-    ConversationContext,
-    ConversationInsights,
-    VoiceControls,
-    MemoizedChatMessagesBox,
-} from './_components';
-import { useKnowledge } from '@/contexts';
 import { Button, Card, CardContent, CardHeader, CardTitle, Separator } from '@/components/ui';
-import { AlertTriangle, ArrowRight, MessageSquare } from 'lucide-react';
+import { useKnowledge } from '@/contexts';
 import { CustomSpeechError, useLLMProviderOptimized, useSpeechRecognition, useTranscriptions } from '@/hooks';
 import { logger } from '@/modules';
-import { Message } from '@/types';
+import { InitialInterviewContext, Message } from '@/types';
+import { ArrowRight, MessageSquare } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+    ConversationContext,
+    ConversationInsights,
+    ErrorState,
+    InitialInterviewContextModal,
+    LiveTranscriptionBox,
+    LoadingState,
+    MemoizedChatMessagesBox,
+    TopNavigationBar,
+    VoiceControls,
+} from './_components';
 
 export default function ChatPage() {
     // Knowledge context for the optimized system
@@ -25,16 +27,13 @@ export default function ChatPage() {
     // Unified Conversation History (from userMessages)
     const [conversationHistory, setConversationHistory] = useState<Message[]>([]);
 
-    // Goals/Milestones State
-    const [goals, setGoals] = useState<string[]>([]);
-
     const [recognitionStatus, setRecognitionStatus] = useState<'inactive' | 'active' | 'error'>('inactive');
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const visualizationStartedRef = useRef(false);
 
     // State to manage roleDescription
-    const [roleDescriptionState, setRoleDescriptionState] = useState<string>('');
+    const [initialInterviewContext, setInitialInterviewContext] = useState<InitialInterviewContext | null>(null);
 
     // State to manage the display of the modal
     const [showRoleModal, setShowRoleModal] = useState<boolean>(false);
@@ -66,12 +65,12 @@ export default function ChatPage() {
         }
     }, []);
 
-    // Show modal on mount if roleDescription is empty
+    // Show modal on mount if initial interview context is empty
     useEffect(() => {
-        if (!roleDescriptionState || roleDescriptionState.trim() === '') {
+        if (!initialInterviewContext) {
             setShowRoleModal(true);
         }
-    }, [roleDescriptionState]);
+    }, [initialInterviewContext]);
 
     const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
     // Use the optimized LLM provider instead of the old one
@@ -85,13 +84,7 @@ export default function ChatPage() {
         isStreamingComplete,
         conversationSummary,
         conversationSuggestions,
-    } = useLLMProviderOptimized(
-        apiKey || '',
-        // assistantId, // Removed - no longer needed for Chat Completions API
-        roleDescriptionState,
-        conversationHistory,
-        goals
-    );
+    } = useLLMProviderOptimized(apiKey || '', initialInterviewContext || null, conversationHistory);
 
     const {
         interimTranscriptions,
@@ -200,54 +193,21 @@ export default function ChatPage() {
 
     // Show full-screen loading if knowledge is still loading
     if (knowledgeLoading) {
-        return (
-            <div className="flex flex-col items-center justify-center h-full p-8">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-6"></div>
-                    <h2 className="text-xl font-semibold text-gray-700 mb-2">Loading Knowledge Base</h2>
-                    <p className="text-gray-600">Initializing ETQ product knowledge...</p>
-                    <p className="text-sm text-gray-500 mt-2">This may take a moment on first load</p>
-                </div>
-            </div>
-        );
+        return <LoadingState />;
     }
 
     // Show error if knowledge failed to load
     if (knowledgeError) {
-        return (
-            <div className="flex flex-col items-center justify-center h-full p-8">
-                <div className="text-center">
-                    <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-6" />
-                    <h2 className="text-xl font-semibold text-red-700 mb-2">Knowledge Base Load Failed</h2>
-                    <p className="text-red-600 mb-4">{knowledgeError}</p>
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-left">
-                        <h3 className="font-semibold text-red-800 mb-2">Troubleshooting:</h3>
-                        <ul className="text-sm text-red-700 space-y-1">
-                            <li>
-                                • Ensure ETQ markdown files are in <code>public/knowledge/</code>
-                            </li>
-                            <li>• Check that all 25 files are present and accessible</li>
-                            <li>• Verify file permissions and server configuration</li>
-                        </ul>
-                    </div>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                    >
-                        Retry
-                    </button>
-                </div>
-            </div>
-        );
+        return <ErrorState knowledgeError={knowledgeError} onRetry={() => window.location.reload()} />;
     }
 
     return (
         <div className="flex flex-col h-full overflow-hidden p-1 gap-4">
             {/* Role Description Modal */}
             {showRoleModal && (
-                <RoleDescriptionModal
-                    onSubmit={newRoleDescription => {
-                        setRoleDescriptionState(newRoleDescription);
+                <InitialInterviewContextModal
+                    onSubmit={newContext => {
+                        setInitialInterviewContext(newContext);
                         setShowRoleModal(false);
                     }}
                 />
@@ -329,7 +289,7 @@ export default function ChatPage() {
                         {/* Row 1 - Transcription Controls and Audio Visualiser */}
                         {/* Row 2 - Conversation Summary */}
                         <div className="overflow-hidden scroll-smooth">
-                            <ConversationContext summary={conversationSummary} goals={goals} />
+                            <ConversationContext summary={conversationSummary} goals={initialInterviewContext?.goals || []} />
                         </div>
                         {/* Row 3 - Conversation Suggestions */}
                         <div className="overflow-hidden scroll-smooth">
