@@ -25,7 +25,7 @@ export function ResponsesContextTab({ context, setContext }: ResponsesContextTab
                         <label className="text-sm font-medium">Response Confidence Level</label>
                         <Select
                             value={context.responseConfidence}
-                            onValueChange={(value: 'safe' | 'balanced' | 'bold') =>
+                            onValueChange={(value: 'conservative' | 'balanced' | 'confident') =>
                                 setContext(prev => ({ ...prev, responseConfidence: value }))
                             }
                         >
@@ -39,11 +39,11 @@ export function ResponsesContextTab({ context, setContext }: ResponsesContextTab
                             </SelectContent>
                         </Select>
                         <p className="text-xs text-gray-500 mt-1">
-                            {context.responseConfidence === 'safe' &&
+                            {context.responseConfidence === 'conservative' &&
                                 'Generates safe, proven responses that emphasize your strengths without risk'}
                             {context.responseConfidence === 'balanced' &&
                                 'Balanced responses that show authenticity and learning from challenges'}
-                            {context.responseConfidence === 'bold' &&
+                            {context.responseConfidence === 'confident' &&
                                 'Confident responses that challenge assumptions and demonstrate executive presence'}
                         </p>
                     </div>
@@ -52,7 +52,7 @@ export function ResponsesContextTab({ context, setContext }: ResponsesContextTab
                         <label className="text-sm font-medium">Response Structure</label>
                         <Select
                             value={context.responseStructure}
-                            onValueChange={(value: 'story-driven' | 'framework-based' | 'conversational') =>
+                            onValueChange={(value: 'story-driven' | 'data-driven' | 'hybrid') =>
                                 setContext(prev => ({ ...prev, responseStructure: value }))
                             }
                         >
@@ -67,10 +67,11 @@ export function ResponsesContextTab({ context, setContext }: ResponsesContextTab
                         </Select>
                         <p className="text-xs text-gray-500 mt-1">
                             {context.responseStructure === 'story-driven' &&
-                                'Detailed stories with specific examples, numbers, and outcomes'}
-                            {context.responseStructure === 'framework-based' &&
-                                'Structured responses using proven methodologies (MEDDPICC, etc.)'}
-                            {context.responseStructure === 'conversational' && 'Natural-sounding responses that are easy to speak aloud'}
+                                'Rich narrative examples using STAR method with situational context and outcomes'}
+                            {context.responseStructure === 'data-driven' &&
+                                'Responses focused on specific metrics, KPIs, percentages, and quantified achievements'}
+                            {context.responseStructure === 'hybrid' &&
+                                'Compelling stories enhanced with specific data points and measurable results'}
                         </p>
                     </div>
 

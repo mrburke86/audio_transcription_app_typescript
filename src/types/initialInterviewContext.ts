@@ -5,13 +5,13 @@ export interface InitialInterviewContext {
     interviewType: 'behavioral' | 'technical' | 'case-study' | 'sales' | 'leadership' | 'mixed';
     targetRole: string;
     targetCompany: string;
-    companySizeType: 'startup' | 'scaleup' | 'mid-market' | 'enterprise' | 'public';
+    companySizeType: 'scaleup' | 'mid-market' | 'enterprise' | 'public';
     industry: string;
     seniorityLevel: 'senior-ic' | 'lead' | 'manager' | 'director' | 'vp' | 'c-level';
 
     // Response Generation Settings
-    responseConfidence: 'safe' | 'balanced' | 'bold';
-    responseStructure: 'story-driven' | 'framework-based' | 'conversational';
+    responseConfidence: 'conservative' | 'balanced' | 'confident';
+    responseStructure: 'story-driven' | 'data-driven' | 'hybrid';
     contextDepth: number;
     includeMetrics: boolean;
 

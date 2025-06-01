@@ -89,7 +89,7 @@ export function InterviewContextTab({ context, setContext }: InterviewContextTab
                             <label className="text-sm font-medium">Company Size</label>
                             <Select
                                 value={context.companySizeType}
-                                onValueChange={(value: 'startup' | 'scaleup' | 'mid-market' | 'enterprise' | 'public') =>
+                                onValueChange={(value: 'scaleup' | 'mid-market' | 'enterprise' | 'public') =>
                                     setContext(prev => ({ ...prev, companySizeType: value }))
                                 }
                             >

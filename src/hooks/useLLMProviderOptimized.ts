@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/hooks/useLLMProviderOptimized.ts
 'use client';
 
@@ -15,6 +16,7 @@ import {
     StrategicAnalysis,
     OpenAIModelName,
     Message,
+    ChatMessageParam,
 } from '@/types';
 import {
     createAnalysisUserPrompt,
@@ -26,6 +28,8 @@ import {
     createSummarisationSystemPrompt,
     createSummarisationUserPrompt,
 } from '@/utils';
+import { ILLMService, LLMRequestOptions } from '@/types'; // Adjust path if you place it elsewhere
+import { OpenAILLMService } from '@/services/OpenAILLMService'; // Adjust path
 
 const COMPONENT_ID = 'useLLMProviderOptimized';
 
@@ -85,14 +89,16 @@ export const useLLMProviderOptimized = (
     conversationHistory: Message[]
 ): LLMProviderHook => {
     const [state, dispatch] = useReducer(reducer, initialState);
-    const [openai, setOpenai] = useState<OpenAI | null>(null);
+
+    // State for the LLM service instance
+    const [llmService, setLlmService] = useState<ILLMService | null>(null);
 
     // Use knowledge context for file access
     const { searchRelevantFiles, isLoading: knowledgeLoading, error: knowledgeError } = useKnowledge();
 
     const streamedContentRef = useRef<string>('');
     const firstChunkReceivedRef = useRef<boolean>(false);
-    const latestUserMessageRef = useRef<string>('');
+    const latestUserMessageRef = useRef<string>(''); // To track the last user message for suggestions trigger
 
     const { isLoading, error, streamedContent, isStreamingComplete, conversationSummary, conversationSuggestions } = state;
 
@@ -100,70 +106,98 @@ export const useLLMProviderOptimized = (
     const goals = initialInterviewContext?.goals || [];
 
     // Handle errors
-    const handleError = useCallback((errorInstance: unknown, queryId: string = 'general', context: string = 'generateResponse') => {
+    const handleError = useCallback((errorInstance: unknown, queryId: string = 'general', context: string = 'LLMProvider') => {
         let errorMessage = 'An unexpected error occurred.';
         if (errorInstance instanceof Error) {
             const errorText = errorInstance.message.toLowerCase();
-            if (errorText.includes('invalid_api_key')) errorMessage = 'Invalid API key.';
+            if (errorText.includes('invalid_api_key') || errorText.includes('api key')) errorMessage = 'Invalid API key.';
             else if (errorText.includes('rate_limit_exceeded')) errorMessage = 'Rate limit exceeded.';
             else if (errorText.includes('network')) errorMessage = 'Network error.';
             else errorMessage = errorInstance.message;
-
             logger.error(`[${COMPONENT_ID}][${queryId}] ❌ Error in ${context}: ${errorMessage}`);
-            // loglog.error(`Error in ${context}: ${errorMessage}`, queryId);
         } else {
             logger.error(`[${COMPONENT_ID}][${queryId}] ❌ Unknown error in ${context}`);
-            // loglog.error('Unknown error occurred.', queryId);
         }
         dispatch({ type: 'SET_ERROR', payload: errorMessage });
         dispatch({ type: 'SET_LOADING', payload: false });
     }, []);
 
-    // Initialize OpenAI client
-    const initializeOpenAI = useCallback(async () => {
-        if (!apiKey) {
-            logger.error(`[${COMPONENT_ID}] ❌ API key is missing...`);
-            return;
-        }
-
-        try {
-            const { default: OpenAIModule } = await import('openai');
-            const client = new OpenAIModule({
-                apiKey,
-                dangerouslyAllowBrowser: true,
-            });
-            setOpenai(client);
-            logger.info(`[${COMPONENT_ID}] ✅ OpenAI client initialized successfully.`);
-        } catch (error) {
-            logger.error(`[${COMPONENT_ID}] ❌ Error initializing OpenAI client: ${(error as Error).message}`);
-        }
-    }, [apiKey]);
-
+    // Initialize LLM Service
     useEffect(() => {
-        initializeOpenAI();
-    }, [initializeOpenAI]);
+        if (apiKey) {
+            try {
+                setLlmService(new OpenAILLMService(apiKey));
+                logger.info(`[${COMPONENT_ID}] ✅ LLM Service (OpenAI) initialized successfully.`);
+            } catch (e) {
+                logger.error(`[${COMPONENT_ID}] ❌ Error initializing LLM Service: ${(e as Error).message}`);
+                handleError(e, 'initialization', 'LLMServiceSetup');
+            }
+        } else {
+            logger.error(`[${COMPONENT_ID}] ❌ API key is missing. LLM Service not initialized.`);
+            dispatch({ type: 'SET_ERROR', payload: 'API key is missing for LLM Service.' });
+        }
+    }, [apiKey, handleError]);
+
+    // const initializeOpenAI = useCallback(async () => {
+    //     if (!apiKey) {
+    //         logger.error(`[${COMPONENT_ID}] ❌ API key is missing...`);
+    //         return;
+    //     }
+
+    //     try {
+    //         const { default: OpenAIModule } = await import('openai');
+    //         const client = new OpenAIModule({
+    //             apiKey,
+    //             dangerouslyAllowBrowser: true,
+    //         });
+    //         setOpenai(client);
+    //         logger.info(`[${COMPONENT_ID}] ✅ OpenAI client initialized successfully.`);
+    //     } catch (error) {
+    //         logger.error(`[${COMPONENT_ID}] ❌ Error initializing OpenAI client: ${(error as Error).message}`);
+    //     }
+    // }, [apiKey]);
+
+    // useEffect(() => {
+    //     initializeOpenAI();
+    // }, [initializeOpenAI]);
 
     // Build context from relevant knowledge files
     const buildKnowledgeContext = BuildKnowledgeContext(searchRelevantFiles);
 
     // Main response generation function using Chat Completions API
+    // const generateResponse = useGenerateResponse({
+    //     knowledgeLoading,
+    //     dispatch,
+    //     knowledgeError,
+    //     firstChunkReceivedRef,
+    //     buildKnowledgeContext,
+    //     initialInterviewContext,
+    //     goals,
+    //     state,
+    //     llmService,
+    //     streamedContentRef,
+    //     handleError,
+    // });
+
     const generateResponse = useGenerateResponse({
+        llmService,
+        handleError,
         knowledgeLoading,
         dispatch,
         knowledgeError,
+        latestUserMessageRef,
         firstChunkReceivedRef,
+        streamedContentRef,
         buildKnowledgeContext,
         initialInterviewContext,
         goals,
+        conversationSummary,
         state,
-        openai,
-        streamedContentRef,
-        handleError,
     });
 
     // Simplified suggestions generation (same pattern as main response)
     const generateSuggestions = useGenerateSuggestions({
-        openai,
+        llmService,
         knowledgeLoading,
         dispatch,
         latestUserMessageRef,
@@ -177,50 +211,41 @@ export const useLLMProviderOptimized = (
 
     // Auto-summarization (simplified)
     const summarizeConversation = useCallback(
-        async (history: Message[]): Promise<void> => {
-            if (!openai || history.length === 0) return;
-
+        async (currentHistory: Message[]): Promise<void> => {
+            if (!llmService || currentHistory.length === 0 || !initialInterviewContext) {
+                logger.info(`[${COMPONENT_ID}] Summarization skipped (service, history, or context missing).`);
+                return;
+            }
+            dispatch({ type: 'SET_LOADING', payload: true }); // Indicate loading for summarization
+            logger.info(`[${COMPONENT_ID}] 🔄 Starting conversation summarization`);
             try {
-                const conversationText = history.map(msg => `${msg.type === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n');
+                const conversationText = currentHistory
+                    .map(msg => `${msg.type === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+                    .join('\n');
 
                 // Updated: Remove goals parameter, use conversationSummary as existingSummary
                 const summarisationUserPrompt = createSummarisationUserPrompt(
                     conversationText,
-                    initialInterviewContext || ({} as InitialInterviewContext),
-                    conversationSummary // This becomes the "existingSummary" parameter
+                    initialInterviewContext, // Pass context
+                    conversationSummary // existingSummary
                 );
 
-                const response = await openai.chat.completions.create({
-                    model: 'gpt-4o-mini' as OpenAIModelName,
-                    messages: [
-                        {
-                            role: 'system',
-                            content: createSummarisationSystemPrompt,
-                        },
-                        { role: 'user', content: summarisationUserPrompt },
-                    ],
-                    max_tokens: 500,
-                    temperature: 0.5,
-                });
+                const messages: ChatMessageParam[] = [
+                    { role: 'system', content: createSummarisationSystemPrompt },
+                    { role: 'user', content: summarisationUserPrompt },
+                ];
+                const options: LLMRequestOptions = { model: 'gpt-4o-mini', temperature: 0.5 };
 
-                const newSummarySegment = response.choices[0]?.message.content?.trim() || '';
-
-                // Updated: Append new summary to existing summary instead of replacing
+                const newSummarySegment = await llmService.generateCompleteResponse(messages, options);
                 const updatedSummary = conversationSummary ? `${conversationSummary}\n\n---\n\n${newSummarySegment}` : newSummarySegment;
 
-                dispatch({
-                    type: 'SET_CONVERSATION_SUMMARY',
-                    payload: updatedSummary,
-                });
-
-                logger.info(
-                    `[${COMPONENT_ID}] ✅ Summary updated: ${newSummarySegment.length} chars added, total: ${updatedSummary.length} chars`
-                );
+                dispatch({ type: 'SET_CONVERSATION_SUMMARY', payload: updatedSummary });
+                logger.info(`[${COMPONENT_ID}] ✅ Summarization updated: ${newSummarySegment.length} chars added.`);
             } catch (err) {
                 logger.error(`[${COMPONENT_ID}] ❌ Error summarizing: ${(err as Error).message}`);
             }
         },
-        [openai, initialInterviewContext, conversationSummary] // Updated: Removed goals from dependencies
+        [llmService, initialInterviewContext, conversationSummary]
     );
 
     // Add a ref to track what we've already summarized
@@ -229,25 +254,21 @@ export const useLLMProviderOptimized = (
     // Auto-summarization effect
     useEffect(() => {
         const currentLength = conversationHistory.length;
-
-        const shouldSummarize = currentLength >= 1 && isStreamingComplete && currentLength > lastSummarizedLengthRef.current;
+        const shouldSummarize =
+            currentLength >= 1 &&
+            isStreamingComplete && // Ensure main response is complete
+            currentLength > lastSummarizedLengthRef.current &&
+            !isLoading; // Ensure no other LLM operation is in progress
 
         if (shouldSummarize) {
             logger.info(
-                `[${COMPONENT_ID}] 🔄 Triggering summarization for ${currentLength} messages (last summarized: ${lastSummarizedLengthRef.current})`
+                `[${COMPONENT_ID}] Triggering summarization for ${currentLength} messages (last summarized: ${lastSummarizedLengthRef.current})`
             );
-
-            lastSummarizedLengthRef.current = currentLength;
-            summarizeConversation(conversationHistory);
+            summarizeConversation(conversationHistory).then(() => {
+                lastSummarizedLengthRef.current = currentLength;
+            });
         }
-    }, [conversationHistory.length, isStreamingComplete, summarizeConversation]);
-
-    // Debug logging effect
-    useEffect(() => {
-        logger.debug(
-            `[${COMPONENT_ID}] 🔍 Effect dependencies changed: length=${conversationHistory.length}, streaming=${isStreamingComplete}, lastSummarized=${lastSummarizedLengthRef.current}`
-        );
-    }, [conversationHistory.length, isStreamingComplete]);
+    }, [conversationHistory, isStreamingComplete, summarizeConversation, isLoading]);
 
     return {
         generateResponse,
@@ -263,58 +284,61 @@ export const useLLMProviderOptimized = (
 
 // Generate Response
 interface UseGenerateResponseProps {
+    llmService: ILLMService | null;
+    handleError: (errorInstance: unknown, queryId?: string, context?: string) => void;
     knowledgeLoading: boolean;
     dispatch: Dispatch<LLMAction>;
     knowledgeError: string | null;
+    latestUserMessageRef: MutableRefObject<string>;
     firstChunkReceivedRef: MutableRefObject<boolean>;
+    streamedContentRef: MutableRefObject<string>;
     buildKnowledgeContext: (userMessage: string) => string;
     initialInterviewContext: InitialInterviewContext | null;
     goals: string[];
+    conversationSummary: string;
     state: LLMState;
-    openai: OpenAI | null;
-    streamedContentRef: MutableRefObject<string>;
-    handleError: (errorInstance: unknown, queryId?: string, context?: string) => void;
 }
 
 function useGenerateResponse({
+    llmService,
+    handleError,
     knowledgeLoading,
     dispatch,
     knowledgeError,
+    latestUserMessageRef,
     firstChunkReceivedRef,
+    streamedContentRef,
     buildKnowledgeContext,
     initialInterviewContext,
     goals,
+    conversationSummary,
     state,
-    openai,
-    streamedContentRef,
-    handleError,
 }: UseGenerateResponseProps) {
     return useCallback(
         async (userMessage: string): Promise<void> => {
-            if (knowledgeLoading) {
-                dispatch({
-                    type: 'SET_ERROR',
-                    payload: 'Knowledge base is still loading. Please wait...',
-                });
+            if (!llmService) {
+                handleError(new Error('LLM Service not initialized.'), 'generateResponse', 'Prerequisite');
                 return;
             }
-
+            if (knowledgeLoading) {
+                dispatch({ type: 'SET_ERROR', payload: 'Knowledge base is still loading. Please wait...' });
+                return;
+            }
             if (knowledgeError) {
-                dispatch({
-                    type: 'SET_ERROR',
-                    payload: `Knowledge base error: ${knowledgeError}`,
-                });
+                dispatch({ type: 'SET_ERROR', payload: `Knowledge base error: ${knowledgeError}` });
                 return;
             }
 
             const queryId = uuidv4();
+            latestUserMessageRef.current = userMessage; // Store for suggestion trigger
             firstChunkReceivedRef.current = false;
+            streamedContentRef.current = ''; // Reset ref for new stream
 
             dispatch({ type: 'SET_LOADING', payload: true });
             dispatch({ type: 'SET_ERROR', payload: null });
             dispatch({ type: 'RESET_STREAMED_CONTENT' });
 
-            logger.info(`[${COMPONENT_ID}][${queryId}] 🚀 Starting optimized response generation`);
+            logger.info(`[${COMPONENT_ID}][${queryId}] 🚀 Starting main response generation`);
             // loglog.info('🚀 Starting optimized response generation', queryId);
 
             try {
@@ -322,14 +346,14 @@ function useGenerateResponse({
                 const knowledgeContext = buildKnowledgeContext(userMessage);
 
                 // Build complete prompt with context
-                const systemPrompt = await createSystemPrompt(initialInterviewContext || ({} as InitialInterviewContext), goals);
-                const userPrompt = await createUserPrompt(userMessage, state.conversationSummary, knowledgeContext);
+                const systemPrompt = await createSystemPrompt(initialInterviewContext!, goals);
+                const userPromptContent = await createUserPrompt(userMessage, conversationSummary, knowledgeContext);
 
                 // ===== ENHANCED PROMPT LOGGING =====
                 DetailedPromptLogging({
                     queryId,
                     systemPrompt,
-                    userPrompt,
+                    userPrompt: userPromptContent,
                     initialInterviewContext,
                     goals,
                     state,
@@ -337,40 +361,32 @@ function useGenerateResponse({
                     userMessage,
                 });
 
-                if (!openai) throw new Error('OpenAI client not initialized');
+                const messages: ChatMessageParam[] = [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPromptContent },
+                ];
+                const options: LLMRequestOptions = { model: 'gpt-4o', temperature: 0.7 }; // Example options
 
-                logger.info(`[${COMPONENT_ID}][${queryId}] 🎯 Starting Chat Completions stream`);
-
-                // Use Chat Completions API with streaming
-                const stream = await openai.chat.completions.create({
-                    model: 'gpt-4o' as OpenAIModelName,
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: userPrompt },
-                    ],
-                    stream: true,
-                    max_tokens: 2000,
-                    temperature: 0.7,
-                });
-
-                for await (const chunk of stream) {
-                    const content = chunk.choices[0]?.delta?.content || '';
-
-                    if (content) {
-                        dispatch({
-                            type: 'APPEND_STREAMED_CONTENT',
-                            payload: content,
-                        });
-                        streamedContentRef.current += content;
+                if (llmService.generateStreamedResponse) {
+                    logger.info(`[${COMPONENT_ID}][${queryId}] 🎯 Starting Chat Completions stream via LLMService`);
+                    for await (const chunk of llmService.generateStreamedResponse(messages, options)) {
+                        if (!firstChunkReceivedRef.current) {
+                            logger.info(`[${COMPONENT_ID}][${queryId}] 💧 First chunk received`);
+                            firstChunkReceivedRef.current = true;
+                        }
+                        dispatch({ type: 'APPEND_STREAMED_CONTENT', payload: chunk });
+                        streamedContentRef.current += chunk;
                     }
+                } else {
+                    // Fallback for non-streaming services or if generateStreamedResponse is optional and not implemented
+                    logger.info(`[${COMPONENT_ID}][${queryId}] 🎯 Generating complete response via LLMService (non-streaming)`);
+                    const fullResponse = await llmService.generateCompleteResponse(messages, options);
+                    dispatch({ type: 'APPEND_STREAMED_CONTENT', payload: fullResponse });
+                    streamedContentRef.current = fullResponse;
                 }
 
                 dispatch({ type: 'SET_STREAMING_COMPLETE', payload: true });
-
-                // Log final response for debugging
-                logger.info(`[${COMPONENT_ID}][${queryId}] 🏁 Response completed: ${streamedContentRef.current.length} characters`);
-                logger.debug(`[${COMPONENT_ID}][${queryId}] 📄 FINAL RESPONSE:\n${streamedContentRef.current}`);
-                // loglog.info(`Response completed: ${streamedContentRef.current.length} characters`, queryId);
+                logger.info(`[${COMPONENT_ID}][${queryId}] 🏁 Main response completed: ${streamedContentRef.current.length} characters`);
             } catch (err) {
                 handleError(err, queryId);
             } finally {
@@ -378,24 +394,30 @@ function useGenerateResponse({
             }
         },
         [
+            llmService,
             knowledgeLoading,
             knowledgeError,
+            latestUserMessageRef,
             firstChunkReceivedRef,
+            streamedContentRef,
             dispatch,
+            handleError,
             buildKnowledgeContext,
             initialInterviewContext,
             goals,
+            conversationSummary,
             state,
-            openai,
-            streamedContentRef,
-            handleError,
         ]
     );
 }
 
+// --------------------------------------------------
+// --------------------------------------------------
+// --------------------------------------------------
+
 // Geneeate Suggestions Function
 interface GenerateSuggestionsFunctionProps {
-    openai: OpenAI | null;
+    llmService: ILLMService | null;
     knowledgeLoading: boolean;
     dispatch: Dispatch<LLMAction>;
     latestUserMessageRef: MutableRefObject<string>;
@@ -408,7 +430,7 @@ interface GenerateSuggestionsFunctionProps {
 }
 
 function useGenerateSuggestions({
-    openai,
+    llmService,
     knowledgeLoading,
     dispatch,
     latestUserMessageRef,
@@ -420,24 +442,23 @@ function useGenerateSuggestions({
     state,
 }: GenerateSuggestionsFunctionProps) {
     return useCallback(async (): Promise<void> => {
-        if (!openai || knowledgeLoading) return;
+        if (!llmService || !initialInterviewContext) {
+            logger.info(`[${COMPONENT_ID}] Suggestion generation skipped (service or context missing).`);
+            return;
+        }
 
         const queryId = uuidv4();
+        dispatch({ type: 'SET_LOADING', payload: true }); // Indicate loading for suggestions
+        logger.info(`[${COMPONENT_ID}][${queryId}] 🧠 Starting strategic intelligence generation via LLMService`);
 
         try {
-            dispatch({ type: 'SET_LOADING', payload: true });
-
             // Build context for strategic analysis
             const contextMessage =
                 latestUserMessageRef.current ||
                 (conversationHistory.length > 0 ? conversationHistory[conversationHistory.length - 1].content : '');
-
             const knowledgeContext = buildKnowledgeContext(contextMessage);
-
-            // Get previous analysis history
             const previousAnalysisHistory = state.conversationSuggestions.analysisHistory || [];
 
-            logger.info(`[${COMPONENT_ID}][${queryId}] 🧠 Starting strategic intelligence generation`);
             logger.info(`[${COMPONENT_ID}][${queryId}] 📚 Previous analysis history: ${previousAnalysisHistory.length} entries`);
 
             // ===== STAGE 1: STRATEGIC ANALYSIS =====
@@ -449,42 +470,37 @@ function useGenerateSuggestions({
                 knowledgeContext,
                 previousAnalysisHistory
             );
+            const analysisMessages: ChatMessageParam[] = [
+                { role: 'system', content: createAnalysisSystemPrompt },
+                { role: 'user', content: analysisUserPrompt },
+            ];
 
             // ===== ANALYSIS PROMPT LOGGING =====
-            logger.info(`[${COMPONENT_ID}][${queryId}] 📝 ANALYSIS SYSTEM PROMPT:`);
-            logger.info(`[${COMPONENT_ID}][${queryId}] ┌─ ANALYSIS SYSTEM (${createAnalysisSystemPrompt.length} chars) ─┐`);
-            console.log('\n🔍 ANALYSIS SYSTEM PROMPT:\n', createAnalysisSystemPrompt, '\n');
+            GenerateSuggestionAnalysisStageLogging(queryId, analysisUserPrompt, previousAnalysisHistory);
 
-            logger.info(`[${COMPONENT_ID}][${queryId}] 📝 ANALYSIS USER PROMPT:`);
-            logger.info(`[${COMPONENT_ID}][${queryId}] ┌─ ANALYSIS USER (${analysisUserPrompt.length} chars) ─┐`);
-            console.log('\n💭 ANALYSIS USER PROMPT:\n', analysisUserPrompt, '\n');
+            const analysisOptions: LLMRequestOptions = { model: 'gpt-4o-mini', temperature: 0.3 };
+            const analysisContent = await llmService.generateCompleteResponse(analysisMessages, analysisOptions);
 
-            // Log previous analysis context
-            if (previousAnalysisHistory.length > 0) {
-                logger.info(`[${COMPONENT_ID}][${queryId}] 📚 PREVIOUS ANALYSIS CONTEXT:`);
-                console.log('\n📚 PREVIOUS ANALYSIS HISTORY:\n', JSON.stringify(previousAnalysisHistory, null, 2), '\n');
-            }
+            // const analysisResponse = await openai.chat.completions.create({
+            //     model: 'gpt-4o-mini' as OpenAIModelName,
+            //     // model: 'o3-mini' as OpenAIModelName,
+            //     messages: [
+            //         {
+            //             role: 'system',
+            //             // role: 'developer',
+            //             content: createAnalysisSystemPrompt,
+            //         },
+            //         {
+            //             role: 'user',
+            //             content: analysisUserPrompt,
+            //         },
+            //     ],
+            //     max_tokens: 600,
+            //     // max_completion_tokens: 600,
+            //     // temperature: 0.3, // Lower temperature for consistent strategic analysis
+            // });
 
-            const analysisResponse = await openai.chat.completions.create({
-                model: 'gpt-4o-mini' as OpenAIModelName,
-                // model: 'o3-mini' as OpenAIModelName,
-                messages: [
-                    {
-                        role: 'system',
-                        // role: 'developer',
-                        content: createAnalysisSystemPrompt,
-                    },
-                    {
-                        role: 'user',
-                        content: analysisUserPrompt,
-                    },
-                ],
-                max_tokens: 600,
-                // max_completion_tokens: 600,
-                // temperature: 0.3, // Lower temperature for consistent strategic analysis
-            });
-
-            const analysisContent = analysisResponse.choices[0]?.message.content?.trim() || '';
+            // const analysisContent = analysisResponse.choices[0]?.message.content?.trim() || '';
 
             // ===== ANALYSIS OUTPUT LOGGING =====
             logger.info(`[${COMPONENT_ID}][${queryId}] 🔍 ANALYSIS STAGE OUTPUT:`);
@@ -545,34 +561,33 @@ function useGenerateSuggestions({
             );
 
             // ===== GENERATION PROMPT LOGGING =====
-            logger.info(`[${COMPONENT_ID}][${queryId}] 📝 GENERATION SYSTEM PROMPT:`);
-            logger.info(`[${COMPONENT_ID}][${queryId}] ┌─ GENERATION SYSTEM (${createGenerationSystemPrompt.length} chars) ─┐`);
-            console.log('\n🚀 GENERATION SYSTEM PROMPT:\n', createGenerationSystemPrompt, '\n');
+            GenerateSuggestioCreateStageLogging(queryId, generationUserPrompt);
+            const generationMessages: ChatMessageParam[] = [
+                { role: 'system', content: createGenerationSystemPrompt },
+                { role: 'user', content: generationUserPrompt },
+            ];
 
-            logger.info(`[${COMPONENT_ID}][${queryId}] 📝 GENERATION USER PROMPT:`);
-            logger.info(`[${COMPONENT_ID}][${queryId}] ┌─ GENERATION USER (${generationUserPrompt.length} chars) ─┐`);
-            console.log('\n🎯 GENERATION USER PROMPT:\n', generationUserPrompt, '\n');
+            // const generationResponse = await openai.chat.completions.create({
+            //     model: 'gpt-4o-mini' as OpenAIModelName,
+            //     // model: 'o3-mini' as OpenAIModelName,
+            //     messages: [
+            //         {
+            //             role: 'system',
+            //             // role: 'developer',
+            //             content: createGenerationSystemPrompt,
+            //         },
+            //         {
+            //             role: 'user',
+            //             content: generationUserPrompt,
+            //         },
+            //     ],
+            //     max_tokens: 1200,
+            //     // max_completion_tokens: 1200,
+            //     // temperature: 0.7, // Lower temperature for consistent strategic analysis
+            // });
 
-            const generationResponse = await openai.chat.completions.create({
-                model: 'gpt-4o-mini' as OpenAIModelName,
-                // model: 'o3-mini' as OpenAIModelName,
-                messages: [
-                    {
-                        role: 'system',
-                        // role: 'developer',
-                        content: createGenerationSystemPrompt,
-                    },
-                    {
-                        role: 'user',
-                        content: generationUserPrompt,
-                    },
-                ],
-                max_tokens: 1200,
-                // max_completion_tokens: 1200,
-                // temperature: 0.7, // Lower temperature for consistent strategic analysis
-            });
-
-            const strategicIntelligence = generationResponse.choices[0]?.message.content?.trim() || '';
+            const generationOptions: LLMRequestOptions = { model: 'gpt-4o-mini', temperature: 0.7 };
+            const strategicIntelligence = await llmService.generateCompleteResponse(generationMessages, generationOptions);
 
             // ===== GENERATION OUTPUT LOGGING =====
             logger.info(`[${COMPONENT_ID}][${queryId}] 🚀 GENERATION STAGE OUTPUT:`);
@@ -595,13 +610,13 @@ function useGenerateSuggestions({
                     type: 'SET_CONVERSATION_SUGGESTIONS',
                     payload: {
                         powerUpContent: strategicIntelligence,
-                        lastAnalysis: strategicAnalysis, // Store strategic analysis for context
-                        analysisHistory: updatedHistory, // Store updated history
+                        lastAnalysis: strategicAnalysis,
+                        analysisHistory: updatedHistory,
                     },
                 });
 
-                logger.info(`[${COMPONENT_ID}][${queryId}] ✅ Strategic intelligence generated: ${strategicIntelligence.length} chars`);
                 logger.info(`[${COMPONENT_ID}][${queryId}] 📚 Analysis history updated: ${updatedHistory.length} entries`);
+                logger.info(`[${COMPONENT_ID}][${queryId}] ✅ Strategic intelligence generated: ${strategicIntelligence.length} chars`);
 
                 // ===== FINAL SUCCESS SUMMARY =====
                 logger.info(`[${COMPONENT_ID}][${queryId}] 🎉 STRATEGIC INTELLIGENCE PIPELINE COMPLETE`);
@@ -666,18 +681,45 @@ function useGenerateSuggestions({
             logger.info(`[${COMPONENT_ID}][${queryId}] 🏁 Strategic intelligence generation complete`);
         }
     }, [
-        openai,
-        knowledgeLoading,
+        llmService,
+        initialInterviewContext,
         dispatch,
         latestUserMessageRef,
         conversationHistory,
         buildKnowledgeContext,
         state.conversationSuggestions.analysisHistory,
         conversationSummary,
-        initialInterviewContext,
         handleError,
     ]);
 }
+
+function GenerateSuggestioCreateStageLogging(queryId: string, generationUserPrompt: string) {
+    logger.info(`[${COMPONENT_ID}][${queryId}] 📝 GENERATION SYSTEM PROMPT:`);
+    logger.info(`[${COMPONENT_ID}][${queryId}] ┌─ GENERATION SYSTEM (${createGenerationSystemPrompt.length} chars) ─┐`);
+    console.log('\n🚀 GENERATION SYSTEM PROMPT:\n', createGenerationSystemPrompt, '\n');
+
+    logger.info(`[${COMPONENT_ID}][${queryId}] 📝 GENERATION USER PROMPT:`);
+    logger.info(`[${COMPONENT_ID}][${queryId}] ┌─ GENERATION USER (${generationUserPrompt.length} chars) ─┐`);
+    console.log('\n🎯 GENERATION USER PROMPT:\n', generationUserPrompt, '\n');
+}
+
+//
+function GenerateSuggestionAnalysisStageLogging(queryId: string, analysisUserPrompt: string, previousAnalysisHistory: AnalysisPreview[]) {
+    logger.info(`[${COMPONENT_ID}][${queryId}] 📝 ANALYSIS SYSTEM PROMPT:`);
+    logger.info(`[${COMPONENT_ID}][${queryId}] ┌─ ANALYSIS SYSTEM (${createAnalysisSystemPrompt.length} chars) ─┐`);
+    console.log('\n🔍 ANALYSIS SYSTEM PROMPT:\n', createAnalysisSystemPrompt, '\n');
+
+    logger.info(`[${COMPONENT_ID}][${queryId}] 📝 ANALYSIS USER PROMPT:`);
+    logger.info(`[${COMPONENT_ID}][${queryId}] ┌─ ANALYSIS USER (${analysisUserPrompt.length} chars) ─┐`);
+    console.log('\n💭 ANALYSIS USER PROMPT:\n', analysisUserPrompt, '\n');
+
+    // Log previous analysis context
+    if (previousAnalysisHistory.length > 0) {
+        logger.info(`[${COMPONENT_ID}][${queryId}] 📚 PREVIOUS ANALYSIS CONTEXT:`);
+        console.log('\n📚 PREVIOUS ANALYSIS HISTORY:\n', JSON.stringify(previousAnalysisHistory, null, 2), '\n');
+    }
+}
+
 // Enhanced buildKnowledgeContext with intelligent content selection
 function BuildKnowledgeContext(
     searchRelevantFiles: (
