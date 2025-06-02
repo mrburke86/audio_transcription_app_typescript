@@ -1,5 +1,4 @@
 // src/modules/Logger.ts
-import { debounce } from 'lodash';
 
 export type LogLevel = 'debug' | 'info' | 'warning' | 'error' | 'performance';
 
@@ -23,13 +22,17 @@ export interface LogEntry {
     timestamp: string;
     color: string;
     emoji: string;
+    // sessionId?: string; // Optional: if you want to store it with each entry
 }
+
+const APP_NAME = 'InterviewEdgeAI';
+const STORAGE_KEY = `${APP_NAME}_LOG_SESSION`;
+const MAX_LOG_ENTRIES = 1000;
 
 export class Logger {
     private logEntries: LogEntry[] = [];
     private sessionId: string;
     private isClient: boolean;
-    private sessionInitialized: boolean = false;
 
     constructor() {
         this.isClient = typeof window !== 'undefined';
@@ -37,147 +40,30 @@ export class Logger {
     }
 
     private generateSessionId(): string {
-        const now = new Date();
-        const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
-        const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
-        return `${dateStr}_${timeStr}`;
+        return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     }
 
     private getOrCreateSessionId(): string {
-        if (!this.isClient) {
-            return this.generateSessionId();
-        }
-
-        const STORAGE_KEY = 'app_logger_session';
-        const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-
-        try {
-            const storedSession = localStorage.getItem(STORAGE_KEY);
-
-            if (storedSession) {
-                const sessionData = JSON.parse(storedSession);
-                const sessionAge = Date.now() - sessionData.timestamp;
-                if (sessionAge < SESSION_TIMEOUT) {
-                    console.log(`📝 Reusing existing session: ${sessionData.sessionId}`);
-                    this.sessionInitialized = true;
+        if (this.isClient) {
+            try {
+                const storedSession = localStorage.getItem(STORAGE_KEY);
+                if (storedSession) {
+                    const sessionData = JSON.parse(storedSession);
                     return sessionData.sessionId;
                 }
+            } catch (error) {
+                console.error('Error reading session ID from localStorage:', error);
             }
-        } catch (error) {
-            console.warn('Failed to parse stored session, creating new one:', error);
         }
-
-        // Create new session
-        const newSessionId = this.generateSessionId();
-        const sessionData = {
-            sessionId: newSessionId,
-            timestamp: Date.now(),
-        };
-
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
-            console.log(`🚀 Created new session: ${newSessionId}`);
-        } catch (error) {
-            console.warn('Failed to store session in localStorage:', error);
-        }
-
-        return newSessionId;
-    }
-
-    private formatTimestamp(date: Date): string {
-        return date.toISOString().replace('T', ' ').substr(0, 23); // Include milliseconds
-    }
-
-    private createLogMessage(message: string, level: LogLevel): LogEntry {
-        const timestamp = this.formatTimestamp(new Date());
-        const logConfig = LogLevels[level];
-        return {
-            message,
-            level,
-            timestamp,
-            color: logConfig.color,
-            emoji: logConfig.emoji,
-        };
-    }
-
-    // No-op, kept for interface compatibility if needed
-    private async initializeSession(): Promise<void> {
-        // Removed API call
-    }
-
-    // No longer writes logs anywhere except local array/console
-    private async writeToFile(_logEntry: LogEntry): Promise<void> {
-        // No-op
-    }
-
-    private debouncedLog = debounce((message: string, level: LogLevel) => {
-        const logEntry = this.createLogMessage(message, level);
-        this.logEntries.push(logEntry);
-
-        // Console output only
-        console.log(`%c${logEntry.emoji} [${logEntry.timestamp}] [${LogLevels[level].name}] ${message}`, `color: ${logEntry.color}`);
-        // No file output
-    }, 100);
-
-    log(message: string, level: LogLevel = 'info'): void {
-        if (level === 'debug' && message.startsWith('📤 Streaming response chunk:')) {
-            this.debouncedLog(message, level);
-        } else {
-            const logEntry = this.createLogMessage(message, level);
-            this.logEntries.push(logEntry);
-
-            // Console output only
-            console.log(`%c${logEntry.emoji} [${logEntry.timestamp}] [${LogLevels[level].name}] ${message}`, `color: ${logEntry.color}`);
-            // No file output
-        }
-    }
-
-    debug(message: string): void {
-        this.log(message, 'debug');
-    }
-
-    info(message: string): void {
-        this.log(message, 'info');
-    }
-
-    warning(message: string): void {
-        this.log(message, 'warning');
-    }
-
-    error(message: string): void {
-        this.log(message, 'error');
-    }
-
-    performance(message: string): void {
-        this.log(message, 'performance');
-    }
-
-    getLogs(): LogEntry[] {
-        return this.logEntries;
-    }
-
-    clearLogs(): void {
-        this.logEntries = [];
-    }
-
-    getSessionId(): string {
-        return this.sessionId;
-    }
-
-    // Method to manually create a new session (for testing or manual reset)
-    async createNewSession(): Promise<void> {
-        const STORAGE_KEY = 'app_logger_session';
-
-        // Clear existing session
+        const newId = this.generateSessionId();
         if (this.isClient) {
-            localStorage.removeItem(STORAGE_KEY);
+            this.createAndStoreNewSession(newId, false);
         }
+        return newId;
+    }
 
-        // Generate new session
-        this.sessionId = this.generateSessionId();
-        this.sessionInitialized = false;
-
-        // Store new session
+    private createAndStoreNewSession(newId: string, _initializeWithServer = true): void {
+        this.sessionId = newId;
         if (this.isClient) {
             const sessionData = {
                 sessionId: this.sessionId,
@@ -185,35 +71,111 @@ export class Logger {
             };
             localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
         }
-
-        // No remote initialization needed
-        // await this.initializeSession();
-
-        console.log(`🔄 New session created: ${this.sessionId}`);
+        const timestamp = new Date().toLocaleTimeString();
+        const logConfig = LogLevels['info'];
+        console.log(
+            `%c${logConfig.emoji} [${timestamp}] [${APP_NAME}] [SESSION] New session created: ${this.sessionId}`,
+            `color: ${logConfig.color}`
+        );
     }
 
-    // Removed download functionality as it depended on API
-    async downloadLogs(): Promise<void> {
-        // No-op or optionally, implement browser-based download if needed
-        if (!this.isClient) return;
+    public log(level: LogLevel, message: string, ...optionalParams: unknown[]): void {
+        const logConfig = LogLevels[level];
+        const timestamp = new Date().toLocaleTimeString();
 
-        // Example: Let’s offer client-side download for logs as a plain text file
+        const logEntry: LogEntry = {
+            message: optionalParams.length > 0 ? `${message} ${JSON.stringify(optionalParams)}` : message,
+            level,
+            timestamp,
+            color: logConfig.color,
+            emoji: logConfig.emoji,
+        };
+
+        if (this.isClient) {
+            this.logEntries.push(logEntry);
+            if (this.logEntries.length > MAX_LOG_ENTRIES) {
+                this.logEntries.shift();
+            }
+        }
+
+        const consoleMessage = `%c${logEntry.emoji} [${logEntry.timestamp}] [${APP_NAME}] [${this.sessionId.substring(0, 8)}] [${
+            logConfig.name
+        }] ${message}`;
+        if (optionalParams.length > 0) {
+            console.log(consoleMessage, `color: ${logEntry.color}`, ...optionalParams);
+        } else {
+            console.log(consoleMessage, `color: ${logEntry.color}`);
+        }
+    }
+
+    public debug(message: string, ...optionalParams: unknown[]): void {
+        this.log('debug', message, ...optionalParams);
+    }
+
+    public info(message: string, ...optionalParams: unknown[]): void {
+        this.log('info', message, ...optionalParams);
+    }
+
+    public warning(message: string, ...optionalParams: unknown[]): void {
+        this.log('warning', message, ...optionalParams);
+    }
+
+    public error(message: string, ...optionalParams: unknown[]): void {
+        this.log('error', message, ...optionalParams);
+    }
+
+    public performance(message: string, ...optionalParams: unknown[]): void {
+        this.log('performance', message, ...optionalParams);
+    }
+
+    async downloadLogs(): Promise<void> {
+        if (!this.isClient) {
+            this.warning('Log download is only available on the client-side.');
+            return;
+        }
+        if (this.logEntries.length === 0) {
+            this.info('No logs to download.');
+            return;
+        }
+
         try {
             const text = this.logEntries
-                .map(log => `${log.emoji} [${log.timestamp}] [${log.level.toUpperCase()}] ${log.message}`)
+                .map(
+                    entry =>
+                        `${entry.emoji} [${entry.timestamp}] [${APP_NAME}] [${this.sessionId.substring(0, 8)}] [${
+                            LogLevels[entry.level].name
+                        }] ${entry.message}`
+                )
                 .join('\n');
 
             const blob = new Blob([text], { type: 'text/plain' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `app-logs-${this.sessionId}.log`;
+            a.download = `${APP_NAME}-logs-${this.sessionId}.log`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
+            this.info(`Logs downloaded successfully as ${a.download}.`);
         } catch (error) {
-            console.error('Failed to download logs:', error);
+            this.error('Failed to download logs.', error);
+        }
+    }
+
+    public getSessionId(): string {
+        return this.sessionId;
+    }
+
+    public clearSessionLogs(): void {
+        if (this.isClient) {
+            this.logEntries = [];
+            localStorage.removeItem(STORAGE_KEY);
+            const newId = this.generateSessionId();
+            this.createAndStoreNewSession(newId, false);
+            this.info('Session logs cleared and new session started.');
+        } else {
+            this.warning('Cannot clear session logs on the server-side.');
         }
     }
 }

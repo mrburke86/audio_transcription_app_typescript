@@ -1,30 +1,36 @@
-// src\app\chat\_components\ErrorState.tsx
-import { AlertTriangle } from 'lucide-react';
+// src/app/chat/_components/ErrorState.tsx
+import { AlertTriangle, RefreshCw } from 'lucide-react'; // Added RefreshCw for retry button
 
 interface ErrorStateProps {
-    knowledgeError: string;
+    title?: string; // Title is now optional, with a default
+    message: string; // Changed from knowledgeError to a more generic message
     onRetry?: () => void;
+    showTroubleshooting?: boolean; // Optional flag to show generic troubleshooting
 }
 
-export const ErrorState = ({ knowledgeError, onRetry }: ErrorStateProps) => (
-    <div className="flex flex-col items-center justify-center h-full p-8">
-        <div className="text-center">
-            <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-6" />
-            <h2 className="text-xl font-semibold text-red-700 mb-2">Knowledge Base Load Failed</h2>
-            <p className="text-red-600 mb-4">{knowledgeError}</p>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-left">
-                <h3 className="font-semibold text-red-800 mb-2">Troubleshooting:</h3>
-                <ul className="text-sm text-red-700 space-y-1">
-                    <li>
-                        • Ensure ETQ markdown files are in <code>public/knowledge/</code>
-                    </li>
-                    <li>• Check that all 25 files are present and accessible</li>
-                    <li>• Verify file permissions and server configuration</li>
-                </ul>
-            </div>
+export const ErrorState = ({ title = 'An Error Occurred', message, onRetry, showTroubleshooting = false }: ErrorStateProps) => (
+    <div className="flex flex-col items-center justify-center h-full p-8 bg-background text-foreground">
+        <div className="text-center max-w-md w-full p-6 border border-destructive/50 rounded-lg shadow-lg bg-card">
+            <AlertTriangle className="h-16 w-16 text-destructive mx-auto mb-6" />
+            <h2 className="text-2xl font-semibold text-destructive mb-3">{title}</h2>
+            <p className="text-destructive-foreground/80 mb-6">{message}</p>
+            {showTroubleshooting && (
+                <div className="bg-muted/50 border border-border rounded-lg p-4 text-left text-sm mb-6">
+                    <h3 className="font-semibold text-card-foreground mb-2">Possible Steps:</h3>
+                    <ul className="space-y-1 text-muted-foreground">
+                        <li>• Check your internet connection.</li>
+                        <li>• Ensure all required services (like the AI provider or database) are running.</li>
+                        <li>• If the problem persists, please try again later or contact support.</li>
+                    </ul>
+                </div>
+            )}
             {onRetry && (
-                <button onClick={onRetry} className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
-                    Retry
+                <button
+                    onClick={onRetry}
+                    className="mt-4 inline-flex items-center px-6 py-3 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 focus:outline-none focus:ring-2 focus:ring-destructive focus:ring-offset-2 focus:ring-offset-background transition-colors duration-150"
+                >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Try Again
                 </button>
             )}
         </div>

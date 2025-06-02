@@ -1,10 +1,10 @@
 // src/components/layout/theme-toggle.tsx
-"use client";
+'use client';
 
-import * as React from "react";
-import { useTheme } from "next-themes";
-import { Button } from "@/components/ui/button";
-import { Sun, Moon } from "lucide-react";
+import * as React from 'react';
+import { useTheme } from 'next-themes';
+import { Button } from '@/components/ui/button';
+import { Icons } from '@/components/icons/icons'; // Cleaner import
 
 export function ThemeToggle() {
     const { theme, setTheme } = useTheme();
@@ -19,15 +19,16 @@ export function ThemeToggle() {
             <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                aria-label={`Switch to ${
-                    theme === "dark" ? "light" : "dark"
-                } theme`}
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
             >
-                {theme === "dark" ? (
-                    <Sun className="h-5 w-5 transition-all" />
+                {theme === 'dark' ? (
+                    <Icons.Sun className="text-yellow-500 size-6 transition-all" />
                 ) : (
-                    <Moon className="h-5 w-5 transition-all" />
+                    // <Sun className="h-5 w-5 transition-all" />
+                    <Icons.Moon className="text-gray-700 size-6 transition-all" />
+
+                    // <Moon className="h-5 w-5 transition-all" />
                 )}
             </Button>
         </div>

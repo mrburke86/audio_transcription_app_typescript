@@ -22,7 +22,7 @@ import {
 
 export default function ChatPage() {
     // Knowledge context for the optimized system
-    const { isLoading: knowledgeLoading, error: knowledgeError, getTotalStats } = useKnowledge();
+    const { isLoading: knowledgeLoading, error: knowledgeError, indexedDocumentsCount, knowledgeBaseName } = useKnowledge();
 
     // Unified Conversation History (from userMessages)
     const [conversationHistory, setConversationHistory] = useState<Message[]>([]);
@@ -38,8 +38,9 @@ export default function ChatPage() {
     // State to manage the display of the modal
     const [showRoleModal, setShowRoleModal] = useState<boolean>(false);
 
-    //
-    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    // State for speech recognition specific errors
+    // const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [speechErrorMessage, setSpeechErrorMessage] = useState<string | null>(null);
 
     // Memoize getUserFriendlyError with useCallback
     const getUserFriendlyError = useCallback((errorCode: string): string => {
@@ -78,8 +79,8 @@ export default function ChatPage() {
     const {
         generateResponse,
         generateSuggestions,
-        isLoading,
-        error,
+        isLoading, // This is LLM loading state
+        error, // This is LLM error state
         streamedContent,
         isStreamingComplete,
         conversationSummary,
@@ -110,7 +111,7 @@ export default function ChatPage() {
         if (!apiKey) {
             logger.error('🔑❌ OpenAI API key is missing');
         }
-    }, [apiKey, recognitionStatus, userMessages, isLoading, error]);
+    }, [apiKey]); // Removed other dependencies as they don't relate to API key check
 
     // Initialize chat on mount with optimized system logging
     useEffect(() => {
@@ -125,6 +126,7 @@ export default function ChatPage() {
     const handleRecognitionStart = useCallback(() => {
         logger.info('🎙️✅ Speech recognition started');
         setRecognitionStatus('active');
+        setSpeechErrorMessage(null); // Clear previous speech errors
     }, []);
 
     // Handle speech recognition end
@@ -135,23 +137,25 @@ export default function ChatPage() {
 
     // Handle speech recognition error
     const handleRecognitionError = useCallback(
-        (error: SpeechRecognitionErrorEvent | CustomSpeechError) => {
+        (speechError: SpeechRecognitionErrorEvent | CustomSpeechError) => {
             let errorCode: string;
-            let errorMessage: string;
+            let detailedMessage: string;
 
-            if ('error' in error) {
-                errorCode = error.error;
-                errorMessage = getUserFriendlyError(error.error);
+            if ('error' in speechError) {
+                // SpeechRecognitionErrorEvent
+                errorCode = speechError.error;
+                detailedMessage = getUserFriendlyError(speechError.error);
             } else {
-                errorCode = error.code;
-                errorMessage = error.message;
+                // CustomSpeechError
+                errorCode = speechError.code;
+                detailedMessage = speechError.message;
             }
 
-            logger.error(`🎙️❌ Speech recognition error: ${errorCode}`);
+            logger.error(`Speech recognition error: ${errorCode} - ${detailedMessage}`);
             setRecognitionStatus('error');
-            setErrorMessage(errorMessage);
+            setSpeechErrorMessage(detailedMessage);
         },
-        [getUserFriendlyError, setRecognitionStatus, setErrorMessage]
+        [getUserFriendlyError]
     );
 
     // Initialize speech recognition
@@ -164,7 +168,7 @@ export default function ChatPage() {
 
     // Handle speech recognition start
     const handleStart = useCallback(() => {
-        logger.info('🎙️ Starting speech recognition');
+        logger.info('🎙️ Attempting to start speech recognition...');
         start()
             .then(() => {
                 if (canvasRef.current && !visualizationStartedRef.current) {
@@ -175,8 +179,10 @@ export default function ChatPage() {
                     logger.warning("⚠️ Canvas reference is null, can't start visualization");
                 }
             })
-            .catch(error => {
-                logger.error(`🎙️❌ Failed to start speech recognition: ${error.message}`);
+            .catch(startError => {
+                logger.error(`Failed to start speech recognition: ${startError.message}`);
+                // Update UI with this error if needed, e.g. using setSpeechErrorMessage
+                // Or handleRecognitionError(new CustomSpeechError('start-failed', `Failed to start: ${startError.message}`));
             });
     }, [start, startAudioVisualization]);
 
@@ -184,21 +190,25 @@ export default function ChatPage() {
     const handleSuggest = useCallback(async () => {
         try {
             await generateSuggestions();
-        } catch (error) {
-            logger.error(`Error generating suggestions: ${(error as Error).message}`);
+        } catch (genError) {
+            logger.error(`Error generating suggestions: ${(genError as Error).message}`);
         }
     }, [generateSuggestions]);
 
-    const knowledgeStats = getTotalStats();
+    // const knowledgeStats = getTotalStats();
 
     // Show full-screen loading if knowledge is still loading
     if (knowledgeLoading) {
-        return <LoadingState />;
+        return <LoadingState message="Preparing Knowledge Base..." subMessage="This might take a moment on first access." />;
     }
 
-    // Show error if knowledge failed to load
+    // Show error if knowledge provider failed to initialize
     if (knowledgeError) {
-        return <ErrorState knowledgeError={knowledgeError} onRetry={() => window.location.reload()} />;
+        return <ErrorState title="Knowledge Base Error" message={knowledgeError} onRetry={() => window.location.reload()} />;
+    }
+    // Show error if LLM provider has an error (e.g. API key issue)
+    if (error) {
+        return <ErrorState title="AI Provider Error" message={error} onRetry={() => window.location.reload()} />;
     }
 
     return (
@@ -214,12 +224,15 @@ export default function ChatPage() {
             )}
             {/* Top Navigation Bar */}
             <TopNavigationBar
-                status={recognitionStatus}
-                isLoading={knowledgeLoading}
-                error={knowledgeError}
-                errorMessage={errorMessage} // Pass speech recognition error
-                totalFiles={knowledgeStats.totalFiles}
-                totalWords={knowledgeStats.totalWords}
+                status={recognitionStatus} // Pass the speech recognition status
+                errorMessage={speechErrorMessage} // Pass speech recognition specific error message
+                knowledgeBaseName={knowledgeBaseName}
+                indexedDocumentsCount={indexedDocumentsCount}
+                // isLoading={knowledgeLoading}
+                // error={knowledgeError}
+                // indexedDocumentsCount={indexedDocumentsCount} // Pass speech recognition error
+                // totalFiles={knowledgeStats.totalFiles}
+                // totalWords={knowledgeStats.totalWords}
             />
 
             <div className="grid grid-cols-12 gap-6 flex-1 min-h-0 overflow-hidden">

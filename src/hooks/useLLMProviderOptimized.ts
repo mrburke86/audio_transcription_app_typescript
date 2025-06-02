@@ -2,34 +2,33 @@
 // src/hooks/useLLMProviderOptimized.ts
 'use client';
 
-import { logger } from '@/modules';
-import type OpenAI from 'openai';
-import { Dispatch, MutableRefObject, useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import { useKnowledge } from '@/contexts/KnowledgeProvider';
+import { logger } from '@/modules';
+import { OpenAILLMService } from '@/services/OpenAILLMService'; // Adjust path
 import {
     AnalysisPreview,
+    ChatMessageParam,
+    ILLMService,
     InitialInterviewContext,
     LLMAction,
     LLMProviderHook,
+    LLMRequestOptions,
     LLMState,
-    StrategicAnalysis,
-    OpenAIModelName,
     Message,
-    ChatMessageParam,
+    StrategicAnalysis,
 } from '@/types';
 import {
-    createAnalysisUserPrompt,
-    createSystemPrompt,
-    createUserPrompt,
     createAnalysisSystemPrompt,
+    createAnalysisUserPrompt,
     createGenerationSystemPrompt,
     createGenerationUserPrompt,
     createSummarisationSystemPrompt,
     createSummarisationUserPrompt,
+    createSystemPrompt,
+    createUserPrompt,
 } from '@/utils';
-import { ILLMService, LLMRequestOptions } from '@/types'; // Adjust path if you place it elsewhere
-import { OpenAILLMService } from '@/services/OpenAILLMService'; // Adjust path
+import { Dispatch, MutableRefObject, useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 
 const COMPONENT_ID = 'useLLMProviderOptimized';
 
@@ -94,7 +93,7 @@ export const useLLMProviderOptimized = (
     const [llmService, setLlmService] = useState<ILLMService | null>(null);
 
     // Use knowledge context for file access
-    const { searchRelevantFiles, isLoading: knowledgeLoading, error: knowledgeError } = useKnowledge();
+    const { searchRelevantKnowledge, isLoading: knowledgeLoading, error: knowledgeError } = useKnowledge();
 
     const streamedContentRef = useRef<string>('');
     const firstChunkReceivedRef = useRef<boolean>(false);
@@ -138,47 +137,36 @@ export const useLLMProviderOptimized = (
         }
     }, [apiKey, handleError]);
 
-    // const initializeOpenAI = useCallback(async () => {
-    //     if (!apiKey) {
-    //         logger.error(`[${COMPONENT_ID}] ❌ API key is missing...`);
-    //         return;
-    //     }
-
-    //     try {
-    //         const { default: OpenAIModule } = await import('openai');
-    //         const client = new OpenAIModule({
-    //             apiKey,
-    //             dangerouslyAllowBrowser: true,
-    //         });
-    //         setOpenai(client);
-    //         logger.info(`[${COMPONENT_ID}] ✅ OpenAI client initialized successfully.`);
-    //     } catch (error) {
-    //         logger.error(`[${COMPONENT_ID}] ❌ Error initializing OpenAI client: ${(error as Error).message}`);
-    //     }
-    // }, [apiKey]);
-
-    // useEffect(() => {
-    //     initializeOpenAI();
-    // }, [initializeOpenAI]);
-
     // Build context from relevant knowledge files
-    const buildKnowledgeContext = BuildKnowledgeContext(searchRelevantFiles);
+    // const buildKnowledgeContext = BuildKnowledgeContext(searchRelevantKnowledge);
+    const buildKnowledgeContext = useCallback(
+        async (query: string): Promise<string> => {
+            // isKnowledgeLoading now also covers isIndexing from KnowledgeProvider
+            if (knowledgeLoading || knowledgeError) {
+                console.warn('Knowledge base is loading or has an error. Skipping knowledge context.');
+                return '';
+            }
+            try {
+                const relevantChunks = await searchRelevantKnowledge(query, 3); // Get top 3 relevant chunks
+                if (relevantChunks.length === 0) return '';
+
+                // Format the chunks for the LLM prompt
+                // You might want to refine this formatting
+                const context = relevantChunks
+                    .map(chunk => `--- Relevant Information from ${chunk.source} ---\n${chunk.text}\n--- End Information ---`)
+                    .join('\n\n');
+                // console.log('Semantic Knowledge Context:', context);
+                return `Based on the following relevant information:\n${context}\n\n`;
+            } catch (error) {
+                console.error('Error building knowledge context:', error);
+                // dispatch({ type: 'SET_ERROR', payload: 'Failed to retrieve knowledge context.' }); // Optional: update UI
+                return '';
+            }
+        },
+        [searchRelevantKnowledge, knowledgeLoading, knowledgeError]
+    );
 
     // Main response generation function using Chat Completions API
-    // const generateResponse = useGenerateResponse({
-    //     knowledgeLoading,
-    //     dispatch,
-    //     knowledgeError,
-    //     firstChunkReceivedRef,
-    //     buildKnowledgeContext,
-    //     initialInterviewContext,
-    //     goals,
-    //     state,
-    //     llmService,
-    //     streamedContentRef,
-    //     handleError,
-    // });
-
     const generateResponse = useGenerateResponse({
         llmService,
         handleError,
@@ -292,7 +280,7 @@ interface UseGenerateResponseProps {
     latestUserMessageRef: MutableRefObject<string>;
     firstChunkReceivedRef: MutableRefObject<boolean>;
     streamedContentRef: MutableRefObject<string>;
-    buildKnowledgeContext: (userMessage: string) => string;
+    buildKnowledgeContext: (userMessage: string) => Promise<string>;
     initialInterviewContext: InitialInterviewContext | null;
     goals: string[];
     conversationSummary: string;
@@ -343,7 +331,7 @@ function useGenerateResponse({
 
             try {
                 // Build knowledge context (this replaces the file search)
-                const knowledgeContext = buildKnowledgeContext(userMessage);
+                const knowledgeContext = await buildKnowledgeContext(userMessage);
 
                 // Build complete prompt with context
                 const systemPrompt = await createSystemPrompt(initialInterviewContext!, goals);
@@ -411,10 +399,6 @@ function useGenerateResponse({
     );
 }
 
-// --------------------------------------------------
-// --------------------------------------------------
-// --------------------------------------------------
-
 // Geneeate Suggestions Function
 interface GenerateSuggestionsFunctionProps {
     llmService: ILLMService | null;
@@ -422,7 +406,8 @@ interface GenerateSuggestionsFunctionProps {
     dispatch: Dispatch<LLMAction>;
     latestUserMessageRef: MutableRefObject<string>;
     conversationHistory: Message[];
-    buildKnowledgeContext: (userMessage: string) => string;
+    buildKnowledgeContext: (userMessage: string) => Promise<string>;
+
     conversationSummary: string;
     initialInterviewContext: InitialInterviewContext | null;
     handleError: (errorInstance: unknown, queryId?: string, context?: string) => void;
@@ -456,7 +441,7 @@ function useGenerateSuggestions({
             const contextMessage =
                 latestUserMessageRef.current ||
                 (conversationHistory.length > 0 ? conversationHistory[conversationHistory.length - 1].content : '');
-            const knowledgeContext = buildKnowledgeContext(contextMessage);
+            const knowledgeContext = await buildKnowledgeContext(contextMessage);
             const previousAnalysisHistory = state.conversationSuggestions.analysisHistory || [];
 
             logger.info(`[${COMPONENT_ID}][${queryId}] 📚 Previous analysis history: ${previousAnalysisHistory.length} entries`);
@@ -720,129 +705,129 @@ function GenerateSuggestionAnalysisStageLogging(queryId: string, analysisUserPro
     }
 }
 
-// Enhanced buildKnowledgeContext with intelligent content selection
-function BuildKnowledgeContext(
-    searchRelevantFiles: (
-        query: string,
-        topK?: number
-    ) => import('c:/Users/markrhysburke/Coding/full_stack_apps/archive/audio_transcription_app_typescript/src/contexts/KnowledgeProvider').KnowledgeFile[]
-) {
-    return useCallback(
-        (userMessage: string): string => {
-            const startTime = performance.now();
+// // Enhanced buildKnowledgeContext with intelligent content selection
+// function BuildKnowledgeContext(
+//     searchRelevantFiles: (
+//         query: string,
+//         topK?: number
+//     ) => import('c:/Users/markrhysburke/Coding/full_stack_apps/archive/audio_transcription_app_typescript/src/contexts/KnowledgeProvider').KnowledgeFile[]
+// ) {
+//     return useCallback(
+//         (userMessage: string): string => {
+//             const startTime = performance.now();
 
-            // Get relevant files based on user query
-            const relevantFiles = searchRelevantFiles(userMessage, 8); // Get more candidates
+//             // Get relevant files based on user query
+//             const relevantFiles = searchRelevantFiles(userMessage, 8); // Get more candidates
 
-            if (relevantFiles.length === 0) {
-                return 'No specific knowledge context found for this query.';
-            }
+//             if (relevantFiles.length === 0) {
+//                 return 'No specific knowledge context found for this query.';
+//             }
 
-            logger.debug(`[${COMPONENT_ID}] 🔍 Processing ${relevantFiles.length} relevant files`);
+//             logger.debug(`[${COMPONENT_ID}] 🔍 Processing ${relevantFiles.length} relevant files`);
 
-            // Extract keywords for content prioritization
-            const keywords = userMessage
-                .toLowerCase()
-                .replace(/[^\w\s]/g, ' ')
-                .split(/\s+/)
-                .filter(word => word.length > 2)
-                .filter(word => !['the', 'and', 'for', 'are', 'but', 'not', 'you', 'can', 'how', 'what', 'when', 'where'].includes(word));
+//             // Extract keywords for content prioritization
+//             const keywords = userMessage
+//                 .toLowerCase()
+//                 .replace(/[^\w\s]/g, ' ')
+//                 .split(/\s+/)
+//                 .filter(word => word.length > 2)
+//                 .filter(word => !['the', 'and', 'for', 'are', 'but', 'not', 'you', 'can', 'how', 'what', 'when', 'where'].includes(word));
 
-            // Smart content extraction function
-            const extractRelevantContent = (content: string, fileName: string, maxChars: number = 1800): string => {
-                const sections = content.split(/\n\s*\n/); // Split by paragraphs
-                const scoredSections: Array<{ text: string; score: number; position: number }> = [];
+//             // Smart content extraction function
+//             const extractRelevantContent = (content: string, fileName: string, maxChars: number = 1800): string => {
+//                 const sections = content.split(/\n\s*\n/); // Split by paragraphs
+//                 const scoredSections: Array<{ text: string; score: number; position: number }> = [];
 
-                sections.forEach((section, index) => {
-                    let score = 0;
-                    const sectionLower = section.toLowerCase();
+//                 sections.forEach((section, index) => {
+//                     let score = 0;
+//                     const sectionLower = section.toLowerCase();
 
-                    // Score based on keyword matches
-                    keywords.forEach(keyword => {
-                        const matches = (sectionLower.match(new RegExp(`\\b${keyword}\\b`, 'g')) || []).length;
-                        score += matches * 10;
+//                     // Score based on keyword matches
+//                     keywords.forEach(keyword => {
+//                         const matches = (sectionLower.match(new RegExp(`\\b${keyword}\\b`, 'g')) || []).length;
+//                         score += matches * 10;
 
-                        // Partial matches
-                        const partialMatches = (sectionLower.match(new RegExp(keyword, 'g')) || []).length - matches;
-                        score += partialMatches * 2;
-                    });
+//                         // Partial matches
+//                         const partialMatches = (sectionLower.match(new RegExp(keyword, 'g')) || []).length - matches;
+//                         score += partialMatches * 2;
+//                     });
 
-                    // Boost score for headers/titles (often start with # or are shorter)
-                    if (section.startsWith('#') || section.length < 200) {
-                        score += 5;
-                    }
+//                     // Boost score for headers/titles (often start with # or are shorter)
+//                     if (section.startsWith('#') || section.length < 200) {
+//                         score += 5;
+//                     }
 
-                    // Position bonus (earlier content often more important)
-                    score += Math.max(0, 10 - index);
+//                     // Position bonus (earlier content often more important)
+//                     score += Math.max(0, 10 - index);
 
-                    scoredSections.push({
-                        text: section.trim(),
-                        score,
-                        position: index,
-                    });
-                });
+//                     scoredSections.push({
+//                         text: section.trim(),
+//                         score,
+//                         position: index,
+//                     });
+//                 });
 
-                // Sort by score and build content within character limit
-                const sortedSections = scoredSections
-                    .filter(s => s.score > 0 || s.position < 3) // Keep high-scoring + early sections
-                    .sort((a, b) => b.score - a.score);
+//                 // Sort by score and build content within character limit
+//                 const sortedSections = scoredSections
+//                     .filter(s => s.score > 0 || s.position < 3) // Keep high-scoring + early sections
+//                     .sort((a, b) => b.score - a.score);
 
-                let selectedContent = '';
-                let charCount = 0;
+//                 let selectedContent = '';
+//                 let charCount = 0;
 
-                for (const section of sortedSections) {
-                    const sectionWithNewline = section.text + '\n\n';
-                    if (charCount + sectionWithNewline.length <= maxChars) {
-                        selectedContent += sectionWithNewline;
-                        charCount += sectionWithNewline.length;
-                    } else {
-                        // Try to fit partial section if there's room
-                        const remainingChars = maxChars - charCount - 50; // Leave room for "..."
-                        if (remainingChars > 100) {
-                            const partial = section.text.substring(0, remainingChars);
-                            const lastSpace = partial.lastIndexOf(' ');
-                            selectedContent += partial.substring(0, lastSpace > 0 ? lastSpace : remainingChars) + '...\n\n';
-                        }
-                        break;
-                    }
-                }
+//                 for (const section of sortedSections) {
+//                     const sectionWithNewline = section.text + '\n\n';
+//                     if (charCount + sectionWithNewline.length <= maxChars) {
+//                         selectedContent += sectionWithNewline;
+//                         charCount += sectionWithNewline.length;
+//                     } else {
+//                         // Try to fit partial section if there's room
+//                         const remainingChars = maxChars - charCount - 50; // Leave room for "..."
+//                         if (remainingChars > 100) {
+//                             const partial = section.text.substring(0, remainingChars);
+//                             const lastSpace = partial.lastIndexOf(' ');
+//                             selectedContent += partial.substring(0, lastSpace > 0 ? lastSpace : remainingChars) + '...\n\n';
+//                         }
+//                         break;
+//                     }
+//                 }
 
-                return selectedContent.trim() || content.substring(0, maxChars) + '...';
-            };
+//                 return selectedContent.trim() || content.substring(0, maxChars) + '...';
+//             };
 
-            // Calculate optimal character budget per file
-            const targetTotalChars = 8000; // More generous budget
-            const charsPerFile = Math.min(2000, Math.floor(targetTotalChars / Math.min(relevantFiles.length, 5)));
+//             // Calculate optimal character budget per file
+//             const targetTotalChars = 8000; // More generous budget
+//             const charsPerFile = Math.min(2000, Math.floor(targetTotalChars / Math.min(relevantFiles.length, 5)));
 
-            // Process top 5 files with intelligent content selection
-            const processedFiles = relevantFiles.slice(0, 5).map(file => {
-                const relevantContent = extractRelevantContent(file.content, file.name, charsPerFile);
-                const originalLength = file.content.length;
-                const selectedLength = relevantContent.length;
+//             // Process top 5 files with intelligent content selection
+//             const processedFiles = relevantFiles.slice(0, 5).map(file => {
+//                 const relevantContent = extractRelevantContent(file.content, file.name, charsPerFile);
+//                 const originalLength = file.content.length;
+//                 const selectedLength = relevantContent.length;
 
-                logger.debug(
-                    `[${COMPONENT_ID}] 📄 ${file.name}: ${selectedLength}/${originalLength} chars (${Math.round(
-                        (selectedLength / originalLength) * 100
-                    )}% selected)`
-                );
+//                 logger.debug(
+//                     `[${COMPONENT_ID}] 📄 ${file.name}: ${selectedLength}/${originalLength} chars (${Math.round(
+//                         (selectedLength / originalLength) * 100
+//                     )}% selected)`
+//                 );
 
-                return `**${file.name}**\n${relevantContent}`;
-            });
+//                 return `**${file.name}**\n${relevantContent}`;
+//             });
 
-            const context = processedFiles.join('\n\n---\n\n');
-            const endTime = performance.now();
+//             const context = processedFiles.join('\n\n---\n\n');
+//             const endTime = performance.now();
 
-            logger.debug(
-                `[${COMPONENT_ID}] ✅ Built intelligent context: ${context.length} chars from ${processedFiles.length} files in ${(
-                    endTime - startTime
-                ).toFixed(1)}ms`
-            );
+//             logger.debug(
+//                 `[${COMPONENT_ID}] ✅ Built intelligent context: ${context.length} chars from ${processedFiles.length} files in ${(
+//                     endTime - startTime
+//                 ).toFixed(1)}ms`
+//             );
 
-            return context;
-        },
-        [searchRelevantFiles]
-    );
-}
+//             return context;
+//         },
+//         [searchRelevantFiles]
+//     );
+// }
 
 // Detailed Prompt Logging Function
 interface DetailedPromptLoggingProps {

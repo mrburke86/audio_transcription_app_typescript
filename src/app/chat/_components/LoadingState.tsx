@@ -1,11 +1,16 @@
-//
-export const LoadingState = () => (
-    <div className="flex flex-col items-center justify-center h-full p-8">
+// src/app/chat/_components/LoadingState.tsx
+
+interface LoadingStateProps {
+    message?: string;
+    subMessage?: string;
+}
+
+export const LoadingState = ({ message = 'Loading...', subMessage = 'Please wait a moment.' }: LoadingStateProps) => (
+    <div className="flex flex-col items-center justify-center h-full p-8 bg-background text-foreground">
         <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-6"></div>
-            <h2 className="text-xl font-semibold text-gray-700 mb-2">Loading Knowledge Base</h2>
-            <p className="text-gray-600">Initializing ETQ product knowledge...</p>
-            <p className="text-sm text-gray-500 mt-2">This may take a moment on first load</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-6"></div>
+            <h2 className="text-xl font-semibold text-card-foreground mb-2">{message}</h2>
+            <p className="text-muted-foreground">{subMessage}</p>
         </div>
     </div>
 );
