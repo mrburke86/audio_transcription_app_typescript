@@ -381,20 +381,21 @@ function useGenerateResponse({
                 dispatch({ type: 'SET_LOADING', payload: false });
             }
         },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         [
             llmService,
             knowledgeLoading,
             knowledgeError,
-            latestUserMessageRef,
-            firstChunkReceivedRef,
-            streamedContentRef,
+            // latestUserMessageRef,
+            // firstChunkReceivedRef,
+            // streamedContentRef,
             dispatch,
             handleError,
             buildKnowledgeContext,
             initialInterviewContext,
             goals,
             conversationSummary,
-            state,
+            // state,
         ]
     );
 }

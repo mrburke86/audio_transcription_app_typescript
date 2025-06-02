@@ -17,7 +17,12 @@ interface TopNavigationBarProps {
 }
 
 // Top Navigation Bar with Title, StatusIndicator and KnowledgeStats
-export function TopNavigationBar({ status, errorMessage, knowledgeBaseName, indexedDocumentsCount }: TopNavigationBarProps) {
+export const TopNavigationBar = React.memo(function TopNavigationBar({
+    status,
+    errorMessage,
+    knowledgeBaseName,
+    indexedDocumentsCount,
+}: TopNavigationBarProps) {
     // Determine which error to display (prioritize speech recognition errors)
     // const displayError = errorMessage || error;
     // const errorType = errorMessage ? 'Speech Recognition' : 'Knowledge';
@@ -76,4 +81,4 @@ export function TopNavigationBar({ status, errorMessage, knowledgeBaseName, inde
             </div>
         </nav>
     );
-}
+});

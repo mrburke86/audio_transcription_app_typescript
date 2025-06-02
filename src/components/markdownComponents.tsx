@@ -1,7 +1,14 @@
 // src\components\markdownComponents.tsx
+import { lazy } from 'react';
 import type { Components } from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+// import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow as codeStyle } from 'react-syntax-highlighter/dist/esm/styles/prism';
+
+const SyntaxHighlighter = lazy(() =>
+    import('react-syntax-highlighter').then(module => ({
+        default: module.Prism,
+    }))
+);
 
 export interface CodeProps extends React.HTMLAttributes<HTMLElement> {
     inline?: boolean;

@@ -6,6 +6,7 @@ import type React from 'react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/components/ui';
 import ReactMarkdown from 'react-markdown';
 import { markdownComponents } from '@/components/markdownComponents';
+import { useMemo } from 'react';
 
 interface ConversationInsightsProps {
     suggestions: {
@@ -26,14 +27,9 @@ interface ConversationInsightsProps {
 }
 
 export const ConversationInsights: React.FC<ConversationInsightsProps> = ({ suggestions, onSuggest, isLoading }) => {
-    // Dynamic header based on strategic analysis
-    const getHeaderInfo = () => {
+    const headerInfo = useMemo(() => {
         if (!suggestions.lastAnalysis) {
-            return {
-                title: 'Strategic Intelligence',
-                icon: Brain,
-                color: 'indigo',
-            };
+            return { title: 'Strategic Intelligence', icon: Brain, color: 'indigo' };
         }
 
         const { strategic_opportunity } = suggestions.lastAnalysis;
@@ -71,16 +67,10 @@ export const ConversationInsights: React.FC<ConversationInsightsProps> = ({ sugg
             },
         };
 
-        return (
-            opportunityConfig[strategic_opportunity] || {
-                title: 'Strategic Intelligence',
-                icon: Brain,
-                color: 'indigo',
-            }
-        );
-    };
+        return opportunityConfig[strategic_opportunity] || { title: 'Strategic Intelligence', icon: Brain, color: 'indigo' };
+    }, [suggestions.lastAnalysis]);
 
-    const headerInfo = getHeaderInfo();
+    // const headerInfo = getHeaderInfo();
     const IconComponent = headerInfo.icon;
 
     return (

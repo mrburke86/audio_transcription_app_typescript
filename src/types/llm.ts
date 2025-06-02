@@ -28,15 +28,6 @@ export interface ConversationSuggestions {
     analysisHistory?: AnalysisPreview[]; // Previous analysis previews for variety
 }
 
-export interface LLMState {
-    isLoading: boolean;
-    error: string | null;
-    streamedContent: string;
-    isStreamingComplete: boolean;
-    conversationSummary: string;
-    conversationSuggestions: ConversationSuggestions;
-}
-
 export interface LLMProviderHook {
     generateResponse: (userMessage: string) => Promise<void>;
     generateSuggestions: () => Promise<void>;
