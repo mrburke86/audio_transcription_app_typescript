@@ -1,4 +1,4 @@
-// src\app\chat\page.tsx
+// src/app/chat/page.tsx
 'use client';
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Separator } from '@/components/ui';
@@ -6,28 +6,38 @@ import { useKnowledge } from '@/contexts';
 import { CustomSpeechError, useLLMProviderOptimized, useSpeechRecognition, useTranscriptions } from '@/hooks';
 import { logger } from '@/modules';
 import { InitialInterviewContext, Message } from '@/types';
-import { ArrowRight, MessageSquare } from 'lucide-react';
+import { ArrowRight, MessageSquare, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ConversationContext,
     ConversationInsights,
     ErrorState,
-    InitialInterviewContextModal,
     LiveTranscriptionBox,
     LoadingState,
     MemoizedChatMessagesBox,
     TopNavigationBar,
     VoiceControls,
 } from './_components';
+import { InterviewModalProvider } from '@/components/interview-modal/InterviewModalContext';
+import { InterviewModalTabs } from '@/components/interview-modal/InterviewModalTabs';
+import { InterviewModalFooter } from '@/components/interview-modal/InterviewModalFooter';
 
 export default function ChatPage() {
     // Knowledge context for the optimized system
-    const { isLoading: knowledgeLoading, error: knowledgeError, indexedDocumentsCount, knowledgeBaseName } = useKnowledge();
+    const {
+        isLoading: knowledgeLoading,
+        error: knowledgeError,
+        indexedDocumentsCount,
+        knowledgeBaseName,
+    } = useKnowledge();
 
     // Unified Conversation History (from userMessages)
     const [conversationHistory, setConversationHistory] = useState<Message[]>([]);
-
     const [recognitionStatus, setRecognitionStatus] = useState<'inactive' | 'active' | 'error'>('inactive');
+    // State to manage the display of the modal
+    const [showRoleModal, setShowRoleModal] = useState<boolean>(false);
+    // State for speech recognition specific errors
+    const [speechErrorMessage, setSpeechErrorMessage] = useState<string | null>(null);
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const visualizationStartedRef = useRef(false);
@@ -35,12 +45,17 @@ export default function ChatPage() {
     // State to manage roleDescription
     const [initialInterviewContext, setInitialInterviewContext] = useState<InitialInterviewContext | null>(null);
 
-    // State to manage the display of the modal
-    const [showRoleModal, setShowRoleModal] = useState<boolean>(false);
+    // ADDED: Handle interview start function
+    const handleInterviewStart = useCallback((context: InitialInterviewContext) => {
+        logger.info('🚀 Starting interview with context:', context);
+        setInitialInterviewContext(context);
+        setShowRoleModal(false);
+    }, []);
 
-    // State for speech recognition specific errors
-    // const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    const [speechErrorMessage, setSpeechErrorMessage] = useState<string | null>(null);
+    // ADDED: Handle modal close
+    const handleModalClose = useCallback(() => {
+        setShowRoleModal(false);
+    }, []);
 
     // Memoize getUserFriendlyError with useCallback
     const getUserFriendlyError = useCallback((errorCode: string): string => {
@@ -75,12 +90,11 @@ export default function ChatPage() {
 
     const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
     // Use the optimized LLM provider instead of the old one
-    // Note: assistantId is no longer needed for Chat Completions API
     const {
         generateResponse,
         generateSuggestions,
-        isLoading, // This is LLM loading state
-        error, // This is LLM error state
+        isLoading,
+        error,
         streamedContent,
         isStreamingComplete,
         conversationSummary,
@@ -91,7 +105,6 @@ export default function ChatPage() {
         interimTranscriptions,
         currentInterimTranscript,
         userMessages,
-        // setUserMessages,
         handleMove,
         handleClear,
         handleRecognitionResult,
@@ -111,7 +124,7 @@ export default function ChatPage() {
         if (!apiKey) {
             logger.error('🔑❌ OpenAI API key is missing');
         }
-    }, [apiKey]); // Removed other dependencies as they don't relate to API key check
+    }, [apiKey]);
 
     // Initialize chat on mount with optimized system logging
     useEffect(() => {
@@ -126,7 +139,7 @@ export default function ChatPage() {
     const handleRecognitionStart = useCallback(() => {
         logger.info('🎙️✅ Speech recognition started');
         setRecognitionStatus('active');
-        setSpeechErrorMessage(null); // Clear previous speech errors
+        setSpeechErrorMessage(null);
     }, []);
 
     // Handle speech recognition end
@@ -142,11 +155,9 @@ export default function ChatPage() {
             let detailedMessage: string;
 
             if ('error' in speechError) {
-                // SpeechRecognitionErrorEvent
                 errorCode = speechError.error;
                 detailedMessage = getUserFriendlyError(speechError.error);
             } else {
-                // CustomSpeechError
                 errorCode = speechError.code;
                 detailedMessage = speechError.message;
             }
@@ -181,8 +192,6 @@ export default function ChatPage() {
             })
             .catch(startError => {
                 logger.error(`Failed to start speech recognition: ${startError.message}`);
-                // Update UI with this error if needed, e.g. using setSpeechErrorMessage
-                // Or handleRecognitionError(new CustomSpeechError('start-failed', `Failed to start: ${startError.message}`));
             });
     }, [start, startAudioVisualization]);
 
@@ -195,17 +204,27 @@ export default function ChatPage() {
         }
     }, [generateSuggestions]);
 
-    // const knowledgeStats = getTotalStats();
-
     // Show full-screen loading if knowledge is still loading
     if (knowledgeLoading) {
-        return <LoadingState message="Preparing Knowledge Base..." subMessage="This might take a moment on first access." />;
+        return (
+            <LoadingState
+                message="Preparing Knowledge Base..."
+                subMessage="This might take a moment on first access."
+            />
+        );
     }
 
     // Show error if knowledge provider failed to initialize
     if (knowledgeError) {
-        return <ErrorState title="Knowledge Base Error" message={knowledgeError} onRetry={() => window.location.reload()} />;
+        return (
+            <ErrorState
+                title="Knowledge Base Error"
+                message={knowledgeError}
+                onRetry={() => window.location.reload()}
+            />
+        );
     }
+
     // Show error if LLM provider has an error (e.g. API key issue)
     if (error) {
         return <ErrorState title="AI Provider Error" message={error} onRetry={() => window.location.reload()} />;
@@ -213,26 +232,43 @@ export default function ChatPage() {
 
     return (
         <div className="flex flex-col h-full overflow-hidden p-1 gap-4">
-            {/* Role Description Modal */}
+            {/* Enhanced Interview Setup Modal */}
             {showRoleModal && (
-                <InitialInterviewContextModal
-                    onSubmit={newContext => {
-                        setInitialInterviewContext(newContext);
-                        setShowRoleModal(false);
-                    }}
-                />
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    {/* Backdrop */}
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleModalClose} />
+
+                    {/* Modal Content */}
+                    <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden mx-4">
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-6 border-b">
+                            <h2 className="text-xl font-semibold">🎯 Interview Setup</h2>
+                            <Button variant="ghost" size="sm" onClick={handleModalClose} className="h-8 w-8 p-0">
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <InterviewModalProvider onSubmit={handleInterviewStart}>
+                            <div className="overflow-y-auto max-h-[calc(90vh-140px)]">
+                                <div className="p-6">
+                                    <InterviewModalTabs />
+                                    <div className="mt-6">
+                                        <InterviewModalFooter />
+                                    </div>
+                                </div>
+                            </div>
+                        </InterviewModalProvider>
+                    </div>
+                </div>
             )}
+
             {/* Top Navigation Bar */}
             <TopNavigationBar
-                status={recognitionStatus} // Pass the speech recognition status
-                errorMessage={speechErrorMessage} // Pass speech recognition specific error message
+                status={recognitionStatus}
+                errorMessage={speechErrorMessage}
                 knowledgeBaseName={knowledgeBaseName}
                 indexedDocumentsCount={indexedDocumentsCount}
-                // isLoading={knowledgeLoading}
-                // error={knowledgeError}
-                // indexedDocumentsCount={indexedDocumentsCount} // Pass speech recognition error
-                // totalFiles={knowledgeStats.totalFiles}
-                // totalWords={knowledgeStats.totalWords}
             />
 
             <div className="grid grid-cols-12 gap-6 flex-1 min-h-0 overflow-hidden">
@@ -258,6 +294,7 @@ export default function ChatPage() {
                             </div>
 
                             <Separator className="flex-shrink-0" />
+
                             {/* Live Transcription Input */}
                             <div
                                 id="chat-input"
@@ -286,27 +323,33 @@ export default function ChatPage() {
 
                 {/* Middle Column */}
                 <div className="col-span-1">
-                    {' '}
                     <VoiceControls
                         onStart={handleStart}
                         onStop={stop}
                         onClear={handleClear}
                         isRecognitionActive={recognitionStatus === 'active'}
                         canvasRef={canvasRef}
-                    />{' '}
+                    />
                 </div>
 
                 {/* Right Column */}
                 <div className="flex w-full col-span-4 gap-y-4 h-full overflow-hidden">
                     <div className="grid grid-rows-2 gap-2 w-full">
-                        {/* Row 1 - Transcription Controls and Audio Visualiser */}
                         {/* Row 2 - Conversation Summary */}
                         <div className="overflow-hidden scroll-smooth">
-                            <ConversationContext summary={conversationSummary} goals={initialInterviewContext?.goals || []} />
+                            <ConversationContext
+                                summary={conversationSummary}
+                                goals={initialInterviewContext?.goals || []}
+                            />
                         </div>
+
                         {/* Row 3 - Conversation Suggestions */}
                         <div className="overflow-hidden scroll-smooth">
-                            <ConversationInsights suggestions={conversationSuggestions} onSuggest={handleSuggest} isLoading={isLoading} />
+                            <ConversationInsights
+                                suggestions={conversationSuggestions}
+                                onSuggest={handleSuggest}
+                                isLoading={isLoading}
+                            />
                         </div>
                     </div>
                 </div>

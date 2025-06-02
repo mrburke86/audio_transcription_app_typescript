@@ -1,4 +1,4 @@
-// src\hooks\new\useInterviewContextForm.ts
+// src\hooks\useInterviewContextForm.ts
 import { useState, useCallback } from 'react';
 import { InitialInterviewContext } from '@/types';
 
@@ -24,7 +24,7 @@ export function useInterviewContextForm(initialContext?: InitialInterviewContext
     const [context, setContext] = useState<InitialInterviewContext>(
         initialContext || defaultContext
     );
-    const [activeTab, setActiveTab] = useState('knowledge');
+    const [activeTab, setActiveTab] = useState('interview');
 
     // Individual field updaters
     const updateField = useCallback(

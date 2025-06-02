@@ -4,8 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { useKnowledge } from '@/contexts/KnowledgeProvider';
 import { AlertCircle, CheckCircle, Database, FileText, Clock } from 'lucide-react';
 import { KnowledgeIndexingButton } from '@/components/KnowledgeIndexingButton';
+import { logger } from '@/modules';
 
 export function KnowledgeBaseTab() {
+    logger.info('🔍 KnowledgeBaseTab component is rendering'); // ADD THIS LINE
     const { indexedDocumentsCount, knowledgeBaseName, lastIndexedAt, error } = useKnowledge();
 
     // Knowledge file categories for user visibility

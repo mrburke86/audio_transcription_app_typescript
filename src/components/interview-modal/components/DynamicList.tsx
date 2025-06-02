@@ -3,7 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useDynamicList } from '@/hooks/new/useDynamicList';
+import { useDynamicList } from '@/hooks';
 import { Plus, X } from 'lucide-react';
 import { useEffect } from 'react';
 
@@ -14,12 +14,27 @@ interface DynamicListProps {
     addButtonText?: string;
 }
 
-export function DynamicList({ items, onItemsChange, placeholder, addButtonText = 'Add' }: DynamicListProps) {
-    const { items: localItems, newItem, setNewItem, addItemFromInput, removeItem } = useDynamicList(items);
+export function DynamicList({
+    items,
+    onItemsChange,
+    placeholder,
+    addButtonText = 'Add',
+}: DynamicListProps) {
+    const {
+        items: localItems,
+        newItem,
+        setNewItem,
+        addItemFromInput,
+        removeItem,
+    } = useDynamicList(items);
 
+    // FIXED: Only call onItemsChange when localItems actually changes
     useEffect(() => {
-        onItemsChange(localItems);
-    }, [localItems, onItemsChange]);
+        // Only update if the arrays are actually different
+        if (JSON.stringify(localItems) !== JSON.stringify(items)) {
+            onItemsChange(localItems);
+        }
+    }, [localItems, items, onItemsChange]);
 
     const handleAddClick = () => {
         addItemFromInput();

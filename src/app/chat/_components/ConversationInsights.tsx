@@ -67,7 +67,13 @@ export const ConversationInsights: React.FC<ConversationInsightsProps> = ({ sugg
             },
         };
 
-        return opportunityConfig[strategic_opportunity] || { title: 'Strategic Intelligence', icon: Brain, color: 'indigo' };
+        return (
+            opportunityConfig[strategic_opportunity] || {
+                title: 'Strategic Intelligence',
+                icon: Brain,
+                color: 'indigo',
+            }
+        );
     }, [suggestions.lastAnalysis]);
 
     // const headerInfo = getHeaderInfo();
@@ -79,7 +85,9 @@ export const ConversationInsights: React.FC<ConversationInsightsProps> = ({ sugg
             <CardHeader className="p-4 pb-2 flex-shrink-0">
                 <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2 p-0">
-                        <div className={`w-6 h-6 bg-${headerInfo.color}-100 rounded-full flex items-center justify-center flex-shrink-0`}>
+                        <div
+                            className={`w-6 h-6 bg-${headerInfo.color}-100 rounded-full flex items-center justify-center flex-shrink-0`}
+                        >
                             <IconComponent className={`w-3 h-3 text-${headerInfo.color}-600`} />
                         </div>
                         <span className="text-sm font-medium text-gray-900">{headerInfo.title}</span>
@@ -126,8 +134,8 @@ export const ConversationInsights: React.FC<ConversationInsightsProps> = ({ sugg
                         <Brain className="w-8 h-8 mx-auto mb-2 text-gray-400" />
                         <p className="text-sm font-medium mb-1">Strategic Intelligence Ready</p>
                         <p className="text-xs">
-                            Click &quot;Strategic Intel&quot; to generate mind-blowing insights that position you as an exceptional thought
-                            leader
+                            Click &quot;Strategic Intel&quot; to generate mind-blowing insights that position you as an
+                            exceptional thought leader
                         </p>
                     </div>
                 )}

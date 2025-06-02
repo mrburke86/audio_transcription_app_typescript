@@ -78,18 +78,18 @@
 //     ];
 
 //     // Common interview goals
-//     const commonGoals = [
-//         'Demonstrate executive presence',
-//         'Show quantifiable business impact',
-//         'Highlight stakeholder management skills',
-//         'Emphasize process improvement expertise',
-//         'Showcase industry knowledge depth',
-//         'Display complex deal navigation',
-//         'Present strategic thinking capability',
-//         'Reveal cross-functional leadership',
-//         'Highlight regulatory expertise',
-//         'Show cultural fit and adaptability',
-//     ];
+// const commonGoals = [
+//     'Demonstrate executive presence',
+//     'Show quantifiable business impact',
+//     'Highlight stakeholder management skills',
+//     'Emphasize process improvement expertise',
+//     'Showcase industry knowledge depth',
+//     'Display complex deal navigation',
+//     'Present strategic thinking capability',
+//     'Reveal cross-functional leadership',
+//     'Highlight regulatory expertise',
+//     'Show cultural fit and adaptability',
+// ];
 
 //     // Available knowledge contexts from your files (mapped to generic categories)
 //     const availableKnowledgeContexts = [

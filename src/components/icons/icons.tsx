@@ -1,53 +1,10 @@
 // src/components/icons/icons.tsx
-// "use client";
-
-// import * as React from "react";
-
-// import { cn } from "@/lib/utils";
-
-// function IconMoon({ className, ...props }: React.ComponentProps<"svg">) {
-//     return (
-//         <svg
-//             xmlns="http://www.w3.org/2000/svg"
-//             viewBox="0 0 256 256"
-//             fill="currentColor"
-//             className={cn("size-4", className)}
-//             {...props}
-//         >
-//             <path d="M233.54 142.23a8 8 0 0 0-8-2 88.08 88.08 0 0 1-109.8-109.8 8 8 0 0 0-10-10 104.84 104.84 0 0 0-52.91 37A104 104 0 0 0 136 224a103.09 103.09 0 0 0 62.52-20.88 104.84 104.84 0 0 0 37-52.91 8 8 0 0 0-1.98-7.98Zm-44.64 48.11A88 88 0 0 1 65.66 67.11a89 89 0 0 1 31.4-26A106 106 0 0 0 96 56a104.11 104.11 0 0 0 104 104 106 106 0 0 0 14.92-1.06 89 89 0 0 1-26.02 31.4Z" />
-//         </svg>
-//     );
-// }
-
-// function IconSun({ className, ...props }: React.ComponentProps<"svg">) {
-//     return (
-//         <svg
-//             xmlns="http://www.w3.org/2000/svg"
-//             viewBox="0 0 256 256"
-//             fill="currentColor"
-//             className={cn("size-4", className)}
-//             {...props}
-//         >
-//             <path d="M120 40V16a8 8 0 0 1 16 0v24a8 8 0 0 1-16 0Zm72 88a64 64 0 1 1-64-64 64.07 64.07 0 0 1 64 64Zm-16 0a48 48 0 1 0-48 48 48.05 48.05 0 0 0 48-48ZM58.34 69.66a8 8 0 0 0 11.32-11.32l-16-16a8 8 0 0 0-11.32 11.32Zm0 116.68-16 16a8 8 0 0 0 11.32 11.32l16-16a8 8 0 0 0-11.32-11.32ZM192 72a8 8 0 0 0 5.66-2.34l16-16a8 8 0 0 0-11.32-11.32l-16 16A8 8 0 0 0 192 72Zm5.66 114.34a8 8 0 0 0-11.32 11.32l16 16a8 8 0 0 0 11.32-11.32ZM48 128a8 8 0 0 0-8-8H16a8 8 0 0 0 0 16h24a8 8 0 0 0 8-8Zm80 80a8 8 0 0 0-8 8v24a8 8 0 0 0 16 0v-24a8 8 0 0 0-8-8Zm112-88h-24a8 8 0 0 0 0 16h24a8 8 0 0 0 0-16Z" />
-//         </svg>
-//     );
-// }
-
-// export { IconMoon, IconSun };
-
-// src/components/icons/icons.tsx
 'use client';
 
 import { cn } from '@/lib/utils';
 import * as React from 'react';
 
-// Define a common interface for your icon props, extending SVGAttributes
-// Using LucideProps as a base is a good practice if you mix with lucide-react,
-// otherwise, React.SVGProps<SVGSVGElement> is also fine.
-interface IconProps extends React.SVGProps<SVGSVGElement> {
-    className?: string;
-    // You could add other common props like size here if you want to standardize
-}
+type IconProps = React.SVGProps<SVGSVGElement>;
 
 // IconMoon can remain an internal component or be defined directly in the Icons object
 function MoonIcon({ className, ...props }: IconProps) {
@@ -81,55 +38,20 @@ function SunIcon({ className, ...props }: IconProps) {
     );
 }
 
-// Add other icons here following the same pattern:
-// function MyNewIcon({ className, ...props }: IconProps) { ... }
-
 // Export all icons as properties of a single 'Icons' object
 export const Icons = {
     Moon: MoonIcon,
     Sun: SunIcon,
-    // MyNewIcon: MyNewIcon, // Example for new icon
-    // You can also directly include Lucide icons if you re-export them here
-    // Example if you also use lucide-react and want to group them:
-    // Spinner: (props: IconProps) => <LucideSpinner {...props} />, // Assuming LucideSpinner is imported
-    // Check: (props: IconProps) => <LucideCheck {...props} />,
-    //
-    // If you want to keep your existing specific icons and add more,
-    // this is a good place to centralize them.
-    // For your provided ones, if you've used them from KnowledgeStatus.tsx for example:
-    Library: (
-        { className, ...props }: IconProps // Example for Library icon
-    ) => (
-        <svg /* your library icon SVG code */ className={cn('size-4', className)} {...props}>
-            {/* path for library icon */}
-        </svg>
+    Library: ({ className, ...props }: IconProps) => (
+        <svg className={cn('size-4', className)} {...props}></svg>
     ),
-    LoaderCircle: (
-        { className, ...props }: IconProps // Example for LoaderCircle
-    ) => (
-        <svg /* your loader icon SVG code */ className={cn('size-4 animate-spin', className)} {...props}>
-            {/* path for loader icon, 'animate-spin' can be a default Tailwind class */}
-        </svg>
+    LoaderCircle: ({ className, ...props }: IconProps) => (
+        <svg className={cn('size-4 animate-spin', className)} {...props}></svg>
     ),
-    AlertTriangle: (
-        { className, ...props }: IconProps // Example
-    ) => (
-        <svg /* your alert icon SVG code */ className={cn('size-4', className)} {...props}>
-            {/* path for alert icon */}
-        </svg>
+    AlertTriangle: ({ className, ...props }: IconProps) => (
+        <svg className={cn('size-4', className)} {...props}></svg>
     ),
-    CheckCircle: (
-        { className, ...props }: IconProps // Example
-    ) => (
-        <svg /* your check circle icon SVG code */ className={cn('size-4', className)} {...props}>
-            {/* path for check circle icon */}
-        </svg>
+    CheckCircle: ({ className, ...props }: IconProps) => (
+        <svg className={cn('size-4', className)} {...props}></svg>
     ),
 };
-
-// If you want to use LucideProps directly for all icons for consistency:
-// interface IconProps extends LucideProps {}
-// Then your icon components would be:
-// const Moon: React.FC<IconProps> = ({ className, ...props }) => { ... }
-// const Sun: React.FC<IconProps> = ({ className, ...props }) => { ... }
-// export const Icons = { Moon, Sun, /* etc. */ };

@@ -20,7 +20,9 @@ export function InterviewDetailsTab() {
                         <FormField label="Interview Type">
                             <Select
                                 value={context.interviewType}
-                                onValueChange={value => updateField('interviewType', value as InitialInterviewContext['interviewType'])}
+                                onValueChange={value =>
+                                    updateField('interviewType', value as InitialInterviewContext['interviewType'])
+                                }
                             >
                                 <SelectTrigger>
                                     <SelectValue />
@@ -39,7 +41,9 @@ export function InterviewDetailsTab() {
                         <FormField label="Seniority Level">
                             <Select
                                 value={context.seniorityLevel}
-                                onValueChange={value => updateField('seniorityLevel', value as InitialInterviewContext['seniorityLevel'])}
+                                onValueChange={value =>
+                                    updateField('seniorityLevel', value as InitialInterviewContext['seniorityLevel'])
+                                }
                             >
                                 <SelectTrigger>
                                     <SelectValue />
@@ -76,7 +80,9 @@ export function InterviewDetailsTab() {
                         <FormField label="Company Size">
                             <Select
                                 value={context.companySizeType}
-                                onValueChange={value => updateField('companySizeType', value as InitialInterviewContext['companySizeType'])}
+                                onValueChange={value =>
+                                    updateField('companySizeType', value as InitialInterviewContext['companySizeType'])
+                                }
                             >
                                 <SelectTrigger>
                                     <SelectValue />

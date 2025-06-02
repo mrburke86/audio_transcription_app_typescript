@@ -4,7 +4,7 @@ import { InterviewDetailsTab } from './tabs/InterviewDetailsTab';
 import { ResponseSettingsTab } from './tabs/ResponseSettingsTab';
 import { ExperienceFocusTab } from './tabs/ExperienceFocusTab';
 import { useInterviewModal } from './InterviewModalContext';
-import { KnowledgeBaseTab } from './tabs/KnowledgeBaseTab'; // NEW
+import { KnowledgeBaseTab } from './tabs/KnowledgeBaseTab';
 
 export function InterviewModalTabs() {
     const { activeTab, setActiveTab } = useInterviewModal();

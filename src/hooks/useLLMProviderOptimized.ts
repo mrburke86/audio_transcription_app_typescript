@@ -99,27 +99,32 @@ export const useLLMProviderOptimized = (
     const firstChunkReceivedRef = useRef<boolean>(false);
     const latestUserMessageRef = useRef<string>(''); // To track the last user message for suggestions trigger
 
-    const { isLoading, error, streamedContent, isStreamingComplete, conversationSummary, conversationSuggestions } = state;
+    const { isLoading, error, streamedContent, isStreamingComplete, conversationSummary, conversationSuggestions } =
+        state;
 
     // Get goals from initialInterviewContext
     const goals = initialInterviewContext?.goals || [];
 
     // Handle errors
-    const handleError = useCallback((errorInstance: unknown, queryId: string = 'general', context: string = 'LLMProvider') => {
-        let errorMessage = 'An unexpected error occurred.';
-        if (errorInstance instanceof Error) {
-            const errorText = errorInstance.message.toLowerCase();
-            if (errorText.includes('invalid_api_key') || errorText.includes('api key')) errorMessage = 'Invalid API key.';
-            else if (errorText.includes('rate_limit_exceeded')) errorMessage = 'Rate limit exceeded.';
-            else if (errorText.includes('network')) errorMessage = 'Network error.';
-            else errorMessage = errorInstance.message;
-            logger.error(`[${COMPONENT_ID}][${queryId}] ❌ Error in ${context}: ${errorMessage}`);
-        } else {
-            logger.error(`[${COMPONENT_ID}][${queryId}] ❌ Unknown error in ${context}`);
-        }
-        dispatch({ type: 'SET_ERROR', payload: errorMessage });
-        dispatch({ type: 'SET_LOADING', payload: false });
-    }, []);
+    const handleError = useCallback(
+        (errorInstance: unknown, queryId: string = 'general', context: string = 'LLMProvider') => {
+            let errorMessage = 'An unexpected error occurred.';
+            if (errorInstance instanceof Error) {
+                const errorText = errorInstance.message.toLowerCase();
+                if (errorText.includes('invalid_api_key') || errorText.includes('api key'))
+                    errorMessage = 'Invalid API key.';
+                else if (errorText.includes('rate_limit_exceeded')) errorMessage = 'Rate limit exceeded.';
+                else if (errorText.includes('network')) errorMessage = 'Network error.';
+                else errorMessage = errorInstance.message;
+                logger.error(`[${COMPONENT_ID}][${queryId}] ❌ Error in ${context}: ${errorMessage}`);
+            } else {
+                logger.error(`[${COMPONENT_ID}][${queryId}] ❌ Unknown error in ${context}`);
+            }
+            dispatch({ type: 'SET_ERROR', payload: errorMessage });
+            dispatch({ type: 'SET_LOADING', payload: false });
+        },
+        []
+    );
 
     // Initialize LLM Service
     useEffect(() => {
@@ -153,7 +158,10 @@ export const useLLMProviderOptimized = (
                 // Format the chunks for the LLM prompt
                 // You might want to refine this formatting
                 const context = relevantChunks
-                    .map(chunk => `--- Relevant Information from ${chunk.source} ---\n${chunk.text}\n--- End Information ---`)
+                    .map(
+                        chunk =>
+                            `--- Relevant Information from ${chunk.source} ---\n${chunk.text}\n--- End Information ---`
+                    )
                     .join('\n\n');
                 // console.log('Semantic Knowledge Context:', context);
                 return `Based on the following relevant information:\n${context}\n\n`;
@@ -225,7 +233,9 @@ export const useLLMProviderOptimized = (
                 const options: LLMRequestOptions = { model: 'gpt-4o-mini', temperature: 0.5 };
 
                 const newSummarySegment = await llmService.generateCompleteResponse(messages, options);
-                const updatedSummary = conversationSummary ? `${conversationSummary}\n\n---\n\n${newSummarySegment}` : newSummarySegment;
+                const updatedSummary = conversationSummary
+                    ? `${conversationSummary}\n\n---\n\n${newSummarySegment}`
+                    : newSummarySegment;
 
                 dispatch({ type: 'SET_CONVERSATION_SUMMARY', payload: updatedSummary });
                 logger.info(`[${COMPONENT_ID}] ✅ Summarization updated: ${newSummarySegment.length} chars added.`);
@@ -367,14 +377,18 @@ function useGenerateResponse({
                     }
                 } else {
                     // Fallback for non-streaming services or if generateStreamedResponse is optional and not implemented
-                    logger.info(`[${COMPONENT_ID}][${queryId}] 🎯 Generating complete response via LLMService (non-streaming)`);
+                    logger.info(
+                        `[${COMPONENT_ID}][${queryId}] 🎯 Generating complete response via LLMService (non-streaming)`
+                    );
                     const fullResponse = await llmService.generateCompleteResponse(messages, options);
                     dispatch({ type: 'APPEND_STREAMED_CONTENT', payload: fullResponse });
                     streamedContentRef.current = fullResponse;
                 }
 
                 dispatch({ type: 'SET_STREAMING_COMPLETE', payload: true });
-                logger.info(`[${COMPONENT_ID}][${queryId}] 🏁 Main response completed: ${streamedContentRef.current.length} characters`);
+                logger.info(
+                    `[${COMPONENT_ID}][${queryId}] 🏁 Main response completed: ${streamedContentRef.current.length} characters`
+                );
             } catch (err) {
                 handleError(err, queryId);
             } finally {
@@ -445,7 +459,9 @@ function useGenerateSuggestions({
             const knowledgeContext = await buildKnowledgeContext(contextMessage);
             const previousAnalysisHistory = state.conversationSuggestions.analysisHistory || [];
 
-            logger.info(`[${COMPONENT_ID}][${queryId}] 📚 Previous analysis history: ${previousAnalysisHistory.length} entries`);
+            logger.info(
+                `[${COMPONENT_ID}][${queryId}] 📚 Previous analysis history: ${previousAnalysisHistory.length} entries`
+            );
 
             // ===== STAGE 1: STRATEGIC ANALYSIS =====
             logger.info(`[${COMPONENT_ID}][${queryId}] 🔍 Stage 1: Strategic opportunity analysis`);
@@ -500,10 +516,16 @@ function useGenerateSuggestions({
                 const jsonMatch = analysisContent.match(/\{[\s\S]*\}/) || [analysisContent];
                 strategicAnalysis = JSON.parse(jsonMatch[0]);
 
-                logger.info(`[${COMPONENT_ID}][${queryId}] ✅ Strategic analysis complete: ${strategicAnalysis.strategic_opportunity}`);
+                logger.info(
+                    `[${COMPONENT_ID}][${queryId}] ✅ Strategic analysis complete: ${strategicAnalysis.strategic_opportunity}`
+                );
                 logger.info(`[${COMPONENT_ID}][${queryId}] 💡 Focus area: ${strategicAnalysis.focus_area}`);
-                logger.info(`[${COMPONENT_ID}][${queryId}] 🎯 Insight potential: ${strategicAnalysis.insight_potential}`);
-                logger.info(`[${COMPONENT_ID}][${queryId}] 🚀 Differentiation: ${strategicAnalysis.differentiation_angle}`);
+                logger.info(
+                    `[${COMPONENT_ID}][${queryId}] 🎯 Insight potential: ${strategicAnalysis.insight_potential}`
+                );
+                logger.info(
+                    `[${COMPONENT_ID}][${queryId}] 🚀 Differentiation: ${strategicAnalysis.differentiation_angle}`
+                );
 
                 // ===== PARSED ANALYSIS LOGGING =====
                 console.log('\n🧠 PARSED STRATEGIC ANALYSIS:\n', JSON.stringify(strategicAnalysis, null, 2), '\n');
@@ -521,7 +543,8 @@ function useGenerateSuggestions({
                     'real_world_evidence',
                 ];
                 const unusedOpportunities = availableOpportunities.filter(op => !usedOpportunities.includes(op));
-                const fallbackOpportunity = unusedOpportunities.length > 0 ? unusedOpportunities[0] : 'thought_leadership';
+                const fallbackOpportunity =
+                    unusedOpportunities.length > 0 ? unusedOpportunities[0] : 'thought_leadership';
 
                 strategicAnalysis = {
                     strategic_opportunity: fallbackOpportunity as StrategicAnalysis['strategic_opportunity'], // Instead of 'as any'
@@ -532,12 +555,16 @@ function useGenerateSuggestions({
                     research_suggestions: 'Industry trends, competitive landscape, real-world examples',
                 };
 
-                logger.info(`[${COMPONENT_ID}][${queryId}] 🔄 Using fallback strategic analysis: ${fallbackOpportunity}`);
+                logger.info(
+                    `[${COMPONENT_ID}][${queryId}] 🔄 Using fallback strategic analysis: ${fallbackOpportunity}`
+                );
                 console.log('\n🔄 FALLBACK STRATEGIC ANALYSIS:\n', JSON.stringify(strategicAnalysis, null, 2), '\n');
             }
 
             // ===== STAGE 2: STRATEGIC INTELLIGENCE GENERATION =====
-            logger.info(`[${COMPONENT_ID}][${queryId}] 🚀 Stage 2: Generating ${strategicAnalysis.strategic_opportunity} intelligence`);
+            logger.info(
+                `[${COMPONENT_ID}][${queryId}] 🚀 Stage 2: Generating ${strategicAnalysis.strategic_opportunity} intelligence`
+            );
 
             const generationUserPrompt = await createGenerationUserPrompt(
                 strategicAnalysis,
@@ -573,11 +600,16 @@ function useGenerateSuggestions({
             // });
 
             const generationOptions: LLMRequestOptions = { model: 'gpt-4o-mini', temperature: 0.7 };
-            const strategicIntelligence = await llmService.generateCompleteResponse(generationMessages, generationOptions);
+            const strategicIntelligence = await llmService.generateCompleteResponse(
+                generationMessages,
+                generationOptions
+            );
 
             // ===== GENERATION OUTPUT LOGGING =====
             logger.info(`[${COMPONENT_ID}][${queryId}] 🚀 GENERATION STAGE OUTPUT:`);
-            logger.info(`[${COMPONENT_ID}][${queryId}] ┌─ STRATEGIC INTELLIGENCE (${strategicIntelligence.length} chars) ─┐`);
+            logger.info(
+                `[${COMPONENT_ID}][${queryId}] ┌─ STRATEGIC INTELLIGENCE (${strategicIntelligence.length} chars) ─┐`
+            );
             console.log('\n📋 STRATEGIC INTELLIGENCE OUTPUT:\n', strategicIntelligence, '\n');
 
             if (strategicIntelligence) {
@@ -601,8 +633,12 @@ function useGenerateSuggestions({
                     },
                 });
 
-                logger.info(`[${COMPONENT_ID}][${queryId}] 📚 Analysis history updated: ${updatedHistory.length} entries`);
-                logger.info(`[${COMPONENT_ID}][${queryId}] ✅ Strategic intelligence generated: ${strategicIntelligence.length} chars`);
+                logger.info(
+                    `[${COMPONENT_ID}][${queryId}] 📚 Analysis history updated: ${updatedHistory.length} entries`
+                );
+                logger.info(
+                    `[${COMPONENT_ID}][${queryId}] ✅ Strategic intelligence generated: ${strategicIntelligence.length} chars`
+                );
 
                 // ===== FINAL SUCCESS SUMMARY =====
                 logger.info(`[${COMPONENT_ID}][${queryId}] 🎉 STRATEGIC INTELLIGENCE PIPELINE COMPLETE`);
@@ -614,7 +650,8 @@ function useGenerateSuggestions({
                 logger.info(`[${COMPONENT_ID}][${queryId}] │ History: ${updatedHistory.length} entries`);
                 logger.info(
                     `[${COMPONENT_ID}][${queryId}] │ Previous Types: ${
-                        previousAnalysisHistory.map((h: AnalysisPreview) => h.strategic_opportunity).join(', ') || 'None'
+                        previousAnalysisHistory.map((h: AnalysisPreview) => h.strategic_opportunity).join(', ') ||
+                        'None'
                     }`
                 );
                 logger.info(`[${COMPONENT_ID}][${queryId}] │ Total Process: Analysis → Generation`);
@@ -624,7 +661,11 @@ function useGenerateSuggestions({
                 const currentType = strategicAnalysis.strategic_opportunity;
                 const previousTypes = previousAnalysisHistory.map((h: AnalysisPreview) => h.strategic_opportunity);
                 const isUnique = !previousTypes.includes(currentType);
-                logger.info(`[${COMPONENT_ID}][${queryId}] 🎯 Variety Check: ${isUnique ? '✅ UNIQUE' : '⚠️ REPEATED'} (${currentType})`);
+                logger.info(
+                    `[${COMPONENT_ID}][${queryId}] 🎯 Variety Check: ${
+                        isUnique ? '✅ UNIQUE' : '⚠️ REPEATED'
+                    } (${currentType})`
+                );
             } else {
                 throw new Error('Empty strategic intelligence generation');
             }
@@ -690,7 +731,11 @@ function GenerateSuggestioCreateStageLogging(queryId: string, generationUserProm
 }
 
 //
-function GenerateSuggestionAnalysisStageLogging(queryId: string, analysisUserPrompt: string, previousAnalysisHistory: AnalysisPreview[]) {
+function GenerateSuggestionAnalysisStageLogging(
+    queryId: string,
+    analysisUserPrompt: string,
+    previousAnalysisHistory: AnalysisPreview[]
+) {
     logger.info(`[${COMPONENT_ID}][${queryId}] 📝 ANALYSIS SYSTEM PROMPT:`);
     logger.info(`[${COMPONENT_ID}][${queryId}] ┌─ ANALYSIS SYSTEM (${createAnalysisSystemPrompt.length} chars) ─┐`);
     console.log('\n🔍 ANALYSIS SYSTEM PROMPT:\n', createAnalysisSystemPrompt, '\n');
@@ -857,17 +902,19 @@ function DetailedPromptLogging({
     logger.info(`[${COMPONENT_ID}][${queryId}] ┌─────────────────────────────────────────────────────────────────┐`);
     logger.info(`[${COMPONENT_ID}][${queryId}] │ SYSTEM PROMPT (${systemPrompt.length} chars):`);
     logger.info(`[${COMPONENT_ID}][${queryId}] └─────────────────────────────────────────────────────────────────┘`);
-    console.log('\n🎭 SYSTEM PROMPT:\n', systemPrompt, '\n');
+    console.log('\n🎭 GENERATE RESPONSE SYSTEM PROMPT:\n', systemPrompt, '\n');
 
     logger.info(`[${COMPONENT_ID}][${queryId}] 📝 USER PROMPT CONSTRUCTED:`);
     logger.info(`[${COMPONENT_ID}][${queryId}] ┌─────────────────────────────────────────────────────────────────┐`);
     logger.info(`[${COMPONENT_ID}][${queryId}] │ USER PROMPT (${userPrompt.length} chars):`);
     logger.info(`[${COMPONENT_ID}][${queryId}] └─────────────────────────────────────────────────────────────────┘`);
-    console.log('\n💬 USER PROMPT:\n', userPrompt, '\n');
+    console.log('\n💬 GENERATE RESPONSE USER PROMPT:\n', userPrompt, '\n');
 
     // Log prompt analytics
     // loglog.info(`Prompt Analytics: System=${systemPrompt.length}chars, User=${userPrompt.length}chars`, queryId);
-    logger.debug(`[${COMPONENT_ID}][${queryId}] 📊 Total prompt size: ${systemPrompt.length + userPrompt.length} characters`);
+    logger.debug(
+        `[${COMPONENT_ID}][${queryId}] 📊 Total prompt size: ${systemPrompt.length + userPrompt.length} characters`
+    );
 
     // Log key prompt components for debugging
     logger.debug(`[${COMPONENT_ID}][${queryId}] 🔍 Prompt Components:`);

@@ -1,13 +1,16 @@
 // src/components/interview-modal/InterviewModalContext.tsx
 import { createContext, useContext } from 'react';
 import { InitialInterviewContext } from '@/types';
-import { useInterviewContextForm } from '@/hooks/new/useInterviewContextForm';
+import { useInterviewContextForm } from '@/hooks';
 
 interface InterviewModalContextType {
     context: InitialInterviewContext;
     activeTab: string;
     setActiveTab: (tab: string) => void;
-    updateField: <K extends keyof InitialInterviewContext>(field: K, value: InitialInterviewContext[K]) => void;
+    updateField: <K extends keyof InitialInterviewContext>(
+        field: K,
+        value: InitialInterviewContext[K]
+    ) => void;
     addToArray: <K extends keyof InitialInterviewContext>(field: K, value: string) => void;
     removeFromArray: <K extends keyof InitialInterviewContext>(field: K, index: number) => void;
     toggleInArray: <K extends keyof InitialInterviewContext>(field: K, value: string) => void;
@@ -50,5 +53,7 @@ export function InterviewModalProvider({ children, onSubmit }: InterviewModalPro
         handleSubmit,
     };
 
-    return <InterviewModalContext.Provider value={value}>{children}</InterviewModalContext.Provider>;
+    return (
+        <InterviewModalContext.Provider value={value}>{children}</InterviewModalContext.Provider>
+    );
 }

@@ -26,7 +26,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 )}
             >
                 <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-                    <KnowledgeProvider basePath="/knowledge">
+                    <KnowledgeProvider>
                         <main className="flex flex-1 flex-col transition-all duration-300 ease-in-out rounded-sm p-1 h-screen">
                             {children}
                         </main>
