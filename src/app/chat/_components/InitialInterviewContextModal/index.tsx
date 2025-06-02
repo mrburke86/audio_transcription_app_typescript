@@ -1,6 +1,13 @@
 // src\app\chat\_components\InitialInterviewContextModal\index.tsx
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InitialInterviewContext, LiveInterviewModalProps } from '@/types';
 import { Mic, Target, User } from 'lucide-react';
@@ -39,11 +46,17 @@ export function InitialInterviewContextModal({ onSubmit }: LiveInterviewModalPro
 
         switch (type) {
             case 'experience':
-                setContext(prev => ({ ...prev, emphasizedExperiences: [...prev.emphasizedExperiences, value.trim()] }));
+                setContext(prev => ({
+                    ...prev,
+                    emphasizedExperiences: [...prev.emphasizedExperiences, value.trim()],
+                }));
                 setNewExperience('');
                 break;
             case 'challenge':
-                setContext(prev => ({ ...prev, specificChallenges: [...prev.specificChallenges, value.trim()] }));
+                setContext(prev => ({
+                    ...prev,
+                    specificChallenges: [...prev.specificChallenges, value.trim()],
+                }));
                 setNewChallenge('');
                 break;
             case 'goal':
@@ -56,10 +69,16 @@ export function InitialInterviewContextModal({ onSubmit }: LiveInterviewModalPro
     const removeItem = (type: 'experience' | 'challenge' | 'goal', index: number) => {
         switch (type) {
             case 'experience':
-                setContext(prev => ({ ...prev, emphasizedExperiences: prev.emphasizedExperiences.filter((_, i) => i !== index) }));
+                setContext(prev => ({
+                    ...prev,
+                    emphasizedExperiences: prev.emphasizedExperiences.filter((_, i) => i !== index),
+                }));
                 break;
             case 'challenge':
-                setContext(prev => ({ ...prev, specificChallenges: prev.specificChallenges.filter((_, i) => i !== index) }));
+                setContext(prev => ({
+                    ...prev,
+                    specificChallenges: prev.specificChallenges.filter((_, i) => i !== index),
+                }));
                 break;
             case 'goal':
                 setContext(prev => ({ ...prev, goals: prev.goals.filter((_, i) => i !== index) }));
@@ -82,9 +101,9 @@ export function InitialInterviewContextModal({ onSubmit }: LiveInterviewModalPro
         if (isValid) {
             // Auto-generate role description based on context
             const autoRoleDescription = `
-You are a live interview response generator for an experienced B2B sales professional interviewing for ${context.targetRole} at ${
-                context.targetCompany || 'target companies'
-            }.
+You are a live interview response generator for an experienced B2B sales professional interviewing for ${
+                context.targetRole
+            } at ${context.targetCompany || 'target companies'}.
 
 LIVE INTERVIEW CONTEXT:
 - Target Role: ${context.targetRole} (${context.seniorityLevel} level)
@@ -94,7 +113,11 @@ LIVE INTERVIEW CONTEXT:
 - Interview Type: ${context.interviewType}
 
 INTERVIEW GOALS:
-${context.goals.length > 0 ? context.goals.map(goal => `- ${goal}`).join('\n') : '- General interview success'}
+${
+    context.goals.length > 0
+        ? context.goals.map(goal => `- ${goal}`).join('\n')
+        : '- General interview success'
+}
 
 RESPONSE GENERATION SETTINGS:
 - Confidence Level: ${context.responseConfidence}
@@ -108,10 +131,20 @@ CANDIDATE PROFILE (From Knowledge Files):
 - Key achievements: £3.2M+ deals, MEDDPICC methodology, C-level engagement
 - Core strengths: Stakeholder orchestration, procurement navigation, complex sales
 
-${context.emphasizedExperiences.length > 0 ? `EMPHASIZE THESE EXPERIENCES: ${context.emphasizedExperiences.join(', ')}` : ''}
-${context.specificChallenges.length > 0 ? `FOCUS ON THESE CHALLENGES: ${context.specificChallenges.join(', ')}` : ''}
+${
+    context.emphasizedExperiences.length > 0
+        ? `EMPHASIZE THESE EXPERIENCES: ${context.emphasizedExperiences.join(', ')}`
+        : ''
+}
+${
+    context.specificChallenges.length > 0
+        ? `FOCUS ON THESE CHALLENGES: ${context.specificChallenges.join(', ')}`
+        : ''
+}
 
-PRIORITY KNOWLEDGE AREAS: ${context.companyContext.map(id => availableKnowledgeContexts.find(ctx => ctx.id === id)?.name || id).join(', ')}
+PRIORITY KNOWLEDGE AREAS: ${context.companyContext
+                .map(id => availableKnowledgeContexts.find(ctx => ctx.id === id)?.name || id)
+                .join(', ')}
 
 INSTRUCTIONS:
 When the user provides an interviewer's question or statement, generate a complete, word-perfect response that:
@@ -139,7 +172,10 @@ The response should be the exact words the candidate will speak during the live 
                         <Mic className="h-5 w-5" />
                         🎯 Setup Live Interview Assistant
                     </DialogTitle>
-                    <p className="text-sm text-gray-600">Configure your real-time interview response generator</p>
+                    <DialogDescription className="text-sm text-gray-600">
+                        Configure your real-time interview response generator
+                    </DialogDescription>
+                    {/* <p className="text-sm text-gray-600">Configure your real-time interview response generator</p> */}
                 </DialogHeader>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -181,7 +217,9 @@ The response should be the exact words the candidate will speak during the live 
                 </Tabs>
 
                 <DialogFooter className="flex justify-between">
-                    <div className="text-sm text-gray-500">{isValid ? '✅ Ready for live interview' : '❌ Please enter target role'}</div>
+                    <div className="text-sm text-gray-500">
+                        {isValid ? '✅ Ready for live interview' : '❌ Please enter target role'}
+                    </div>
                     <Button onClick={handleSubmit} disabled={!isValid}>
                         🚀 Start Live Interview Assistant
                     </Button>

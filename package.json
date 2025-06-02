@@ -53,7 +53,6 @@
         "@types/pg": "^8.11.6",
         "@types/prismjs": "^1.26.4",
         "@types/react-syntax-highlighter": "^15.5.13",
-        "bun": "^1.1.26",
         "class-variance-authority": "^0.7.0",
         "clsx": "^2.1.1",
         "formidable": "^3.5.1",

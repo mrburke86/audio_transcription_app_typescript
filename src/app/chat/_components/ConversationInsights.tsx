@@ -82,7 +82,7 @@ export const ConversationInsights: React.FC<ConversationInsightsProps> = ({ sugg
                         <div className={`w-6 h-6 bg-${headerInfo.color}-100 rounded-full flex items-center justify-center flex-shrink-0`}>
                             <IconComponent className={`w-3 h-3 text-${headerInfo.color}-600`} />
                         </div>
-                        <h3 className="text-sm font-medium text-gray-900">{headerInfo.title}</h3>
+                        <span className="text-sm font-medium text-gray-900">{headerInfo.title}</span>
                     </CardTitle>
                     <Button
                         size="sm"

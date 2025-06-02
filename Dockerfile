@@ -1,27 +1,26 @@
-# Dockerfile
-# Use the official Bun image as the base
-FROM oven/bun:1 AS base
+# Dockerfile for npm-based Next.js project
+FROM node:18-alpine AS base
 
-# Set the working directory in the container
+# Set the working directory
 WORKDIR /usr/src/app
 
-# Copy package.json and bun.lockb (if you're using Bun's lockfile)
-COPY package.json bun.lockb ./
+# Copy package files
+COPY package*.json ./
 
 # Install dependencies
-RUN bun install --frozen-lockfile
+RUN npm ci
 
 # Copy the rest of the application code
 COPY . .
 
-# Build the Next.js application
-# RUN bun run build
+# Build the application (uncomment for production)
+# RUN npm run build
 
-# Expose the port the app runs on
+# Expose the port
 EXPOSE 3000
 
 # Define environment variable
-ENV NODE_ENV production
+ENV NODE_ENV=development
 
 # Command to run the application
-CMD ["bun", "run", "dev"]
+CMD ["npm", "run", "dev"]

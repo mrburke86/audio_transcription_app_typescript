@@ -1,44 +1,36 @@
-version: '3.8'
 services:
     # Next.js Application Service
     nextjs-app:
         build:
             context: .
-            dockerfile: Dockerfile # Your Next.js app's Dockerfile
+            dockerfile: Dockerfile
         container_name: interviewedge_app
         ports:
             - '3000:3000'
         environment:
-            # Environment variables for your Next.js application
-            - NODE_ENV=development # Or 'production' as needed
-            - OPENAI_API_KEY=${OPENAI_API_KEY} # Pass your OpenAI API key
-            - QDRANT_URL=http://qdrant_db:6333 # App connects to Qdrant via its service name
-            # Add any other necessary environment variables for your app
-            # For example, if using NEXT_PUBLIC_ for client-side access:
-            # - NEXT_PUBLIC_OPENAI_API_KEY=${OPENAI_API_KEY}
-            # - NEXT_PUBLIC_QDRANT_URL=http://qdrant_db:6333 # If QdrantService is called client-side directly for URL
+            - NODE_ENV=development
+            - OPENAI_API_KEY=${OPENAI_API_KEY}
+            - QDRANT_URL=http://qdrant_db:6333
         volumes:
-            - .:/app # Mounts your project directory into the container for development
-            - /app/node_modules # Avoids overwriting node_modules in container with host's
-            - /app/.next # Persists Next.js build cache
+            - .:/usr/src/app # Fixed: Match the WORKDIR in Dockerfile
+            - /usr/src/app/node_modules # Prevent overwriting node_modules
+            - /usr/src/app/.next # Persist Next.js cache
         depends_on:
-            - qdrant_db # Ensures Qdrant starts before the Next.js app
+            - qdrant_db
         restart: unless-stopped
 
     # Qdrant Vector Database Service
     qdrant_db:
-        image: qdrant/qdrant:v1.9.0 # Using a specific stable version, update as needed
+        image: qdrant/qdrant:v1.14.1
         container_name: qdrant_vector_db
         ports:
-            - '6333:6333' # Qdrant HTTP API port
-            - '6334:6334' # Qdrant gRPC port (optional, if you plan to use it)
+            - '6333:6333' # HTTP API
+            - '6334:6334' # gRPC (optional)
         volumes:
-            - ./qdrant_storage:/qdrant/storage # Persists Qdrant data on your host machine
-        # To enable API key for Qdrant (recommended for production):
-        # command: ["./qdrant", "--config-path", "/qdrant/config/config.yaml"]
-        # environment:
-        #   QDRANT__SERVICE__API_KEY: your_secret_qdrant_api_key
+            - qdrant_storage:/qdrant/storage
+        environment:
+            - QDRANT__LOG_LEVEL=INFO
         restart: unless-stopped
 
 volumes:
-    qdrant_storage: # Defines the named volume for Qdrant data persistence
+    qdrant_storage:

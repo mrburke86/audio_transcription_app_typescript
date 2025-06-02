@@ -39,7 +39,7 @@ export const ConversationContext: React.FC<ConversationContextProps> = ({ summar
                         <Activity className="w-3 h-3 text-orange-600" />
                     </div>
 
-                    <h3 className="text-sm font-medium text-gray-900">Context</h3>
+                    <span className="text-sm font-medium text-gray-900">Context</span>
                 </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 overflow-y-auto hide-scrollbar p-4 pt-0">
