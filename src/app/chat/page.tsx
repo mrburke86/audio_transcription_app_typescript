@@ -21,6 +21,7 @@ import {
 import { InterviewModalProvider } from '@/components/interview-modal/InterviewModalContext';
 import { InterviewModalTabs } from '@/components/interview-modal/InterviewModalTabs';
 import { InterviewModalFooter } from '@/components/interview-modal/InterviewModalFooter';
+import { AIErrorBoundary, InlineErrorBoundary, SpeechErrorBoundary } from '@/components/error-boundary';
 
 export default function ChatPage() {
     // Knowledge context for the optimized system
@@ -264,12 +265,14 @@ export default function ChatPage() {
             )}
 
             {/* Top Navigation Bar */}
-            <TopNavigationBar
-                status={recognitionStatus}
-                errorMessage={speechErrorMessage}
-                knowledgeBaseName={knowledgeBaseName}
-                indexedDocumentsCount={indexedDocumentsCount}
-            />
+            <InlineErrorBoundary>
+                <TopNavigationBar
+                    status={recognitionStatus}
+                    errorMessage={speechErrorMessage}
+                    knowledgeBaseName={knowledgeBaseName}
+                    indexedDocumentsCount={indexedDocumentsCount}
+                />
+            </InlineErrorBoundary>
 
             <div className="grid grid-cols-12 gap-6 flex-1 min-h-0 overflow-hidden">
                 {/* Left Columns - Chat Interface */}
@@ -323,13 +326,15 @@ export default function ChatPage() {
 
                 {/* Middle Column */}
                 <div className="col-span-1">
-                    <VoiceControls
-                        onStart={handleStart}
-                        onStop={stop}
-                        onClear={handleClear}
-                        isRecognitionActive={recognitionStatus === 'active'}
-                        canvasRef={canvasRef}
-                    />
+                    <SpeechErrorBoundary>
+                        <VoiceControls
+                            onStart={handleStart}
+                            onStop={stop}
+                            onClear={handleClear}
+                            isRecognitionActive={recognitionStatus === 'active'}
+                            canvasRef={canvasRef}
+                        />
+                    </SpeechErrorBoundary>
                 </div>
 
                 {/* Right Column */}
@@ -345,11 +350,13 @@ export default function ChatPage() {
 
                         {/* Row 3 - Conversation Suggestions */}
                         <div className="overflow-hidden scroll-smooth">
-                            <ConversationInsights
-                                suggestions={conversationSuggestions}
-                                onSuggest={handleSuggest}
-                                isLoading={isLoading}
-                            />
+                            <AIErrorBoundary>
+                                <ConversationInsights
+                                    suggestions={conversationSuggestions}
+                                    onSuggest={handleSuggest}
+                                    isLoading={isLoading}
+                                />
+                            </AIErrorBoundary>
                         </div>
                     </div>
                 </div>

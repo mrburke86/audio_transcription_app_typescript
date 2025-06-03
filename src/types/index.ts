@@ -5,3 +5,4 @@ export * from './llm';
 export * from './Message';
 export * from './openai';
 export * from './openai-models';
+export * from './errorBoundary';

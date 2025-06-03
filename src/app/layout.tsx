@@ -7,6 +7,7 @@ import '@/styles/globals.css';
 import { TailwindIndicator } from '@/components/global/tailwind-indicator';
 import { ThemeToggle } from '@/components/global/theme-toggle';
 import { KnowledgeProvider } from '@/contexts/KnowledgeProvider';
+import { GlobalErrorBoundary } from '@/components/error-boundary';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -25,16 +26,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     // inter.className,
                 )}
             >
-                <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-                    <KnowledgeProvider>
-                        <main className="flex flex-1 flex-col transition-all duration-300 ease-in-out rounded-sm p-1 h-screen">
-                            {children}
-                        </main>
-                    </KnowledgeProvider>
-                    <CustomToaster />
-                    <TailwindIndicator />
-                    <ThemeToggle />
-                </ThemeProvider>
+                <GlobalErrorBoundary>
+                    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+                        <KnowledgeProvider>
+                            <main className="flex flex-1 flex-col transition-all duration-300 ease-in-out rounded-sm p-1 h-screen">
+                                {children}
+                            </main>
+                        </KnowledgeProvider>
+                        <CustomToaster />
+                        <TailwindIndicator />
+                        <ThemeToggle />
+                    </ThemeProvider>
+                </GlobalErrorBoundary>
             </body>
         </html>
     );
