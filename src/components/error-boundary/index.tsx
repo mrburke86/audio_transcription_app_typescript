@@ -1,5 +1,5 @@
 // src/components/error-boundary/index.ts
-
+'use client';
 // Core exports
 export { ErrorBoundary, withErrorBoundary, useErrorBoundary } from './ErrorBoundary';
 export { ErrorFallback, InlineErrorFallback } from './ErrorFallback';

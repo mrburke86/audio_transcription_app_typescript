@@ -1,59 +1,84 @@
 // src\utils\createSystemPrompt.ts
 
+// ** Build the system role prompt with interview context and knowledge base info **
+
 import { logger } from '@/modules/Logger';
 import { InitialInterviewContext } from '@/types';
+import { InstructionBuilder } from '../prompts/PromptInstructions';
 
 // interface CreateSystemPromptProps {
 //     initialInterviewContext: InitialInterviewContext;
 //     goals: string[];
 // }
 
-export async function createSystemPrompt(initialInterviewContext: InitialInterviewContext, goals: string[]): Promise<string> {
-    logger.debug(`🎭 Creating system message for question..."`);
+export async function createSystemPrompt(
+    initialInterviewContext: InitialInterviewContext,
+    goals: string[]
+): Promise<string> {
+    logger.debug(`🎭 Creating streamlined system prompt...`);
+
     const goalsText = goals.length > 0 ? `Weave these objectives naturally into responses: ${goals.join(', ')}` : '';
-    const systemMessage = `
-You are generating world-class, deeply insightful first-person responses that establish thought leadership in a live interview.
 
-## LIVE INTERVIEW CONTEXT:
-- Target Role: ${initialInterviewContext.targetRole} (${initialInterviewContext.seniorityLevel} level)
-- Company: ${initialInterviewContext.targetCompany || 'Target companies'}
-- Industry: ${initialInterviewContext.industry}
-- Interview Type: ${initialInterviewContext.interviewType}
+    // Use centralized instructions - no redundancy with user prompt
+    const systemInstructions = InstructionBuilder.buildSystemInstructions('interview_responder');
 
-## RESPONSE SETTINGS:
-- Confidence: ${initialInterviewContext.responseConfidence}
-- Structure: ${initialInterviewContext.responseStructure} 
-- Include Metrics: ${initialInterviewContext.includeMetrics}
-- Memory Depth: ${initialInterviewContext.contextDepth} exchanges
+    const systemMessage = `You are generating world-class, deeply insightful first-person responses that establish thought leadership in a live interview.
+  
+  ## LIVE INTERVIEW CONTEXT:
+  - Target Role: ${initialInterviewContext.targetRole} (${initialInterviewContext.seniorityLevel} level)
+  - Company: ${initialInterviewContext.targetCompany || 'Target companies'}
+  - Industry: ${initialInterviewContext.industryVertical}
+  - Interview Type: ${initialInterviewContext.interviewType}
+  
+  ## RESPONSE SETTINGS:
+  - Confidence: ${initialInterviewContext.responseConfidence}
+  - Structure: ${initialInterviewContext.responseStructure} 
+  - Include Metrics: ${initialInterviewContext.includeMetrics}
+  
+  ## CANDIDATE PROFILE:
+  ${generateDynamicProfile(initialInterviewContext)}
+  
+  ${
+      initialInterviewContext.emphasizedExperiences.length > 0
+          ? `EMPHASIZE: ${initialInterviewContext.emphasizedExperiences.join(', ')}`
+          : ''
+  }
+  
+  ## RESPONSE STANDARDS:
+  ${systemInstructions}
+  
+  ${goalsText}
+  
+  **Tone:** Confident expert who provides insights that make people think "That's brilliant."`;
 
-## CANDIDATE PROFILE:
-- 15+ years B2B sales in regulated environments
-- Proven expertise: Manufacturing, RegTech, Quality Management
-- Key achievements: £3.2M+ deals, MEDDPICC methodology
-
-${initialInterviewContext.emphasizedExperiences.length > 0 ? `EMPHASIZE: ${initialInterviewContext.emphasizedExperiences.join(', ')}` : ''}
-
-${initialInterviewContext.roleDescription}
-
-**Response Excellence Standards:**
-- Provide **unique perspectives** that others wouldn't think of
-- Include **specific, memorable examples** that demonstrate deep expertise  
-- Offer **strategic insights** that reframe how they think about the challenge
-- Use **data points or industry trends** to support key arguments
-- Share **counter-intuitive truths** that showcase advanced understanding
-- Connect their question to **broader business implications** they hadn't considered
-
-**Delivery Requirements:**
-- Use **confident, authoritative language** that commands respect
-- Include **2-3 bolded key insights** for emphasis during delivery
-- Structure: Hook → Insight → Specific Example → Strategic Implication
-
-${goalsText}
-
-**Tone:** Confident expert who provides insights that make people think "I never considered that angle" or "That's brilliant."`;
-
-    logger.debug('✅ User message created successfully');
+    logger.debug('✅ Streamlined system prompt created');
     return systemMessage;
+}
+
+// Helper function for dynamic profile generation
+function generateDynamicProfile(context: InitialInterviewContext): string {
+    const profile = [];
+
+    if (context.yearsOfExperience) {
+        profile.push(`${context.yearsOfExperience}+ years experience in ${context.industryVertical}`);
+    }
+
+    if (context.keyAchievements?.length > 0) {
+        profile.push(
+            `Key achievements: ${context.keyAchievements
+                .slice(0, 2)
+                .map(a => a.description)
+                .join(', ')}`
+        );
+    }
+
+    if (context.expertiseDomains?.length > 0) {
+        profile.push(`Expertise: ${context.expertiseDomains.join(', ')}`);
+    }
+
+    return profile.length > 0
+        ? profile.map(item => `- ${item}`).join('\n')
+        : '- Experienced professional with demonstrated expertise';
 }
 
 // const createSystemPrompt = (context: InterviewContext): string => {

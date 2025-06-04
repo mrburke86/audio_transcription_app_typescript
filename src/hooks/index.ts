@@ -5,3 +5,4 @@ export * from './useSpeechRecognition';
 export * from './useTranscriptions';
 export * from './useDynamicList';
 export * from './useInterviewContextForm';
+export * from './useCallContextForm';

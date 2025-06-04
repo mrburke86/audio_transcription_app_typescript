@@ -5,7 +5,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Separator } from '@/c
 import { useKnowledge } from '@/contexts';
 import { CustomSpeechError, useLLMProviderOptimized, useSpeechRecognition, useTranscriptions } from '@/hooks';
 import { logger } from '@/modules';
-import { InitialInterviewContext, Message } from '@/types';
+import { CallContext, Message } from '@/types';
 import { ArrowRight, MessageSquare, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -18,10 +18,13 @@ import {
     TopNavigationBar,
     VoiceControls,
 } from './_components';
-import { InterviewModalProvider } from '@/components/interview-modal/InterviewModalContext';
-import { InterviewModalTabs } from '@/components/interview-modal/InterviewModalTabs';
-import { InterviewModalFooter } from '@/components/interview-modal/InterviewModalFooter';
+// import { InterviewModalProvider } from '@/components/interview-modal/InterviewModalContext';
+// import { InterviewModalTabs } from '@/components/interview-modal/InterviewModalTabs';
+// import { InterviewModalFooter } from '@/components/interview-modal/InterviewModalFooter';
 import { AIErrorBoundary, InlineErrorBoundary, SpeechErrorBoundary } from '@/components/error-boundary';
+import { CallModalFooter } from '@/components/call-modal/CallModalFooter';
+import { CallModalProvider } from '@/components/call-modal/CallModalContext';
+import { CallModalTabs } from '@/components/call-modal/CallModalTabs';
 
 export default function ChatPage() {
     // Knowledge context for the optimized system
@@ -44,10 +47,10 @@ export default function ChatPage() {
     const visualizationStartedRef = useRef(false);
 
     // State to manage roleDescription
-    const [initialInterviewContext, setInitialInterviewContext] = useState<InitialInterviewContext | null>(null);
+    const [initialInterviewContext, setInitialInterviewContext] = useState<CallContext | null>(null);
 
     // ADDED: Handle interview start function
-    const handleInterviewStart = useCallback((context: InitialInterviewContext) => {
+    const handleInterviewStart = useCallback((context: CallContext) => {
         logger.info('🚀 Starting interview with context:', context);
         setInitialInterviewContext(context);
         setShowRoleModal(false);
@@ -233,7 +236,7 @@ export default function ChatPage() {
 
     return (
         <div className="flex flex-col h-full overflow-hidden p-1 gap-4">
-            {/* Enhanced Interview Setup Modal */}
+            {/* Interview Setup Modal */}
             {showRoleModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center">
                     {/* Backdrop */}
@@ -250,16 +253,16 @@ export default function ChatPage() {
                         </div>
 
                         {/* Modal Body */}
-                        <InterviewModalProvider onSubmit={handleInterviewStart}>
+                        <CallModalProvider onSubmit={handleInterviewStart}>
                             <div className="overflow-y-auto max-h-[calc(90vh-140px)]">
                                 <div className="p-6">
-                                    <InterviewModalTabs />
+                                    <CallModalTabs />
                                     <div className="mt-6">
-                                        <InterviewModalFooter />
+                                        <CallModalFooter />
                                     </div>
                                 </div>
                             </div>
-                        </InterviewModalProvider>
+                        </CallModalProvider>
                     </div>
                 </div>
             )}

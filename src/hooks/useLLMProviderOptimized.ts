@@ -131,7 +131,7 @@ export const useLLMProviderOptimized = (
         if (apiKey) {
             try {
                 setLlmService(new OpenAILLMService(apiKey));
-                logger.info(`[${COMPONENT_ID}] ✅ LLM Service (OpenAI) initialized successfully.`);
+                // logger.info(`[${COMPONENT_ID}] ✅ LLM Service (OpenAI) initialized successfully.`);
             } catch (e) {
                 logger.error(`[${COMPONENT_ID}] ❌ Error initializing LLM Service: ${(e as Error).message}`);
                 handleError(e, 'initialization', 'LLMServiceSetup');
@@ -209,11 +209,11 @@ export const useLLMProviderOptimized = (
     const summarizeConversation = useCallback(
         async (currentHistory: Message[]): Promise<void> => {
             if (!llmService || currentHistory.length === 0 || !initialInterviewContext) {
-                logger.info(`[${COMPONENT_ID}] Summarization skipped (service, history, or context missing).`);
+                // logger.info(`[${COMPONENT_ID}] Summarization skipped (service, history, or context missing).`);
                 return;
             }
             dispatch({ type: 'SET_LOADING', payload: true }); // Indicate loading for summarization
-            logger.info(`[${COMPONENT_ID}] 🔄 Starting conversation summarization`);
+            // logger.info(`[${COMPONENT_ID}] 🔄 Starting conversation summarization`);
             try {
                 const conversationText = currentHistory
                     .map(msg => `${msg.type === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
@@ -238,7 +238,7 @@ export const useLLMProviderOptimized = (
                     : newSummarySegment;
 
                 dispatch({ type: 'SET_CONVERSATION_SUMMARY', payload: updatedSummary });
-                logger.info(`[${COMPONENT_ID}] ✅ Summarization updated: ${newSummarySegment.length} chars added.`);
+                // logger.info(`[${COMPONENT_ID}] ✅ Summarization updated: ${newSummarySegment.length} chars added.`);
             } catch (err) {
                 logger.error(`[${COMPONENT_ID}] ❌ Error summarizing: ${(err as Error).message}`);
             }
@@ -259,9 +259,9 @@ export const useLLMProviderOptimized = (
             !isLoading; // Ensure no other LLM operation is in progress
 
         if (shouldSummarize) {
-            logger.info(
-                `[${COMPONENT_ID}] Triggering summarization for ${currentLength} messages (last summarized: ${lastSummarizedLengthRef.current})`
-            );
+            // logger.info(
+            //     `[${COMPONENT_ID}] Triggering summarization for ${currentLength} messages (last summarized: ${lastSummarizedLengthRef.current})`
+            // );
             summarizeConversation(conversationHistory).then(() => {
                 lastSummarizedLengthRef.current = currentLength;
             });
@@ -336,7 +336,7 @@ function useGenerateResponse({
             dispatch({ type: 'SET_ERROR', payload: null });
             dispatch({ type: 'RESET_STREAMED_CONTENT' });
 
-            logger.info(`[${COMPONENT_ID}][${queryId}] 🚀 Starting main response generation`);
+            // logger.info(`[${COMPONENT_ID}][${queryId}] 🚀 Starting main response generation`);
             // loglog.info('🚀 Starting optimized response generation', queryId);
 
             try {
@@ -347,17 +347,17 @@ function useGenerateResponse({
                 const systemPrompt = await createSystemPrompt(initialInterviewContext!, goals);
                 const userPromptContent = await createUserPrompt(userMessage, conversationSummary, knowledgeContext);
 
-                // ===== ENHANCED PROMPT LOGGING =====
-                DetailedPromptLogging({
-                    queryId,
-                    systemPrompt,
-                    userPrompt: userPromptContent,
-                    initialInterviewContext,
-                    goals,
-                    state,
-                    knowledgeContext,
-                    userMessage,
-                });
+                // // ===== ENHANCED PROMPT LOGGING =====
+                // DetailedPromptLogging({
+                //     queryId,
+                //     systemPrompt,
+                //     userPrompt: userPromptContent,
+                //     initialInterviewContext,
+                //     goals,
+                //     state,
+                //     knowledgeContext,
+                //     userMessage,
+                // });
 
                 const messages: ChatMessageParam[] = [
                     { role: 'system', content: systemPrompt },
@@ -366,10 +366,10 @@ function useGenerateResponse({
                 const options: LLMRequestOptions = { model: 'gpt-4o', temperature: 0.7 }; // Example options
 
                 if (llmService.generateStreamedResponse) {
-                    logger.info(`[${COMPONENT_ID}][${queryId}] 🎯 Starting Chat Completions stream via LLMService`);
+                    // logger.info(`[${COMPONENT_ID}][${queryId}] 🎯 Starting Chat Completions stream via LLMService`);
                     for await (const chunk of llmService.generateStreamedResponse(messages, options)) {
                         if (!firstChunkReceivedRef.current) {
-                            logger.info(`[${COMPONENT_ID}][${queryId}] 💧 First chunk received`);
+                            // logger.info(`[${COMPONENT_ID}][${queryId}] 💧 First chunk received`);
                             firstChunkReceivedRef.current = true;
                         }
                         dispatch({ type: 'APPEND_STREAMED_CONTENT', payload: chunk });
@@ -377,18 +377,18 @@ function useGenerateResponse({
                     }
                 } else {
                     // Fallback for non-streaming services or if generateStreamedResponse is optional and not implemented
-                    logger.info(
-                        `[${COMPONENT_ID}][${queryId}] 🎯 Generating complete response via LLMService (non-streaming)`
-                    );
+                    // logger.info(
+                    //     `[${COMPONENT_ID}][${queryId}] 🎯 Generating complete response via LLMService (non-streaming)`
+                    // );
                     const fullResponse = await llmService.generateCompleteResponse(messages, options);
                     dispatch({ type: 'APPEND_STREAMED_CONTENT', payload: fullResponse });
                     streamedContentRef.current = fullResponse;
                 }
 
                 dispatch({ type: 'SET_STREAMING_COMPLETE', payload: true });
-                logger.info(
-                    `[${COMPONENT_ID}][${queryId}] 🏁 Main response completed: ${streamedContentRef.current.length} characters`
-                );
+                // logger.info(
+                //     `[${COMPONENT_ID}][${queryId}] 🏁 Main response completed: ${streamedContentRef.current.length} characters`
+                // );
             } catch (err) {
                 handleError(err, queryId);
             } finally {
@@ -478,7 +478,7 @@ function useGenerateSuggestions({
             ];
 
             // ===== ANALYSIS PROMPT LOGGING =====
-            GenerateSuggestionAnalysisStageLogging(queryId, analysisUserPrompt, previousAnalysisHistory);
+            // GenerateSuggestionAnalysisStageLogging(queryId, analysisUserPrompt, previousAnalysisHistory);
 
             const analysisOptions: LLMRequestOptions = { model: 'gpt-4o-mini', temperature: 0.3 };
             const analysisContent = await llmService.generateCompleteResponse(analysisMessages, analysisOptions);
@@ -574,7 +574,7 @@ function useGenerateSuggestions({
             );
 
             // ===== GENERATION PROMPT LOGGING =====
-            GenerateSuggestioCreateStageLogging(queryId, generationUserPrompt);
+            // GenerateSuggestioCreateStageLogging(queryId, generationUserPrompt);
             const generationMessages: ChatMessageParam[] = [
                 { role: 'system', content: createGenerationSystemPrompt },
                 { role: 'user', content: generationUserPrompt },
@@ -720,36 +720,36 @@ function useGenerateSuggestions({
     ]);
 }
 
-function GenerateSuggestioCreateStageLogging(queryId: string, generationUserPrompt: string) {
-    logger.info(`[${COMPONENT_ID}][${queryId}] 📝 GENERATION SYSTEM PROMPT:`);
-    logger.info(`[${COMPONENT_ID}][${queryId}] ┌─ GENERATION SYSTEM (${createGenerationSystemPrompt.length} chars) ─┐`);
-    console.log('\n🚀 GENERATION SYSTEM PROMPT:\n', createGenerationSystemPrompt, '\n');
+// function GenerateSuggestioCreateStageLogging(queryId: string, generationUserPrompt: string) {
+//     logger.info(`[${COMPONENT_ID}][${queryId}] 📝 GENERATION SYSTEM PROMPT:`);
+//     logger.info(`[${COMPONENT_ID}][${queryId}] ┌─ GENERATION SYSTEM (${createGenerationSystemPrompt.length} chars) ─┐`);
+//     console.log('\n🚀 GENERATION SYSTEM PROMPT:\n', createGenerationSystemPrompt, '\n');
 
-    logger.info(`[${COMPONENT_ID}][${queryId}] 📝 GENERATION USER PROMPT:`);
-    logger.info(`[${COMPONENT_ID}][${queryId}] ┌─ GENERATION USER (${generationUserPrompt.length} chars) ─┐`);
-    console.log('\n🎯 GENERATION USER PROMPT:\n', generationUserPrompt, '\n');
-}
+//     logger.info(`[${COMPONENT_ID}][${queryId}] 📝 GENERATION USER PROMPT:`);
+//     logger.info(`[${COMPONENT_ID}][${queryId}] ┌─ GENERATION USER (${generationUserPrompt.length} chars) ─┐`);
+//     console.log('\n🎯 GENERATION USER PROMPT:\n', generationUserPrompt, '\n');
+// }
 
-//
-function GenerateSuggestionAnalysisStageLogging(
-    queryId: string,
-    analysisUserPrompt: string,
-    previousAnalysisHistory: AnalysisPreview[]
-) {
-    logger.info(`[${COMPONENT_ID}][${queryId}] 📝 ANALYSIS SYSTEM PROMPT:`);
-    logger.info(`[${COMPONENT_ID}][${queryId}] ┌─ ANALYSIS SYSTEM (${createAnalysisSystemPrompt.length} chars) ─┐`);
-    console.log('\n🔍 ANALYSIS SYSTEM PROMPT:\n', createAnalysisSystemPrompt, '\n');
+// //
+// function GenerateSuggestionAnalysisStageLogging(
+//     queryId: string,
+//     analysisUserPrompt: string,
+//     previousAnalysisHistory: AnalysisPreview[]
+// ) {
+//     logger.info(`[${COMPONENT_ID}][${queryId}] 📝 ANALYSIS SYSTEM PROMPT:`);
+//     logger.info(`[${COMPONENT_ID}][${queryId}] ┌─ ANALYSIS SYSTEM (${createAnalysisSystemPrompt.length} chars) ─┐`);
+//     console.log('\n🔍 ANALYSIS SYSTEM PROMPT:\n', createAnalysisSystemPrompt, '\n');
 
-    logger.info(`[${COMPONENT_ID}][${queryId}] 📝 ANALYSIS USER PROMPT:`);
-    logger.info(`[${COMPONENT_ID}][${queryId}] ┌─ ANALYSIS USER (${analysisUserPrompt.length} chars) ─┐`);
-    console.log('\n💭 ANALYSIS USER PROMPT:\n', analysisUserPrompt, '\n');
+//     logger.info(`[${COMPONENT_ID}][${queryId}] 📝 ANALYSIS USER PROMPT:`);
+//     logger.info(`[${COMPONENT_ID}][${queryId}] ┌─ ANALYSIS USER (${analysisUserPrompt.length} chars) ─┐`);
+//     console.log('\n💭 ANALYSIS USER PROMPT:\n', analysisUserPrompt, '\n');
 
-    // Log previous analysis context
-    if (previousAnalysisHistory.length > 0) {
-        logger.info(`[${COMPONENT_ID}][${queryId}] 📚 PREVIOUS ANALYSIS CONTEXT:`);
-        console.log('\n📚 PREVIOUS ANALYSIS HISTORY:\n', JSON.stringify(previousAnalysisHistory, null, 2), '\n');
-    }
-}
+//     // Log previous analysis context
+//     if (previousAnalysisHistory.length > 0) {
+//         logger.info(`[${COMPONENT_ID}][${queryId}] 📚 PREVIOUS ANALYSIS CONTEXT:`);
+//         console.log('\n📚 PREVIOUS ANALYSIS HISTORY:\n', JSON.stringify(previousAnalysisHistory, null, 2), '\n');
+//     }
+// }
 
 // // Enhanced buildKnowledgeContext with intelligent content selection
 // function BuildKnowledgeContext(
@@ -875,96 +875,96 @@ function GenerateSuggestionAnalysisStageLogging(
 //     );
 // }
 
-// Detailed Prompt Logging Function
-interface DetailedPromptLoggingProps {
-    queryId: string;
-    systemPrompt: string;
-    userPrompt: string;
-    initialInterviewContext: InitialInterviewContext | null;
-    // roleDescription: string,
-    goals: string[];
-    state: LLMState;
-    knowledgeContext: string;
-    userMessage: string;
-}
+// // Detailed Prompt Logging Function
+// interface DetailedPromptLoggingProps {
+//     queryId: string;
+//     systemPrompt: string;
+//     userPrompt: string;
+//     initialInterviewContext: InitialInterviewContext | null;
+//     // roleDescription: string,
+//     goals: string[];
+//     state: LLMState;
+//     knowledgeContext: string;
+//     userMessage: string;
+// }
 
-function DetailedPromptLogging({
-    queryId,
-    systemPrompt,
-    userPrompt,
-    initialInterviewContext,
-    goals,
-    state,
-    knowledgeContext,
-    userMessage,
-}: DetailedPromptLoggingProps) {
-    logger.info(`[${COMPONENT_ID}][${queryId}] 📝 SYSTEM PROMPT CONSTRUCTED:`);
-    logger.info(`[${COMPONENT_ID}][${queryId}] ┌─────────────────────────────────────────────────────────────────┐`);
-    logger.info(`[${COMPONENT_ID}][${queryId}] │ SYSTEM PROMPT (${systemPrompt.length} chars):`);
-    logger.info(`[${COMPONENT_ID}][${queryId}] └─────────────────────────────────────────────────────────────────┘`);
-    console.log('\n🎭 GENERATE RESPONSE SYSTEM PROMPT:\n', systemPrompt, '\n');
+// function DetailedPromptLogging({
+//     queryId,
+//     systemPrompt,
+//     userPrompt,
+//     initialInterviewContext,
+//     goals,
+//     state,
+//     knowledgeContext,
+//     userMessage,
+// }: DetailedPromptLoggingProps) {
+//     logger.info(`[${COMPONENT_ID}][${queryId}] 📝 SYSTEM PROMPT CONSTRUCTED:`);
+//     logger.info(`[${COMPONENT_ID}][${queryId}] ┌─────────────────────────────────────────────────────────────────┐`);
+//     logger.info(`[${COMPONENT_ID}][${queryId}] │ SYSTEM PROMPT (${systemPrompt.length} chars):`);
+//     logger.info(`[${COMPONENT_ID}][${queryId}] └─────────────────────────────────────────────────────────────────┘`);
+//     console.log('\n🎭 GENERATE RESPONSE SYSTEM PROMPT:\n', systemPrompt, '\n');
 
-    logger.info(`[${COMPONENT_ID}][${queryId}] 📝 USER PROMPT CONSTRUCTED:`);
-    logger.info(`[${COMPONENT_ID}][${queryId}] ┌─────────────────────────────────────────────────────────────────┐`);
-    logger.info(`[${COMPONENT_ID}][${queryId}] │ USER PROMPT (${userPrompt.length} chars):`);
-    logger.info(`[${COMPONENT_ID}][${queryId}] └─────────────────────────────────────────────────────────────────┘`);
-    console.log('\n💬 GENERATE RESPONSE USER PROMPT:\n', userPrompt, '\n');
+//     logger.info(`[${COMPONENT_ID}][${queryId}] 📝 USER PROMPT CONSTRUCTED:`);
+//     logger.info(`[${COMPONENT_ID}][${queryId}] ┌─────────────────────────────────────────────────────────────────┐`);
+//     logger.info(`[${COMPONENT_ID}][${queryId}] │ USER PROMPT (${userPrompt.length} chars):`);
+//     logger.info(`[${COMPONENT_ID}][${queryId}] └─────────────────────────────────────────────────────────────────┘`);
+//     console.log('\n💬 GENERATE RESPONSE USER PROMPT:\n', userPrompt, '\n');
 
-    // Log prompt analytics
-    // loglog.info(`Prompt Analytics: System=${systemPrompt.length}chars, User=${userPrompt.length}chars`, queryId);
-    logger.debug(
-        `[${COMPONENT_ID}][${queryId}] 📊 Total prompt size: ${systemPrompt.length + userPrompt.length} characters`
-    );
+//     // Log prompt analytics
+//     // loglog.info(`Prompt Analytics: System=${systemPrompt.length}chars, User=${userPrompt.length}chars`, queryId);
+//     logger.debug(
+//         `[${COMPONENT_ID}][${queryId}] 📊 Total prompt size: ${systemPrompt.length + userPrompt.length} characters`
+//     );
 
-    // Log key prompt components for debugging
-    logger.debug(`[${COMPONENT_ID}][${queryId}] 🔍 Prompt Components:`);
+//     // Log key prompt components for debugging
+//     logger.debug(`[${COMPONENT_ID}][${queryId}] 🔍 Prompt Components:`);
 
-    // Enhanced logging for InitialInterviewContext
-    if (initialInterviewContext) {
-        // Log role information if available
-        if (initialInterviewContext.roleDescription) {
-            const rolePreview =
-                initialInterviewContext.roleDescription.length > 50
-                    ? `${initialInterviewContext.roleDescription.substring(0, 50)}...`
-                    : initialInterviewContext.roleDescription;
-            logger.debug(`[${COMPONENT_ID}][${queryId}]   • Role: ${rolePreview}`);
-        }
+//     // Enhanced logging for InitialInterviewContext
+//     if (initialInterviewContext) {
+//         // Log role information if available
+//         if (initialInterviewContext.roleDescription) {
+//             const rolePreview =
+//                 initialInterviewContext.roleDescription.length > 50
+//                     ? `${initialInterviewContext.roleDescription.substring(0, 50)}...`
+//                     : initialInterviewContext.roleDescription;
+//             logger.debug(`[${COMPONENT_ID}][${queryId}]   • Role: ${rolePreview}`);
+//         }
 
-        // Log company information if available
-        if (initialInterviewContext.targetCompany) {
-            logger.debug(`[${COMPONENT_ID}][${queryId}]   • Company: ${initialInterviewContext.targetCompany}`);
-        }
+//         // Log company information if available
+//         if (initialInterviewContext.targetCompany) {
+//             logger.debug(`[${COMPONENT_ID}][${queryId}]   • Company: ${initialInterviewContext.targetCompany}`);
+//         }
 
-        // Log interview type if available
-        if (initialInterviewContext.interviewType) {
-            logger.debug(`[${COMPONENT_ID}][${queryId}]   • Interview Type: ${initialInterviewContext.interviewType}`);
-        }
+//         // Log interview type if available
+//         if (initialInterviewContext.interviewType) {
+//             logger.debug(`[${COMPONENT_ID}][${queryId}]   • Interview Type: ${initialInterviewContext.interviewType}`);
+//         }
 
-        // Log any other relevant context properties
-        const contextKeys = Object.keys(initialInterviewContext).filter(
-            key => !['roleDescription', 'companyName', 'interviewType', 'goals'].includes(key)
-        );
-        if (contextKeys.length > 0) {
-            logger.debug(`[${COMPONENT_ID}][${queryId}]   • Additional Context: ${contextKeys.join(', ')}`);
-        }
-    } else {
-        logger.debug(`[${COMPONENT_ID}][${queryId}]   • Interview Context: Not configured`);
-    }
+//         // Log any other relevant context properties
+//         const contextKeys = Object.keys(initialInterviewContext).filter(
+//             key => !['roleDescription', 'companyName', 'interviewType', 'goals'].includes(key)
+//         );
+//         if (contextKeys.length > 0) {
+//             logger.debug(`[${COMPONENT_ID}][${queryId}]   • Additional Context: ${contextKeys.join(', ')}`);
+//         }
+//     } else {
+//         logger.debug(`[${COMPONENT_ID}][${queryId}]   • Interview Context: Not configured`);
+//     }
 
-    logger.debug(`[${COMPONENT_ID}][${queryId}]   • Goals: ${goals.length} items`);
-    if (goals.length > 0) {
-        const goalsPreview = goals.slice(0, 3).join(', ');
-        const moreGoals = goals.length > 3 ? ` (+${goals.length - 3} more)` : '';
-        logger.debug(`[${COMPONENT_ID}][${queryId}]     └─ [${goalsPreview}${moreGoals}]`);
-    }
+//     logger.debug(`[${COMPONENT_ID}][${queryId}]   • Goals: ${goals.length} items`);
+//     if (goals.length > 0) {
+//         const goalsPreview = goals.slice(0, 3).join(', ');
+//         const moreGoals = goals.length > 3 ? ` (+${goals.length - 3} more)` : '';
+//         logger.debug(`[${COMPONENT_ID}][${queryId}]     └─ [${goalsPreview}${moreGoals}]`);
+//     }
 
-    logger.debug(`[${COMPONENT_ID}][${queryId}]   • Conversation Summary: ${state.conversationSummary.length} chars`);
-    logger.debug(`[${COMPONENT_ID}][${queryId}]   • Knowledge Context: ${knowledgeContext.length} chars`);
-    logger.debug(`[${COMPONENT_ID}][${queryId}]   • User Message: "${userMessage}"`);
+//     logger.debug(`[${COMPONENT_ID}][${queryId}]   • Conversation Summary: ${state.conversationSummary.length} chars`);
+//     logger.debug(`[${COMPONENT_ID}][${queryId}]   • Knowledge Context: ${knowledgeContext.length} chars`);
+//     logger.debug(`[${COMPONENT_ID}][${queryId}]   • User Message: "${userMessage}"`);
 
-    // Log detailed context structure for debugging (only in development)
-    if (process.env.NODE_ENV === 'development' && initialInterviewContext) {
-        logger.debug(`[${COMPONENT_ID}][${queryId}] 🏗️ Interview Context Structure:`);
-        console.log('\n📋 INITIAL INTERVIEW CONTEXT:\n', JSON.stringify(initialInterviewContext, null, 2), '\n');
-    }
-}
+//     // Log detailed context structure for debugging (only in development)
+//     if (process.env.NODE_ENV === 'development' && initialInterviewContext) {
+//         logger.debug(`[${COMPONENT_ID}][${queryId}] 🏗️ Interview Context Structure:`);
+//         console.log('\n📋 INITIAL INTERVIEW CONTEXT:\n', JSON.stringify(initialInterviewContext, null, 2), '\n');
+//     }
+// }

@@ -1,0 +1,37 @@
+// Custom persistence middleware for specialized data handling
+import { PersistOptions } from 'zustand/middleware';
+import { AppState } from '@/types/store';
+
+export const createPersistenceConfig = (): PersistOptions<AppState> => ({
+    name: 'audio-transcription-app',
+    partialize: state => ({
+        // Only persist essential user preferences and context
+        theme: state.theme,
+        context: state.context,
+        lastIndexedAt: state.lastIndexedAt,
+        knowledgeBaseName: state.knowledgeBaseName,
+        indexedDocumentsCount: state.indexedDocumentsCount,
+        conversationSummary: state.conversationSummary,
+        // Convert Maps to arrays for JSON serialization
+        conversations: Array.from(state.conversations.entries()),
+    }),
+    onRehydrateStorage: () => state => {
+        // Restore Maps from persisted arrays
+        if (state?.conversations) {
+            state.conversations = new Map(state.conversations);
+        }
+        // Initialize non-persisted state
+        if (!state.streamingResponses) {
+            state.streamingResponses = new Map();
+        }
+        if (!state.audioSessions) {
+            state.audioSessions = new Map();
+        }
+        if (!state.notifications) {
+            state.notifications = [];
+        }
+        if (!state.modals) {
+            state.modals = {};
+        }
+    },
+});

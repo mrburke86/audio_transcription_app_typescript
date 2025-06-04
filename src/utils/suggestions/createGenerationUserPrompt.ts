@@ -11,13 +11,15 @@ export async function createGenerationUserPrompt(
         ? `
 ## Strategic Interview Context:
 - **Target Role**: ${initialInterviewContext.targetRole} at ${initialInterviewContext.targetCompany}
-- **Company Profile**: ${initialInterviewContext.companySizeType} ${initialInterviewContext.industry} company
+- **Company Profile**: ${initialInterviewContext.companySizeType} ${initialInterviewContext.industryVertical} company
 - **Interview Type**: ${initialInterviewContext.interviewType}
 - **Seniority Level**: ${initialInterviewContext.seniorityLevel}
 - **Experience Assets**: ${initialInterviewContext.emphasizedExperiences.join(', ') || 'General experience'}
 - **Strategic Challenges**: ${initialInterviewContext.specificChallenges.join(', ') || 'None specified'}
 - **Company Intelligence**: ${initialInterviewContext.companyContext.join(', ') || 'Limited company context'}
-- **Response Style**: ${initialInterviewContext.responseConfidence} confidence, ${initialInterviewContext.responseStructure} structure
+- **Response Style**: ${initialInterviewContext.responseConfidence} confidence, ${
+              initialInterviewContext.responseStructure
+          } structure
 - **Metrics Focus**: ${
               initialInterviewContext.includeMetrics
                   ? 'Include quantified achievements and data points'
@@ -30,7 +32,9 @@ export async function createGenerationUserPrompt(
         ? `
 ## Strategic Knowledge Base:
 ${knowledgeContext.substring(0, 2500)}${
-              knowledgeContext.length > 2500 ? '\n\n[... additional strategic intelligence available for deeper insights ...]' : ''
+              knowledgeContext.length > 2500
+                  ? '\n\n[... additional strategic intelligence available for deeper insights ...]'
+                  : ''
           }
 `
         : '## Knowledge Base: Limited specific intelligence - rely on broader strategic knowledge';
@@ -106,7 +110,9 @@ ${
 }
 
 ## Quality Requirements:
-- **Multiple Independent Elements** - Provide 3-4 different types of valuable insights within the ${analysis.strategic_opportunity} theme
+- **Multiple Independent Elements** - Provide 3-4 different types of valuable insights within the ${
+        analysis.strategic_opportunity
+    } theme
 - **Research-Backed** - Include specific examples, data, real-world evidence where possible
 - **Strategic Depth** - Go beyond surface-level to reveal deeper patterns
 - **Impressive Factor** - Every element should genuinely impress a sophisticated interviewer
@@ -117,5 +123,7 @@ ${
 
 Focus on delivering genuine strategic intelligence that showcases exceptional thinking within the ${
         analysis.strategic_opportunity
-    } domain, specifically targeting ${analysis.focus_area}, while ensuring complete freshness from previous generations.`;
+    } domain, specifically targeting ${
+        analysis.focus_area
+    }, while ensuring complete freshness from previous generations.`;
 }
