@@ -3,7 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useMemo } from 'react';
 
 // Optimized hook to replace KnowledgeProvider
-export const useKnowledge = () => {
+const useKnowledge = () => {
     return useAppStore(
         useShallow(state => ({
             // State
@@ -24,7 +24,7 @@ export const useKnowledge = () => {
 };
 
 // Optimized hook to replace useLLMProviderOptimized
-export const useLLM = () => {
+const useLLM = () => {
     return useAppStore(
         useShallow(state => ({
             // State
@@ -43,7 +43,7 @@ export const useLLM = () => {
 };
 
 // Optimized hook for speech recognition
-export const useSpeech = () => {
+const useSpeech = () => {
     return useAppStore(
         useShallow(state => ({
             // State
@@ -66,7 +66,7 @@ export const useSpeech = () => {
 };
 
 // Optimized hook for interview context
-export const useInterview = () => {
+const useInterview = () => {
     return useAppStore(
         useShallow(state => ({
             // State
@@ -86,7 +86,7 @@ export const useInterview = () => {
 };
 
 // Optimized hook for UI state
-export const useUI = () => {
+const useUI = () => {
     return useAppStore(
         useShallow(state => ({
             // State
@@ -108,20 +108,19 @@ export const useUI = () => {
 };
 
 // Selective hooks for specific data
-export const useStreamingResponse = (streamId: string) => {
+const useStreamingResponse = (streamId: string) => {
     return useAppStore(state => state.streamingResponses.get(streamId));
 };
 
-export const useConversationMessages = (conversationId: string = 'main') => {
+const useConversationMessages = (conversationId: string = 'main') => {
     return useAppStore(state => state.conversations.get(conversationId)?.messages || []);
 };
-
-export const useNotificationCount = () => {
+const useNotificationCount = () => {
     return useAppStore(state => state.notifications.length);
 };
 
 // Computed selectors with memoization
-export const useSearchResultsWithHighlight = (searchTerm: string) => {
+const useSearchResultsWithHighlight = (searchTerm: string) => {
     const searchResults = useAppStore(state => state.searchResults);
 
     return useMemo(() => {

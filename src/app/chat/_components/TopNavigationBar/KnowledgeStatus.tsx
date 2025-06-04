@@ -1,7 +1,7 @@
 // src\app\chat\_components\KnowledgeStatus.tsx
 
 import { Icons } from '@/components/icons/icons'; // Corrected import path
-import { useKnowledge } from '@/contexts/KnowledgeProvider'; // To get refresh and potentially other live states
+import { useKnowledge } from '@/stores/hooks/useSelectors';
 import { cn } from '@/lib/utils';
 
 export interface KnowledgeStatusProps {
@@ -9,7 +9,10 @@ export interface KnowledgeStatusProps {
     indexedDocumentsCount: number;
 }
 // Knowledge Loading Component
-export const KnowledgeStatus: React.FC<KnowledgeStatusProps> = ({ knowledgeBaseName, indexedDocumentsCount: countFromProps }) => {
+export const KnowledgeStatus: React.FC<KnowledgeStatusProps> = ({
+    knowledgeBaseName,
+    indexedDocumentsCount: countFromProps,
+}) => {
     // if (isLoading) {
     //     return (
     //         <Badge variant="outline" className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-700">
