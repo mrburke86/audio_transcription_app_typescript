@@ -6,39 +6,39 @@ import { cn } from '@/lib/utils';
 import '@/styles/globals.css';
 import { TailwindIndicator } from '@/components/global/tailwind-indicator';
 import { ThemeToggle } from '@/components/global/theme-toggle';
-import { KnowledgeProvider } from '@/contexts/KnowledgeProvider';
+// import { KnowledgeProvider } from '@/contexts/KnowledgeProvider';
 import { GlobalErrorBoundary } from '@/components/error-boundary';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
-    title: 'iMessage-style Audio Transcription',
-    description: 'An audio transcription app with iMessage-style interface',
+      title: 'iMessage-style Audio Transcription',
+      description: 'An audio transcription app with iMessage-style interface',
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-    // const { cookies } = await import('next/headers');
-    return (
-        <html lang="en" suppressHydrationWarning>
-            <body
-                className={cn(
-                    `min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 antialiased ${inter.className}`
-                    // inter.className,
-                )}
-            >
-                <GlobalErrorBoundary>
-                    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-                        <KnowledgeProvider>
-                            <main className="flex flex-1 flex-col transition-all duration-300 ease-in-out rounded-sm p-1 h-screen">
-                                {children}
-                            </main>
-                        </KnowledgeProvider>
-                        <CustomToaster />
-                        <TailwindIndicator />
-                        <ThemeToggle />
-                    </ThemeProvider>
-                </GlobalErrorBoundary>
-            </body>
-        </html>
-    );
+      // const { cookies } = await import('next/headers');
+      return (
+            <html lang="en" suppressHydrationWarning>
+                  <body
+                        className={cn(
+                              `min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 antialiased ${inter.className}`
+                              // inter.className,
+                        )}
+                  >
+                        <GlobalErrorBoundary>
+                              <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+                                    {/* <KnowledgeProvider> */}
+                                    <main className="flex flex-1 flex-col transition-all duration-300 ease-in-out rounded-sm p-1 h-screen">
+                                          {children}
+                                    </main>
+                                    {/* </KnowledgeProvider> */}
+                                    <CustomToaster />
+                                    <TailwindIndicator />
+                                    <ThemeToggle />
+                              </ThemeProvider>
+                        </GlobalErrorBoundary>
+                  </body>
+            </html>
+      );
 }
