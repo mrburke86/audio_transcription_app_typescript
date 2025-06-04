@@ -13,10 +13,11 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/call-modal/components/FormField';
+import { useKnowledge as useKnowledgeStore } from '@/stores/hooks/useSelectors';
 
 export function KnowledgeBaseTab() {
     logger.info('🔍 KnowledgeBaseTab component is rendering');
-    const { indexedDocumentsCount, knowledgeBaseName, lastIndexedAt, error, triggerIndexing } = useKnowledge();
+    const { indexedDocumentsCount, knowledgeBaseName, lastIndexedAt, error, triggerIndexing } = useKnowledgeStore();
     const { context, updateField } = useCallModal();
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [fileTag, setFileTag] = useState('General');
