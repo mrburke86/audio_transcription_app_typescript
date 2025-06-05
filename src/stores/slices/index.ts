@@ -2,5 +2,5 @@
 export { createKnowledgeSlice } from './knowledgeSlice';
 export { createLLMSlice } from './llmSlice';
 export { createSpeechSlice } from './speechSlice';
-export { createInterviewSlice } from './interviewSlice';
+export { createCallSlice } from './callSlice';
 export { createUISlice } from './uiSlice';

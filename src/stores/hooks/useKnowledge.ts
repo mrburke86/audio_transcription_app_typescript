@@ -1,3 +1,5 @@
+//
+'use client';
 import { useAppStore } from '../store';
 import { useShallow } from 'zustand/react/shallow';
 

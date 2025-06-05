@@ -1,29 +1,31 @@
-// src\stores\store.ts
+// src/stores/store.ts
+'use client';
 import { create } from 'zustand';
 import { devtools, persist, subscribeWithSelector } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 
 import { AppState } from '@/types/store';
-import { createKnowledgeSlice, createLLMSlice, createSpeechSlice, createInterviewSlice, createUISlice } from './slices';
+import { createCallSlice, createKnowledgeSlice, createLLMSlice, createSpeechSlice, createUISlice } from './slices';
 
-import { logger } from '@/modules/Logger'; //
+import { logger } from '@/modules/Logger';
 import { performanceMiddleware } from './middlewares/performanceMiddleware';
 
 logger.info('🚀 Initializing Zustand store (User-Provided Version)...');
 
-// Create the main store with all middleware
+// ✅ FIXED: Proper middleware typing for immer integration
 export const useAppStore = create<AppState>()(
     devtools(
         persist(
             subscribeWithSelector(
-                performanceMiddleware(
-                    // Integrate performanceMiddleware
-                    immer((...a) => ({
-                        ...createKnowledgeSlice(...a), //
-                        ...createLLMSlice(...a), //
-                        ...createSpeechSlice(...a), //
-                        ...createInterviewSlice(...a), //
-                        ...createUISlice(...a), //
+                immer(
+                    // performanceMiddleware(
+                    performanceMiddleware((set, get, store) => ({
+                        // immer<AppState>((set, get, store) => ({
+                        ...createKnowledgeSlice(set, get, store),
+                        ...createLLMSlice(set, get, store),
+                        ...createSpeechSlice(set, get, store),
+                        ...createCallSlice(set, get, store),
+                        ...createUISlice(set, get, store),
                     }))
                 )
             ),
@@ -40,24 +42,27 @@ export const useAppStore = create<AppState>()(
                     // conversationSummary: state.conversationSummary,
                     // analysisHistory: state.conversationSuggestions.analysisHistory,
                 }),
-                // Restore Maps from arrays on rehydration
+                // ✅ FIXED: Proper type safety and removed invalid property access
                 onRehydrateStorage: () => (state: AppState | undefined, error) => {
                     if (error) {
                         logger.error('Error rehydrating state:', error);
                         return;
                     }
                     if (state) {
-                        // Ensure Maps are correctly rehydrated
-                        state.conversations = new Map(state.conversations as any); // Rehydrate
+                        // ✅ Added proper type checking and conversion
+                        if (Array.isArray(state.conversations)) {
+                            state.conversations = new Map(state.conversations as Array<[string, unknown]>);
+                        } else if (!(state.conversations instanceof Map)) {
+                            state.conversations = new Map();
+                        }
 
                         // Initialize transient states not meant for persistence
                         state.streamingResponses = new Map();
                         state.audioSessions = new Map();
-                        // Initialize other non-persisted parts of slices as new Maps or defaults
-                        if (state.llmSlice) {
-                            // Example if llmSlice had its own maps not covered
-                            // state.llmSlice.someOtherMap = new Map();
-                        }
+
+                        // ✅ REMOVED: Invalid llmSlice property access
+                        // The slices are merged into the main state, not nested objects
+                        logger.info('✅ State rehydrated successfully');
                     }
                 },
             }

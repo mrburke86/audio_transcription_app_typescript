@@ -2,7 +2,6 @@
 export * from './callContext';
 export * from './errorBoundary';
 export * from './ILLMService';
-export * from './initialInterviewContext';
 export * from './llm';
 export * from './Message';
 export * from './openai-models';
