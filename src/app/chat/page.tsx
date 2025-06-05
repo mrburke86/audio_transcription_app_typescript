@@ -8,6 +8,15 @@ import { AIErrorBoundary, InlineErrorBoundary, SpeechErrorBoundary } from '@/com
 import { Button, Card, CardContent, CardHeader, CardTitle, Separator } from '@/components/ui';
 import { CustomSpeechError, useSpeechRecognition, useTranscriptions } from '@/hooks';
 import { logger } from '@/modules';
+import {
+    useConversationMessages,
+    useInterview,
+    useKnowledge,
+    useLLM,
+    useStreamingResponse,
+    useUI,
+} from '@/stores/hooks/useSelectors';
+import { CallContext } from '@/types/callContext';
 import { ArrowRight, MessageSquare, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -21,24 +30,16 @@ import {
     VoiceControls,
 } from './_components';
 
-// ✅ NEW: Use Zustand hooks instead of old context patterns
-import {
-    useKnowledge,
-    useLLM,
-    useInterview,
-    useUI,
-    useStreamingResponse,
-    useConversationMessages,
-} from '@/stores/hooks/useSelectors';
-import { CallContext } from '@/types/callContext';
-
 export default function ChatPage() {
-    // ✅ NEW: Use Zustand hooks for all state management
+    /* ------------------------------------------------------------------ *
+     * 🧩  ZUSTAND SELECTORS
+     * ------------------------------------------------------------------ */
     const {
         isLoading: knowledgeLoading,
         error: knowledgeError,
         indexedDocumentsCount,
         knowledgeBaseName,
+        initializeKnowledgeBase,
     } = useKnowledge();
 
     const {
@@ -69,151 +70,167 @@ export default function ChatPage() {
     // ✅ NEW: Get conversation messages from store
     const conversationMessages = useConversationMessages('main');
 
-    // Legacy state for speech recognition (will be migrated in later step)
+    /* ------------------------------------------------------------------ *
+     * 🎙️  LOCAL STATE
+     * ------------------------------------------------------------------ */
     const [recognitionStatus, setRecognitionStatus] = useState<'inactive' | 'active' | 'error'>('inactive');
     const [speechErrorMessage, setSpeechErrorMessage] = useState<string | null>(null);
-    const [isLocalLoading, setIsLocalLoading] = useState(false); // ✅ Local loading state
+    const [isLocalLoading, setIsLocalLoading] = useState(false);
+
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const visualizationStartedRef = useRef(false);
 
-    // Show role modal on mount if no interview context
+    /* ------------------------------------------------------------------ *
+     * 🔎  EFFECTS & TRACING
+     * ------------------------------------------------------------------ */
+    useEffect(() => {
+        logger.debug('[ChatPage] Mount');
+        return () => logger.debug('[ChatPage] Unmount');
+    }, []);
+
+    useEffect(() => {
+        logger.trace('[ChatPage] Streaming content length', streamedContent.length);
+    }, [streamedContent]);
+
+    useEffect(() => {
+        logger.debug('[ChatPage] recognitionStatus', recognitionStatus);
+    }, [recognitionStatus]);
+
+    /* ------------------------------------------------------------------ *
+     * 🪄  MODAL LOGIC
+     * ------------------------------------------------------------------ */
     useEffect(() => {
         if (!interviewContext) {
+            logger.info('[ChatPage] No call context — opening setup modal');
             openSetupModal();
         }
     }, [interviewContext, openSetupModal]);
 
-    // ✅ FIXED: Handle call context setup with proper CallContext type
     const handleCallStart = useCallback(
         (context: CallContext) => {
-            logger.info('🚀 Starting call with context:', context);
-
-            // ✅ Use the CallContext directly instead of converting
+            logger.info('[ChatPage] 🚀 Starting call with context:', context);
             setCallContext(context);
             closeSetupModal();
+            initializeKnowledgeBase()
+                .then(() => logger.info('[ChatPage] ✅ Knowledge base initialized'))
+                .catch(err => logger.error('[ChatPage] ❌ KB init failed', err));
         },
         [setCallContext, closeSetupModal]
     );
 
     const handleModalClose = useCallback(() => {
+        logger.info('[ChatPage] ↩️ Closing setup modal');
         closeSetupModal();
     }, [closeSetupModal]);
 
-    // ✅ FIXED: Remove unused variables and fix hook usage
+    /* ------------------------------------------------------------------ *
+     * 📝  TRANSCRIPTIONS HOOK
+     * ------------------------------------------------------------------ */
     const { interimTranscriptions, currentInterimTranscript, handleClear, handleRecognitionResult } = useTranscriptions(
         {
             generateResponse,
-            // ✅ FIXED: Remove invalid props
-            // streamedContent and isStreamingComplete are not valid props for useTranscriptions
         }
     );
 
-    // ✅ NEW: Enhanced move function that uses Zustand store
+    /* ------------------------------------------------------------------ *
+     * 🤖  MOVE ACTION (Generate Response)
+     * ------------------------------------------------------------------ */
     const handleMove = useCallback(async () => {
-        const allTranscriptions = [...interimTranscriptions.map(msg => msg.content), currentInterimTranscript]
-            .join(' ')
-            .trim();
+        const combined = [...interimTranscriptions.map(m => m.content), currentInterimTranscript].join(' ').trim();
 
-        if (allTranscriptions === '') return;
+        if (combined === '') return;
+
+        logger.debug('[ChatPage] ▶️ handleMove triggered, tokens', combined.split(' ').length);
 
         try {
-            setIsLocalLoading(true); // ✅ Use local loading state
-            await generateResponse(allTranscriptions);
-
-            // Clear transcriptions after successful response
+            setIsLocalLoading(true);
+            await generateResponse(combined);
             handleClear();
 
-            addNotification({
+            addNotification?.({
                 type: 'success',
                 message: 'Response generated successfully',
-                duration: 3000,
+                duration: 3_000,
             });
-        } catch (error) {
-            logger.error(`Error generating response: ${(error as Error).message}`);
-            addNotification({
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            logger.error('[ChatPage] ❌ generateResponse failed', msg);
+
+            addNotification?.({
                 type: 'error',
                 message: 'Failed to generate response',
-                duration: 5000,
+                duration: 5_000,
             });
         } finally {
-            setIsLocalLoading(false); // ✅ Use local loading state
+            setIsLocalLoading(false);
         }
     }, [interimTranscriptions, currentInterimTranscript, generateResponse, handleClear, addNotification]);
 
-    // ✅ NEW: Enhanced suggestion handler using Zustand
+    /* ------------------------------------------------------------------ *
+     * 💡  SUGGEST ACTION (Strategic Intelligence)
+     * ------------------------------------------------------------------ */
     const handleSuggest = useCallback(async () => {
+        logger.debug('[ChatPage] 💡 handleSuggest triggered');
+
         try {
-            setIsLocalLoading(true); // ✅ Use local loading state
+            setIsLocalLoading(true);
             await generateSuggestions();
 
-            addNotification({
+            addNotification?.({
                 type: 'success',
                 message: 'Strategic intelligence generated',
-                duration: 3000,
+                duration: 3_000,
             });
-        } catch (error) {
-            logger.error(`Error generating suggestions: ${(error as Error).message}`);
-            addNotification({
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            logger.error('[ChatPage] ❌ generateSuggestions failed', msg);
+
+            addNotification?.({
                 type: 'error',
                 message: 'Failed to generate suggestions',
-                duration: 5000,
+                duration: 5_000,
             });
         } finally {
-            setIsLocalLoading(false); // ✅ Use local loading state
+            setIsLocalLoading(false);
         }
     }, [generateSuggestions, addNotification]);
 
-    // Legacy speech recognition handlers (will be updated in next step)
-    const getUserFriendlyError = useCallback((errorCode: string): string => {
-        switch (errorCode) {
-            case 'network':
-                return 'Network error. Please check your internet connection.';
-            case 'not-allowed':
-                return 'Microphone access denied. Please allow microphone access in your browser settings.';
-            case 'service-not-allowed':
-                return 'Speech recognition service not allowed. Please check your browser settings.';
-            case 'no-speech':
-                return 'No speech detected. Please try speaking again.';
-            case 'audio-capture':
-                return 'Audio capture failed. Please check your microphone.';
-            case 'aborted':
-                return 'Speech recognition was aborted.';
-            case 'language-not-supported':
-                return 'Language not supported. Please try a different language.';
-            case 'bad-grammar':
-                return 'Grammar configuration issue. Please contact support.';
-            default:
-                return 'An unexpected error occurred with speech recognition.';
-        }
+    /* ------------------------------------------------------------------ *
+     * 🎙️  SPEECH RECOGNITION SETUP
+     * ------------------------------------------------------------------ */
+    const getUserFriendlyError = useCallback((code: string): string => {
+        const map: Record<string, string> = {
+            network: 'Network error. Please check your internet connection.',
+            'not-allowed': 'Microphone access denied. Please allow microphone access in your browser settings.',
+            'service-not-allowed': 'Speech recognition service not allowed. Please check your browser settings.',
+            'no-speech': 'No speech detected. Please try speaking again.',
+            'audio-capture': 'Audio capture failed. Please check your microphone.',
+            aborted: 'Speech recognition was aborted.',
+            'language-not-supported': 'Language not supported. Please try a different language.',
+            'bad-grammar': 'Grammar configuration issue. Please contact support.',
+        };
+        return map[code] ?? 'An unexpected error occurred with speech recognition.';
     }, []);
 
     const handleRecognitionStart = useCallback(() => {
-        logger.info('🎙️✅ Speech recognition started');
+        logger.info('[ChatPage] 🎙️✅ Recognition started');
         setRecognitionStatus('active');
         setSpeechErrorMessage(null);
     }, []);
 
     const handleRecognitionEnd = useCallback(() => {
-        logger.info('🎙️⏹️ Speech recognition ended');
+        logger.info('[ChatPage] 🎙️⏹️ Recognition ended');
         setRecognitionStatus('inactive');
     }, []);
 
     const handleRecognitionError = useCallback(
-        (speechError: SpeechRecognitionErrorEvent | CustomSpeechError) => {
-            let errorCode: string;
-            let detailedMessage: string;
+        (speechErr: SpeechRecognitionErrorEvent | CustomSpeechError) => {
+            const code = 'error' in speechErr ? speechErr.error : speechErr.code;
+            const msg = 'error' in speechErr ? getUserFriendlyError(code) : speechErr.message;
 
-            if ('error' in speechError) {
-                errorCode = speechError.error;
-                detailedMessage = getUserFriendlyError(speechError.error);
-            } else {
-                errorCode = speechError.code;
-                detailedMessage = speechError.message;
-            }
-
-            logger.error(`Speech recognition error: ${errorCode} - ${detailedMessage}`);
+            logger.error('[ChatPage] 🎙️❌', code, msg);
             setRecognitionStatus('error');
-            setSpeechErrorMessage(detailedMessage);
+            setSpeechErrorMessage(msg);
         },
         [getUserFriendlyError]
     );
@@ -226,23 +243,23 @@ export default function ChatPage() {
     });
 
     const handleStart = useCallback(() => {
-        logger.info('🎙️ Attempting to start speech recognition...');
+        logger.info('[ChatPage] 🎙️ Start button clicked');
         start()
             .then(() => {
                 if (canvasRef.current && !visualizationStartedRef.current) {
-                    logger.info('🎨 Starting audio visualization');
+                    logger.info('[ChatPage] 🎨 Starting audio visualization');
                     startAudioVisualization(canvasRef.current);
                     visualizationStartedRef.current = true;
                 } else if (!canvasRef.current) {
-                    logger.warning("⚠️ Canvas reference is null, can't start visualization");
+                    logger.warning('[ChatPage] ⚠️ Canvas ref null, cannot visualize');
                 }
             })
-            .catch(startError => {
-                logger.error(`Failed to start speech recognition: ${startError.message}`);
-            });
+            .catch(err => logger.error('[ChatPage] ❌ Speech start failed', err));
     }, [start, startAudioVisualization]);
 
-    // Show full-screen loading if knowledge is still loading
+    /* ------------------------------------------------------------------ *
+     * ⏳  CONDITIONAL RENDERING
+     * ------------------------------------------------------------------ */
     if (knowledgeLoading) {
         return (
             <LoadingState
@@ -252,7 +269,6 @@ export default function ChatPage() {
         );
     }
 
-    // Show error if knowledge provider failed to initialize
     if (knowledgeError) {
         return (
             <ErrorState
@@ -263,21 +279,24 @@ export default function ChatPage() {
         );
     }
 
+    /* ------------------------------------------------------------------ *
+     * 🖼️  MAIN UI
+     * ------------------------------------------------------------------ */
     return (
-        <div className="flex flex-col h-full overflow-hidden p-1 gap-4">
-            {/* ✅ UPDATED: Call Setup Modal (replaces Interview Modal) */}
+        <div className="flex h-full flex-col gap-4 overflow-hidden p-1">
+            {/* ════════════════════════  CALL SETUP MODAL ════════════════════════ */}
             {showRoleModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center">
-                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleModalClose} />
-                    <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden mx-4">
-                        <div className="flex items-center justify-between p-6 border-b">
+                    <div className="absolute inset-0 backdrop-blur-sm bg-black/50" onClick={handleModalClose} />
+                    <div className="relative mx-4 w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-lg bg-white shadow-xl">
+                        <div className="flex items-center justify-between border-b p-6">
                             <h2 className="text-xl font-semibold">🎯 Call Setup</h2>
                             <Button variant="ghost" size="sm" onClick={handleModalClose} className="h-8 w-8 p-0">
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>
                         <CallModalProvider onSubmit={handleCallStart}>
-                            <div className="overflow-y-auto max-h-[calc(90vh-140px)]">
+                            <div className="max-h-[calc(90vh-140px)] overflow-y-auto">
                                 <div className="p-6">
                                     <CallModalTabs />
                                     <div className="mt-6">
@@ -290,7 +309,7 @@ export default function ChatPage() {
                 </div>
             )}
 
-            {/* Top Navigation Bar */}
+            {/* ════════════════════════  NAVBAR ════════════════════════ */}
             <InlineErrorBoundary>
                 <TopNavigationBar
                     status={recognitionStatus}
@@ -300,18 +319,20 @@ export default function ChatPage() {
                 />
             </InlineErrorBoundary>
 
-            <div className="grid grid-cols-12 gap-6 flex-1 min-h-0 overflow-hidden">
-                {/* Left Columns - Chat Interface */}
+            {/* ════════════════════════  MAIN GRID ════════════════════════ */}
+            <div className="grid min-h-0 flex-1 grid-cols-12 gap-6 overflow-hidden">
+                {/* LEFT: Chat */}
                 <div className="col-span-6 flex-1 overflow-hidden">
-                    <Card className="h-full relative flex flex-col overflow-hidden">
-                        <CardHeader className="pb-3 flex-shrink-0">
-                            <CardTitle className="text-lg flex items-center gap-2">
+                    <Card className="relative flex h-full flex-col overflow-hidden">
+                        <CardHeader className="flex-shrink-0 pb-3">
+                            <CardTitle className="flex items-center gap-2 text-lg">
                                 <MessageSquare className="h-5 w-5" />
                                 Conversation
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="flex-1 flex flex-col gap-4 min-h-0 overflow-hidden">
-                            <div className="flex-1 min-h-0 overflow-hidden">
+
+                        <CardContent className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+                            <div className="min-h-0 flex-1 overflow-hidden">
                                 <MemoizedChatMessagesBox
                                     id="postChat"
                                     messages={conversationMessages}
@@ -325,7 +346,7 @@ export default function ChatPage() {
 
                             <div
                                 id="chat-input"
-                                className="flex flex-col p-3 md:p-4 border-[1px] border-gray-800 rounded-lg shadow-none max-h-52 overflow-y-auto bg-background flex-shrink-0"
+                                className="flex max-h-52 flex-col overflow-y-auto rounded-lg border border-gray-800 bg-background p-3 shadow-none md:p-4"
                             >
                                 <LiveTranscriptionBox
                                     id="preChat"
@@ -338,17 +359,17 @@ export default function ChatPage() {
                                     variant="move"
                                     onClick={handleMove}
                                     disabled={uiLoading || isGenerating || isLocalLoading}
-                                    className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-500 text-white hover:bg-blue-600 h-8 px-2 py-1 mt-2 gap-1.5 self-end"
+                                    className="mt-2 inline-flex h-8 items-center justify-center gap-1.5 self-end whitespace-nowrap rounded-md bg-blue-500 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-600 disabled:pointer-events-none disabled:opacity-50"
                                 >
                                     <ArrowRight className="mr-1 h-4 w-4" />
-                                    {uiLoading || isLocalLoading ? 'Generating...' : 'Move'}
+                                    {uiLoading || isLocalLoading ? 'Generating…' : 'Move'}
                                 </Button>
                             </div>
                         </CardContent>
                     </Card>
                 </div>
 
-                {/* Middle Column */}
+                {/* MIDDLE: Voice Controls */}
                 <div className="col-span-1">
                     <SpeechErrorBoundary>
                         <VoiceControls
@@ -361,14 +382,13 @@ export default function ChatPage() {
                     </SpeechErrorBoundary>
                 </div>
 
-                {/* Right Column */}
-                <div className="flex w-full col-span-4 gap-y-4 h-full overflow-hidden">
-                    <div className="grid grid-rows-2 gap-2 w-full">
+                {/* RIGHT: Context + Insights */}
+                <div className="col-span-4 h-full w-full overflow-hidden">
+                    <div className="grid h-full w-full grid-rows-2 gap-2">
                         <div className="overflow-hidden scroll-smooth">
-                            {/* ✅ FIXED: Use key_points instead of goals, with fallback */}
                             <ConversationContext
                                 summary={conversationSummary}
-                                goals={interviewContext?.key_points || []}
+                                goals={interviewContext?.key_points ?? []}
                             />
                         </div>
 

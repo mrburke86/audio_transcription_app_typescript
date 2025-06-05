@@ -1,73 +1,57 @@
-// src\stores\slices\uiSlice.ts
-import { AppState, UISlice } from '@/types/store';
-import { toast } from 'sonner';
+// src/stores/slices/uiSlice.ts
 import { StateCreator } from 'zustand';
+import { toast } from 'sonner';
 
-/**
- * 🧩 UI Slice — Centralized Zustand slice for user interface and feedback management
- *
- * ✅ Responsibilities:
- * - Show toast notifications (via Sonner)
- * - Manage modal open/close state and props
- * - Track loading state and messages
- * - Handle theme switching (light/dark mode)
- * - Enable consistent UI feedback across the app
- */
+import { logger } from '@/modules/Logger';
+import { AppState, UISlice } from '@/types/store';
 
-export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get) => ({
-    // Initialize state - centralizes all UI state management
+const SLICE = 'UISlice';
+
+export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, _get) => ({
+    // 🌑 Initial UI state
     theme: 'dark',
-    // notifications: [],
     modals: {},
     isLoading: false,
     loadingMessage: undefined,
 
-    /**
-     * 🎨 Set app theme mode (light or dark)
-     */
-    setTheme: (theme: 'light' | 'dark') => {
+    /* ------------------------------------------------------------------ *
+     * 🎨 THEME
+     * ------------------------------------------------------------------ */
+    setTheme: theme => {
+        logger.info(`[${SLICE}] setTheme → ${theme}`);
         set({ theme });
-        // logger.info(`🎨 Theme changed to: ${theme}`);
 
-        // Optional DOM-side theme handling
-        // if (typeof window !== 'undefined') {
-        //     document.documentElement.classList.toggle('dark', theme === 'dark');
-        // }
-    },
-
-    /**
-     * 📣 Display toast notification using Sonner
-     */
-    addNotification: ({ type, message, duration = 4000 }) => {
-        switch (type) {
-            case 'success':
-                toast.success(message, { duration });
-                break;
-            case 'error':
-                toast.error(message, { duration });
-                break;
-            case 'warning':
-                toast.warning(message, { duration });
-                break;
-            case 'info':
-            default:
-                toast.info(message, { duration });
-                break;
+        // Optional DOM toggle
+        if (typeof document !== 'undefined') {
+            document.documentElement.classList.toggle('dark', theme === 'dark');
         }
     },
 
-    /**
-     * ❌ Deprecated — Sonner auto-dismisses notifications
-     */
-    removeNotification: () => {
-        // This method can be removed or kept as no-op for compatibility
-        console.warn('removeNotification is deprecated - Sonner handles auto-dismissal');
+    /* ------------------------------------------------------------------ *
+     * 🔔 NOTIFICATIONS
+     * ------------------------------------------------------------------ */
+    addNotification: ({ type, message, duration = 4_000 }) => {
+        logger.debug(`[${SLICE}] addNotification → ${type}: ${message}`);
+
+        const toastMap = {
+            success: toast.success,
+            error: toast.error,
+            warning: toast.warning,
+            info: toast.info,
+        } as const;
+
+        (toastMap[type] ?? toast.info)(message, { duration });
     },
 
-    /**
-     * 📥 Opens a modal by ID and optionally passes props
-     */
-    openModal: (modalId: string, props?: any) => {
+    removeNotification: () => {
+        logger.warning(`[${SLICE}] removeNotification is deprecated — Sonner auto-dismisses notifications`);
+    },
+
+    /* ------------------------------------------------------------------ *
+     * 🪟 MODALS
+     * ------------------------------------------------------------------ */
+    openModal: (modalId, props) => {
+        logger.debug(`[${SLICE}] openModal → ${modalId}`, props);
         set(state => ({
             modals: {
                 ...state.modals,
@@ -76,10 +60,8 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
         }));
     },
 
-    /**
-     * 📤 Closes a modal by ID
-     */
-    closeModal: (modalId: string) => {
+    closeModal: modalId => {
+        logger.debug(`[${SLICE}] closeModal → ${modalId}`);
         set(state => ({
             modals: {
                 ...state.modals,
@@ -88,17 +70,17 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
         }));
     },
 
-    /**
-     * 🔄 Manage global loading state and display loading message via toast
-     */
-    setLoading: (isLoading: boolean, message?: string) => {
+    /* ------------------------------------------------------------------ *
+     * ⏳ GLOBAL LOADING
+     * ------------------------------------------------------------------ */
+    setLoading: (isLoading, message) => {
+        logger.performance(`[${SLICE}] setLoading → ${isLoading ? 'START' : 'STOP'}${message ? ` (${message})` : ''}`);
         set({ isLoading, loadingMessage: message });
 
-        // Optional: Show loading toast for long operations
         if (isLoading && message) {
-            toast.loading(message, { id: 'loading-toast' });
+            toast.loading(message, { id: 'global-loading-toast', duration: Infinity });
         } else {
-            toast.dismiss('loading-toast');
+            toast.dismiss('global-loading-toast');
         }
     },
 });

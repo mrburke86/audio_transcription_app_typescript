@@ -1,6 +1,6 @@
 // src/modules/Logger.ts
 
-export type LogLevel = 'debug' | 'info' | 'warning' | 'error' | 'performance';
+export type LogLevel = 'trace' | 'debug' | 'info' | 'warning' | 'error' | 'performance';
 
 interface LogLevelConfig {
     name: string;
@@ -9,6 +9,7 @@ interface LogLevelConfig {
 }
 
 const LogLevels: Record<LogLevel, LogLevelConfig> = {
+    trace: { name: 'TRACE', color: '#808080', emoji: '🔬' },
     debug: { name: 'DEBUG', color: '#7F7F7F', emoji: '🔍' },
     info: { name: 'INFO', color: '#387fc7', emoji: 'ℹ️' },
     warning: { name: 'WARNING', color: '#FFA500', emoji: '⚠️' },
@@ -98,14 +99,19 @@ export class Logger {
             }
         }
 
-        const consoleMessage = `%c${logEntry.emoji} [${logEntry.timestamp}] [${APP_NAME}] [${this.sessionId.substring(0, 8)}] [${
-            logConfig.name
-        }] ${message}`;
+        const consoleMessage = `%c${logEntry.emoji} [${logEntry.timestamp}] [${APP_NAME}] [${this.sessionId.substring(
+            0,
+            8
+        )}] [${logConfig.name}] ${message}`;
         if (optionalParams.length > 0) {
             console.log(consoleMessage, `color: ${logEntry.color}`, ...optionalParams);
         } else {
             console.log(consoleMessage, `color: ${logEntry.color}`);
         }
+    }
+
+    public trace(message: string, ...optionalParams: unknown[]): void {
+        this.log('trace', message, ...optionalParams);
     }
 
     public debug(message: string, ...optionalParams: unknown[]): void {

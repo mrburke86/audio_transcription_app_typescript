@@ -4,6 +4,7 @@
 import { useAppStore } from '../store';
 import { useShallow } from 'zustand/react/shallow';
 import { useMemo } from 'react';
+import { logger } from '@/modules';
 // import { getCompleteCallConfig } from '@/utils/callContextAdapters';
 
 // ===== TYPE DEFINITIONS =====
@@ -23,17 +24,17 @@ interface StoreDebugInfo {
 
 // ===== DEBUGGING UTILITIES =====
 
-const logger = {
-    debug: (hook: string, action: string, data?: LogData) => {
-        console.log(`🔍 [${hook}] ${action}`, data ? JSON.stringify(data, null, 2) : '');
-    },
-    warn: (hook: string, message: string, data?: unknown) => {
-        console.warn(`⚠️ [${hook}] ${message}`, data);
-    },
-    error: (hook: string, message: string, error?: unknown) => {
-        console.error(`❌ [${hook}] ${message}`, error);
-    },
-};
+// const logger = {
+//     debug: (hook: string, action: string, data?: LogData) => {
+//         console.log(`🔍 [${hook}] ${action}`, data ? JSON.stringify(data, null, 2) : '');
+//     },
+//     warn: (hook: string, message: string, data?: unknown) => {
+//         console.warn(`⚠️ [${hook}] ${message}`, data);
+//     },
+//     error: (hook: string, message: string, error?: unknown) => {
+//         console.error(`❌ [${hook}] ${message}`, error);
+//     },
+// };
 
 // ===== MAIN HOOKS =====
 
