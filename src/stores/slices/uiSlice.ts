@@ -1,58 +1,72 @@
-import { StateCreator } from 'zustand';
+// src\stores\slices\uiSlice.ts
 import { AppState, UISlice } from '@/types/store';
-import { logger } from '@/modules';
-import { v4 as uuidv4 } from 'uuid';
+import { toast } from 'sonner';
+import { StateCreator } from 'zustand';
+
+/**
+ * 🧩 UI Slice — Centralized Zustand slice for user interface and feedback management
+ *
+ * ✅ Responsibilities:
+ * - Show toast notifications (via Sonner)
+ * - Manage modal open/close state and props
+ * - Track loading state and messages
+ * - Handle theme switching (light/dark mode)
+ * - Enable consistent UI feedback across the app
+ */
 
 export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get) => ({
     // Initialize state - centralizes all UI state management
     theme: 'dark',
-    notifications: [],
+    // notifications: [],
     modals: {},
     isLoading: false,
     loadingMessage: undefined,
 
-    // Theme management
+    /**
+     * 🎨 Set app theme mode (light or dark)
+     */
     setTheme: (theme: 'light' | 'dark') => {
         set({ theme });
-        logger.info(`🎨 Theme changed to: ${theme}`);
+        // logger.info(`🎨 Theme changed to: ${theme}`);
 
-        // Apply theme to document if in browser
-        if (typeof window !== 'undefined') {
-            document.documentElement.classList.toggle('dark', theme === 'dark');
+        // Optional DOM-side theme handling
+        // if (typeof window !== 'undefined') {
+        //     document.documentElement.classList.toggle('dark', theme === 'dark');
+        // }
+    },
+
+    /**
+     * 📣 Display toast notification using Sonner
+     */
+    addNotification: ({ type, message, duration = 4000 }) => {
+        switch (type) {
+            case 'success':
+                toast.success(message, { duration });
+                break;
+            case 'error':
+                toast.error(message, { duration });
+                break;
+            case 'warning':
+                toast.warning(message, { duration });
+                break;
+            case 'info':
+            default:
+                toast.info(message, { duration });
+                break;
         }
     },
 
-    // Notification management - replaces scattered notification logic
-    addNotification: notification => {
-        const id = uuidv4();
-        const fullNotification = {
-            ...notification,
-            id,
-            timestamp: Date.now(),
-        };
-
-        set(state => ({
-            notifications: [...state.notifications, fullNotification],
-        }));
-
-        logger.debug(`🔔 Added notification: ${notification.type} - ${notification.message}`);
-
-        // Auto-remove notification after duration
-        const duration = notification.duration || 5000;
-        setTimeout(() => {
-            get().removeNotification(id);
-        }, duration);
+    /**
+     * ❌ Deprecated — Sonner auto-dismisses notifications
+     */
+    removeNotification: () => {
+        // This method can be removed or kept as no-op for compatibility
+        console.warn('removeNotification is deprecated - Sonner handles auto-dismissal');
     },
 
-    removeNotification: (id: string) => {
-        set(state => ({
-            notifications: state.notifications.filter(n => n.id !== id),
-        }));
-
-        logger.debug(`🗑️ Removed notification: ${id}`);
-    },
-
-    // Modal management - replaces individual modal state
+    /**
+     * 📥 Opens a modal by ID and optionally passes props
+     */
     openModal: (modalId: string, props?: any) => {
         set(state => ({
             modals: {
@@ -60,32 +74,31 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
                 [modalId]: { isOpen: true, props },
             },
         }));
-
-        logger.debug(`📋 Opened modal: ${modalId}`);
     },
 
+    /**
+     * 📤 Closes a modal by ID
+     */
     closeModal: (modalId: string) => {
         set(state => ({
             modals: {
                 ...state.modals,
-                [modalId]: { isOpen: false, props: undefined },
+                [modalId]: { isOpen: false },
             },
         }));
-
-        logger.debug(`❌ Closed modal: ${modalId}`);
     },
 
-    // Loading state management - replaces scattered loading states
+    /**
+     * 🔄 Manage global loading state and display loading message via toast
+     */
     setLoading: (isLoading: boolean, message?: string) => {
-        set({
-            isLoading,
-            loadingMessage: isLoading ? message : undefined,
-        });
+        set({ isLoading, loadingMessage: message });
 
-        if (isLoading) {
-            logger.debug(`⏳ Loading started: ${message || 'Loading...'}`);
+        // Optional: Show loading toast for long operations
+        if (isLoading && message) {
+            toast.loading(message, { id: 'loading-toast' });
         } else {
-            logger.debug('✅ Loading completed');
+            toast.dismiss('loading-toast');
         }
     },
 });

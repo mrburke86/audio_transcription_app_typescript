@@ -1,15 +1,34 @@
 import { StateCreator } from 'zustand';
-import { AppState, SpeechState } from '@/types/store';
+import { AppState, SpeechSlice } from '@/types/store';
 import { logger } from '@/modules';
+import { Message } from '@/types';
 
-export const createSpeechSlice: StateCreator<AppState, [], [], SpeechState> = (set, get) => ({
+/**
+ * 🎙️ Speech Slice — Manages audio capture, real-time speech recognition, and transcription workflows
+ *
+ * ✅ Responsibilities:
+ * - Record audio via MediaRecorder API (WebM/Opus)
+ * - Maintain session metadata and blobs
+ * - Automatically transcribe via `/api/transcribe`
+ * - Handle real-time interim/final recognition updates
+ * - Track recording, processing, and error states
+ * - Store transcript results with confidence scoring
+ */
+
+export const createSpeechSlice: StateCreator<AppState, [], [], SpeechSlice> = (set, get) => ({
+    // ✅ FIXED: Properly typed speech state
     isRecording: false,
     isProcessing: false,
-    audioData: null,
-    transcriptionResults: new Map(),
     recognitionStatus: 'inactive',
     error: null,
+    audioSessions: new Map(),
+    currentTranscript: '',
+    interimTranscripts: [],
 
+    /**
+     * 🔴 Starts recording using MediaRecorder API
+     * Automatically stores blob & triggers transcription when done
+     */
     startRecording: async () => {
         try {
             set({ error: null });
@@ -31,10 +50,19 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechState> = (s
 
             mediaRecorder.onstop = () => {
                 const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                set({ audioData: audioBlob, isRecording: false });
+                const sessionId = Date.now().toString();
+
+                set(state => ({
+                    audioSessions: new Map(state.audioSessions).set(sessionId, {
+                        id: sessionId,
+                        audioBlob,
+                        processedAt: new Date(),
+                    }),
+                    isRecording: false,
+                }));
 
                 // Automatically process the audio
-                get().processAudio();
+                get().processAudioSession(sessionId);
             };
 
             mediaRecorder.start();
@@ -42,7 +70,6 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechState> = (s
             set({
                 isRecording: true,
                 recognitionStatus: 'active',
-                audioData: null,
             });
 
             // Store mediaRecorder reference for stopping
@@ -68,6 +95,9 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechState> = (s
         }
     },
 
+    /**
+     * ⏹️ Stops recording — assumes reference to MediaRecorder is managed elsewhere
+     */
     stopRecording: () => {
         // Stop the media recorder
         // This would need access to the MediaRecorder instance
@@ -80,10 +110,14 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechState> = (s
         logger.info('Stopped audio recording');
     },
 
-    processAudio: async () => {
-        const { audioData } = get();
+    /**
+     * 📡 Processes an audio blob from a session via API
+     * Adds transcription and confidence back to state
+     */
+    processAudioSession: async (sessionId: string) => {
+        const audioSession = get().audioSessions.get(sessionId);
 
-        if (!audioData) {
+        if (!audioSession?.audioBlob) {
             get().addNotification({
                 type: 'warning',
                 message: 'No audio data to process',
@@ -97,7 +131,7 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechState> = (s
         try {
             // Create form data for audio transcription
             const formData = new FormData();
-            formData.append('audio', audioData, 'recording.webm');
+            formData.append('audio', audioSession.audioBlob, 'recording.webm');
 
             const response = await fetch('/api/transcribe', {
                 method: 'POST',
@@ -110,10 +144,13 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechState> = (s
 
             const { text, confidence } = await response.json();
 
-            // Store transcription result
-            const resultId = Date.now().toString();
+            // Update audio session with transcription result
             set(state => ({
-                transcriptionResults: new Map(state.transcriptionResults).set(resultId, text),
+                audioSessions: new Map(state.audioSessions).set(sessionId, {
+                    ...audioSession,
+                    transcription: text,
+                    confidence,
+                }),
                 isProcessing: false,
             }));
 
@@ -145,6 +182,47 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechState> = (s
         }
     },
 
+    /**
+     * 🧹 Clears all audio sessions and transcripts from state
+     */
+    clearTranscripts: () => {
+        set({
+            currentTranscript: '',
+            interimTranscripts: [],
+            audioSessions: new Map(),
+        });
+        logger.info('Transcripts and audio sessions cleared');
+    },
+
+    /**
+     * 🗣️ Updates interim + final transcripts based on recognition results
+     */
+    handleRecognitionResult: (finalTranscript: string, interimTranscript: string) => {
+        if (finalTranscript) {
+            const newMessage: Message = {
+                content: finalTranscript.trim(),
+                type: 'interim',
+                timestamp: new Date().toISOString(),
+            };
+
+            set(state => ({
+                interimTranscripts: [...state.interimTranscripts, newMessage],
+                currentTranscript: '',
+            }));
+
+            logger.debug(`Final transcript added: "${finalTranscript}"`);
+        }
+
+        if (interimTranscript) {
+            set({ currentTranscript: interimTranscript.trim() });
+        } else {
+            set({ currentTranscript: '' });
+        }
+    },
+
+    /**
+     * ❌ Clears error from state
+     */
     clearError: () => {
         set({ error: null });
     },

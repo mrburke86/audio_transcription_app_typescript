@@ -12,9 +12,23 @@ import {
 import { logger } from '@/modules';
 import { v4 as uuidv4 } from 'uuid';
 
+/**
+ * 🧠 LLM Slice — Manages real-time LLM interaction, streaming, and strategic insight generation
+ *
+ * ✅ Responsibilities:
+ * - Manages conversation history in a Map structure by conversation ID
+ * - Generates streaming responses using OpenAI with real-time content updates
+ * - Combines multiple contexts: interview context + knowledge base results + conversation history
+ * - Creates sophisticated prompts using your utility functions (system/user/analysis/generation prompts)
+ * - Generates strategic suggestions through a 2-stage analysis pipeline:
+ *     1. Strategic Analysis (identifies opportunities using gpt-4o-mini)
+ *     2. Intelligence Generation (creates actionable insights using gpt-4o-mini)
+ * - Summarizes conversations and maintains analysis history
+ */
+
 export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, get) => ({
     // Initialize state - this replaces your useLLMProviderOptimized state
-    conversations: new Map(),
+    conversations: new Map(), // 🗃️ Stores all conversations by ID (e.g., "main")
     streamingResponses: new Map(),
     isGenerating: false,
     currentStreamId: null,
@@ -25,7 +39,10 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
         analysisHistory: [],
     },
 
-    // This replaces your generateResponse function with streaming support
+    /**
+     * 🔍 Two-stage pipeline to generate strategic insights:
+     * Stage 1: Analysis → Stage 2: Generation
+     */
     generateResponse: async (userMessage: string) => {
         const streamId = uuidv4();
 
@@ -34,15 +51,19 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
             currentStreamId: streamId,
         });
 
-        get().setLoading(true, 'Generating response...');
+        // ✅ Safe call to setLoading
+        const state = get();
+        if (state.setLoading && typeof state.setLoading === 'function') {
+            state.setLoading(true, 'Generating response...');
+        }
 
         try {
             // Get interview context and search knowledge base
-            const interviewContext = get().context;
+            const callContext = get().context;
             const knowledgeResults = await get().searchRelevantKnowledge(userMessage, 3);
 
-            if (!interviewContext) {
-                throw new Error('Interview context not configured. Please set up your interview profile.');
+            if (!callContext) {
+                throw new Error('Call context not configured. Please set up your call profile.');
             }
 
             // Build knowledge context from search results
@@ -56,9 +77,17 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
                           .join('\n\n')
                     : 'No specific knowledge context found for this query.';
 
+            // ✅ Fixed: Safe access to objectives with fallback
+            const primaryGoal = callContext.objectives?.[0]?.primary_goal || 'Successful communication';
+
             // Create prompts using your existing utility functions
-            const systemPrompt = await createSystemPrompt(interviewContext, interviewContext.goals || []);
-            const userPrompt = await createUserPrompt(userMessage, get().conversationSummary, knowledgeContext);
+            const systemPrompt = await createSystemPrompt(callContext, primaryGoal);
+
+            // ✅ Use knowledgeContext in the user prompt
+            const userPromptWithContext = await createUserPrompt(
+                `${userMessage}\n\nRelevant Context:\n${knowledgeContext}`,
+                get().conversationSummary
+            );
 
             // Initialize LLM service
             const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
@@ -71,7 +100,7 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
             // Prepare messages for API
             const messages = [
                 { role: 'system' as const, content: systemPrompt },
-                { role: 'user' as const, content: userPrompt },
+                { role: 'user' as const, content: userPromptWithContext },
             ];
 
             // Start streaming response - this preserves your streaming functionality
@@ -98,7 +127,13 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
 
                 // Update loading message periodically
                 if (chunkCount % 10 === 0) {
-                    get().setLoading(true, `Generating response... (${accumulatedContent.length} characters)`);
+                    const currentState = get();
+                    if (currentState.setLoading && typeof currentState.setLoading === 'function') {
+                        currentState.setLoading(
+                            true,
+                            `Generating response... (${accumulatedContent.length} characters)`
+                        );
+                    }
                 }
             }
 
@@ -140,15 +175,22 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
                 conversations: new Map(state.conversations).set(conversationId, conversation),
             }));
 
-            get().setLoading(false);
+            // ✅ Safe call to setLoading
+            const finalState = get();
+            if (finalState.setLoading && typeof finalState.setLoading === 'function') {
+                finalState.setLoading(false);
+            }
 
             logger.info(`LLM response completed: ${accumulatedContent.length} characters, ${chunkCount} chunks`);
 
-            get().addNotification({
-                type: 'success',
-                message: 'Response generated successfully',
-                duration: 3000,
-            });
+            // ✅ Safe call to addNotification
+            if (finalState.addNotification && typeof finalState.addNotification === 'function') {
+                finalState.addNotification({
+                    type: 'success',
+                    message: 'Response generated successfully',
+                    duration: 3000,
+                });
+            }
 
             // Auto-trigger conversation summary update
             get().summarizeConversation(conversation.messages);
@@ -158,27 +200,38 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
                 currentStreamId: null,
             });
 
-            get().setLoading(false);
+            // ✅ Safe error handling
+            const errorState = get();
+            if (errorState.setLoading && typeof errorState.setLoading === 'function') {
+                errorState.setLoading(false);
+            }
 
             const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
             logger.error('LLM response generation failed:', error);
 
-            get().addNotification({
-                type: 'error',
-                message: `Failed to generate response: ${errorMessage}`,
-                duration: 10000,
-            });
+            if (errorState.addNotification && typeof errorState.addNotification === 'function') {
+                errorState.addNotification({
+                    type: 'error',
+                    message: `Failed to generate response: ${errorMessage}`,
+                    duration: 10000,
+                });
+            }
 
-            // Clean up any partial streaming response
+            // ✅ Fixed: Clean up using Array.from instead of spread operator
             if (streamId) {
                 set(state => ({
-                    streamingResponses: new Map([...state.streamingResponses].filter(([id]) => id !== streamId)),
+                    streamingResponses: new Map(
+                        Array.from(state.streamingResponses.entries()).filter(([id]) => id !== streamId)
+                    ),
                 }));
             }
         }
     },
 
-    // This replaces your generateSuggestions function with your sophisticated analysis pipeline
+    /**
+     * 🧠 Two-stage pipeline to generate strategic insights:
+     * Stage 1: Analysis → Stage 2: Generation
+     */
     generateSuggestions: async () => {
         if (get().isGenerating) {
             logger.warning('Already generating content, skipping suggestions');
@@ -186,7 +239,12 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
         }
 
         set({ isGenerating: true });
-        get().setLoading(true, 'Generating strategic intelligence...');
+
+        // ✅ Safe call to setLoading
+        const state = get();
+        if (state.setLoading && typeof state.setLoading === 'function') {
+            state.setLoading(true, 'Generating strategic intelligence...');
+        }
 
         try {
             const interviewContext = get().context;
@@ -292,15 +350,21 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
                     isGenerating: false,
                 });
 
-                get().setLoading(false);
+                // ✅ Safe call to setLoading
+                const finalState = get();
+                if (finalState.setLoading && typeof finalState.setLoading === 'function') {
+                    finalState.setLoading(false);
+                }
 
                 logger.info(`Strategic intelligence generated: ${strategicIntelligence.length} characters`);
 
-                get().addNotification({
-                    type: 'success',
-                    message: `Generated ${strategicAnalysis.strategic_opportunity} intelligence`,
-                    duration: 5000,
-                });
+                if (finalState.addNotification && typeof finalState.addNotification === 'function') {
+                    finalState.addNotification({
+                        type: 'success',
+                        message: `Generated ${strategicAnalysis.strategic_opportunity} intelligence`,
+                        duration: 5000,
+                    });
+                }
             } else {
                 throw new Error('Empty strategic intelligence generation');
             }
@@ -308,7 +372,12 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
             logger.error('Strategic intelligence generation failed:', error);
 
             set({ isGenerating: false });
-            get().setLoading(false);
+
+            // ✅ Safe error handling
+            const errorState = get();
+            if (errorState.setLoading && typeof errorState.setLoading === 'function') {
+                errorState.setLoading(false);
+            }
 
             // Enhanced fallback with strategic intelligence theme
             const fallbackContent = `# 🧠 Strategic Intelligence Boost
@@ -335,15 +404,19 @@ Your combination of experience and strategic thinking sets you apart from other 
                 },
             });
 
-            get().addNotification({
-                type: 'warning',
-                message: 'Used fallback strategic intelligence due to generation error',
-                duration: 8000,
-            });
+            if (errorState.addNotification && typeof errorState.addNotification === 'function') {
+                errorState.addNotification({
+                    type: 'warning',
+                    message: 'Used fallback strategic intelligence due to generation error',
+                    duration: 8000,
+                });
+            }
         }
     },
 
-    // Conversation summarization - preserving your existing logic
+    /**
+     * 📄 Generates a quick summary of conversation for downstream prompt context.
+     */
     summarizeConversation: async messages => {
         if (messages.length === 0) return;
 
@@ -363,29 +436,48 @@ Your combination of experience and strategic thinking sets you apart from other 
         }
     },
 
+    /**
+     * ⛔ Stop streaming response and clear state for a given stream ID
+     */
     stopStreaming: (streamId: string) => {
+        // ✅ Fixed: Use Array.from instead of spread operator
         set(state => ({
-            streamingResponses: new Map([...state.streamingResponses].filter(([id]) => id !== streamId)),
+            streamingResponses: new Map(
+                Array.from(state.streamingResponses.entries()).filter(([id]) => id !== streamId)
+            ),
             isGenerating: state.currentStreamId === streamId ? false : state.isGenerating,
             currentStreamId: state.currentStreamId === streamId ? null : state.currentStreamId,
         }));
 
-        get().setLoading(false);
+        // ✅ Safe call to setLoading
+        const state = get();
+        if (state.setLoading && typeof state.setLoading === 'function') {
+            state.setLoading(false);
+        }
+
         logger.info(`Stopped streaming for: ${streamId}`);
     },
 
+    /**
+     * 🧹 Clears conversation by ID and resets summary if "main"
+     */
     clearConversation: (conversationId: string) => {
+        // ✅ Fixed: Use Array.from instead of spread operator
         set(state => ({
-            conversations: new Map([...state.conversations].filter(([id]) => id !== conversationId)),
+            conversations: new Map(Array.from(state.conversations.entries()).filter(([id]) => id !== conversationId)),
             conversationSummary: conversationId === 'main' ? '' : state.conversationSummary,
         }));
 
         logger.info(`Cleared conversation: ${conversationId}`);
 
-        get().addNotification({
-            type: 'info',
-            message: 'Conversation cleared',
-            duration: 3000,
-        });
+        // ✅ Safe call to addNotification
+        const state = get();
+        if (state.addNotification && typeof state.addNotification === 'function') {
+            state.addNotification({
+                type: 'info',
+                message: 'Conversation cleared',
+                duration: 3000,
+            });
+        }
     },
 });

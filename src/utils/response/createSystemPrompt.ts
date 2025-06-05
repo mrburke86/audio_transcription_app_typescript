@@ -13,7 +13,7 @@ import { InstructionBuilder } from '../prompts/PromptInstructions';
 
 export async function createSystemPrompt(
     initialInterviewContext: InitialInterviewContext,
-    goals: string[]
+    goals: string
 ): Promise<string> {
     logger.debug(`🎭 Creating streamlined system prompt...`);
 

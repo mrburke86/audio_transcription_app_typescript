@@ -58,6 +58,8 @@ export interface CallContext {
         | 'emergency-call';
 
     call_context: 'professional' | 'personal' | 'service' | 'emergency';
+    target_organization?: string;
+    target_role?: string;
 
     urgency_level: 'low' | 'medium' | 'high' | 'critical';
     sensitivity_level: 'public' | 'confidential' | 'personal' | 'highly-sensitive';
@@ -69,7 +71,7 @@ export interface CallContext {
     // Objectives and strategy
     objectives?: CallObjective[];
     desired_tone: 'professional' | 'friendly' | 'empathetic' | 'assertive' | 'casual' | 'formal';
-    communication_approach: 'direct' | 'diplomatic' | 'collaborative' | 'supportive' | 'persuasive';
+    communication_approach: 'direct' | 'diplomatic' | 'collaborative' | 'supportive' | 'persuasive' | 'professional';
 
     // Content focus
     key_points: string[];
@@ -217,7 +219,7 @@ export const SENSITIVITY_LEVELS = [
 ] as const;
 
 // Validation helpers
-export function validateCallContext(context: Partial<CallContext>): string[] {
+export function validateContext(context: Partial<CallContext>): string[] {
     const errors: string[] = [];
 
     if (!context.call_type) errors.push('Call type is required');
@@ -244,58 +246,111 @@ export function validateCallContext(context: Partial<CallContext>): string[] {
     return errors;
 }
 
-// Default context factory
+// ✅ FIXED: Complete default context factory with all required properties
 export function createDefaultCallContext(callType?: CallContext['call_type']): CallContext {
+    const selectedCallType = callType || 'sales-call';
+
     const baseContext: CallContext = {
-        call_type: callType || 'sales-call',
-        call_context: 'professional',
+        // Core identification
+        call_type: selectedCallType,
+        call_context: getCallContextType(selectedCallType),
+
+        // Urgency and sensitivity
         urgency_level: 'medium',
         sensitivity_level: 'confidential',
-        participants: [],
-        power_dynamic: 'equal',
-        objectives: [],
+
+        // ✅ ADD: Missing required properties with sensible defaults
         desired_tone: 'professional',
         communication_approach: 'collaborative',
-        key_points: [],
-        sensitive_topics: [],
-        questions_to_ask: [],
+        key_points: ['Initial discussion point'],
         response_style: 'structured',
         verbosity: 'moderate',
         include_emotional_guidance: false,
         include_professional_tips: true,
-        estimated_duration: '',
-        follow_up_required: false,
-        documentation_needed: false,
+
+        // Knowledge settings
         knowledge_search_enabled: true,
         knowledge_search_scope: 'all',
+
+        // Optional properties with defaults
+        objectives: [
+            {
+                primary_goal: 'Successful call completion',
+                success_metrics: [],
+                potential_obstacles: [],
+                fallback_strategies: [],
+            },
+        ],
     };
 
-    // Customize based on call type
-    if (callType === 'emergency-call') {
-        return {
-            ...baseContext,
-            urgency_level: 'critical',
-            sensitivity_level: 'highly-sensitive',
-            response_style: 'bullet-points',
-            verbosity: 'brief',
-            include_emotional_guidance: false,
-            include_professional_tips: true,
-            knowledge_search_enabled: false,
-        };
-    }
-
-    if (callType?.includes('relationship') || callType?.includes('dating') || callType?.includes('family')) {
-        return {
-            ...baseContext,
-            call_context: 'personal',
-            desired_tone: 'empathetic',
-            communication_approach: 'supportive',
-            include_emotional_guidance: true,
-            include_professional_tips: false,
-            sensitivity_level: 'personal',
-            knowledge_search_scope: 'personal-only',
-        };
-    }
-
     return baseContext;
+}
+
+// ✅ FIXED: Helper for basic context classification with safer lookup
+function getCallContextType(
+    callType?: CallContext['call_type']
+): 'professional' | 'personal' | 'service' | 'emergency' {
+    if (!callType) return 'professional';
+
+    // ✅ Safer approach: Use a Map or complete mapping
+    const contextMap: Record<string, 'professional' | 'personal' | 'service' | 'emergency'> = {
+        'emergency-call': 'emergency',
+        'medical-consultation': 'service',
+        'legal-consultation': 'service',
+        'technical-support': 'service',
+        'financial-advice': 'service',
+        'dispute-resolution': 'service',
+        'dating-ask': 'personal',
+        'relationship-talk': 'personal',
+        'breakup-call': 'personal',
+        'family-call': 'personal',
+        'friend-checkin': 'personal',
+        'conflict-resolution': 'personal',
+        'support-call': 'personal',
+        'celebration-call': 'personal',
+        // ✅ ADD: Missing professional types
+        'job-interview': 'professional',
+        'performance-review': 'professional',
+        'sales-call': 'professional',
+        'customer-support': 'professional',
+        'client-meeting': 'professional',
+        'team-meeting': 'professional',
+        negotiation: 'professional',
+        'project-discussion': 'professional',
+        'hiring-call': 'professional',
+        'termination-call': 'professional',
+        'discipline-call': 'professional',
+    };
+
+    // ✅ Safe lookup with fallback
+    return contextMap[callType] || 'professional';
+}
+
+// ✅ ADD: Simple factory for basic contexts (for quick setup)
+export function createBasicCallContext(
+    callType: CallContext['call_type'] = 'sales-call',
+    keyPoints: string[] = ['Basic discussion']
+): CallContext {
+    return {
+        call_type: callType,
+        call_context: getCallContextType(callType),
+        urgency_level: 'medium',
+        sensitivity_level: 'confidential',
+        desired_tone: 'professional',
+        communication_approach: 'collaborative',
+        key_points: keyPoints,
+        response_style: 'structured',
+        verbosity: 'moderate',
+        include_emotional_guidance: false,
+        include_professional_tips: true,
+        knowledge_search_enabled: true,
+        objectives: [
+            {
+                primary_goal: 'Successful communication',
+                success_metrics: [],
+                potential_obstacles: [],
+                fallback_strategies: [],
+            },
+        ],
+    };
 }

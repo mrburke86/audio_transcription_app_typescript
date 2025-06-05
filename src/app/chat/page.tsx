@@ -1,6 +1,4 @@
 // src/app/chat/page.tsx
-/* eslint-disable @typescript-eslint/no-unused-vars */
-// src/app/chat/page.tsx
 'use client';
 
 import { CallModalProvider } from '@/components/call-modal/CallModalContext';
@@ -23,17 +21,24 @@ import {
     VoiceControls,
 } from './_components';
 
-import { useInterview, useKnowledge, useLLM, useUI } from '@/stores/hooks/useSelectors';
+// ✅ NEW: Use Zustand hooks instead of old context patterns
+import {
+    useKnowledge,
+    useLLM,
+    useInterview,
+    useUI,
+    useStreamingResponse,
+    useConversationMessages,
+} from '@/stores/hooks/useSelectors';
 import { CallContext } from '@/types/callContext';
 
 export default function ChatPage() {
-    // ✅ NEW: Use Zustand hooks instead of old context patterns
+    // ✅ NEW: Use Zustand hooks for all state management
     const {
         isLoading: knowledgeLoading,
         error: knowledgeError,
         indexedDocumentsCount,
         knowledgeBaseName,
-        initializeKnowledgeBase,
     } = useKnowledge();
 
     const {
@@ -42,19 +47,26 @@ export default function ChatPage() {
         isGenerating,
         conversationSummary,
         conversationSuggestions,
-        streamingResponses,
         currentStreamId,
     } = useLLM();
 
     const {
         context: interviewContext,
         isModalOpen: showRoleModal,
-        setInterviewContext,
-        openInterviewModal,
-        closeInterviewModal,
+        setCallContext,
+        openSetupModal,
+        closeSetupModal,
     } = useInterview();
 
-    const { addNotification, setLoading } = useUI();
+    const { addNotification, setLoading, isLoading: uiLoading } = useUI();
+
+    // ✅ NEW: Get streaming response from store
+    const currentStreamingResponse = useStreamingResponse(currentStreamId || '');
+    const streamedContent = currentStreamingResponse?.content || '';
+    const isStreamingComplete = currentStreamingResponse?.isComplete ?? true;
+
+    // ✅ NEW: Get conversation messages from store
+    const conversationMessages = useConversationMessages('main');
 
     // Legacy state for speech recognition (will be migrated in later step)
     const [recognitionStatus, setRecognitionStatus] = useState<'inactive' | 'active' | 'error'>('inactive');
@@ -62,20 +74,12 @@ export default function ChatPage() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const visualizationStartedRef = useRef(false);
 
-    // Initialize knowledge base on mount
-    useEffect(() => {
-        if (!knowledgeLoading && !knowledgeError && indexedDocumentsCount === 0) {
-            logger.info('🚀 Initializing knowledge base from ChatPage...');
-            initializeKnowledgeBase();
-        }
-    }, []);
-
     // Show role modal on mount if no interview context
     useEffect(() => {
         if (!interviewContext) {
-            openInterviewModal();
+            openSetupModal();
         }
-    }, [interviewContext, openInterviewModal]);
+    }, [interviewContext, openSetupModal]);
 
     // ✅ NEW: Handle call context setup (replaces old interview context)
     const handleCallStart = useCallback(
@@ -114,15 +118,15 @@ export default function ChatPage() {
                 contextDepth: 10,
             };
 
-            setInterviewContext(interviewContextFromCall);
-            closeInterviewModal();
+            setCallContext(interviewContextFromCall);
+            closeSetupModal();
         },
-        [setInterviewContext, closeInterviewModal]
+        [setCallContext, closeSetupModal]
     );
 
     const handleModalClose = useCallback(() => {
-        closeInterviewModal();
-    }, [closeInterviewModal]);
+        closeSetupModal();
+    }, [closeSetupModal]);
 
     // ✅ UPDATED: Use new LLM patterns for transcription handling
     const {
@@ -134,8 +138,8 @@ export default function ChatPage() {
         handleRecognitionResult,
     } = useTranscriptions({
         generateResponse,
-        streamedContent: '', // Will be replaced with streaming response
-        isStreamingComplete: !isGenerating,
+        streamedContent,
+        isStreamingComplete,
     });
 
     // ✅ NEW: Enhanced move function that uses Zustand store
@@ -272,11 +276,6 @@ export default function ChatPage() {
             });
     }, [start, startAudioVisualization]);
 
-    // ✅ UPDATED: Get streaming content from Zustand store
-    const currentStreamingResponse = currentStreamId ? streamingResponses.get(currentStreamId) : null;
-    const streamedContent = currentStreamingResponse?.content || '';
-    const isStreamingComplete = currentStreamingResponse?.isComplete ?? true;
-
     // Show full-screen loading if knowledge is still loading
     if (knowledgeLoading) {
         return (
@@ -349,7 +348,7 @@ export default function ChatPage() {
                             <div className="flex-1 min-h-0 overflow-hidden">
                                 <MemoizedChatMessagesBox
                                     id="postChat"
-                                    messages={userMessages}
+                                    messages={conversationMessages}
                                     streamedContent={streamedContent}
                                     isStreamingComplete={isStreamingComplete}
                                     className="flex-1"
@@ -372,10 +371,11 @@ export default function ChatPage() {
                                 <Button
                                     variant="move"
                                     onClick={handleMove}
+                                    disabled={uiLoading || isGenerating}
                                     className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-500 text-white hover:bg-blue-600 h-8 px-2 py-1 mt-2 gap-1.5 self-end"
                                 >
                                     <ArrowRight className="mr-1 h-4 w-4" />
-                                    Move
+                                    {uiLoading ? 'Generating...' : 'Move'}
                                 </Button>
                             </div>
                         </CardContent>
@@ -417,6 +417,7 @@ export default function ChatPage() {
         </div>
     );
 }
+
 // 'use client';
 
 // import { CallModalProvider } from '@/components/call-modal/CallModalContext';

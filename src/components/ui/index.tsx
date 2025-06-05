@@ -21,6 +21,5 @@ export * from './textarea';
 export * from './toast';
 export * from './tooltip';
 export * from './use-toast';
-
-// ✅ NEW: Add missing component exports
 export * from './custom-toaster';
+export * from './sonner';

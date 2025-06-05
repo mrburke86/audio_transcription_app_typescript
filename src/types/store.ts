@@ -1,7 +1,8 @@
-import { InitialInterviewContext, Message, DocumentChunk } from '@/types';
+import { CallContext, Message, DocumentChunk } from '@/types';
 
 // Your existing types, reorganized for Zustand
 export interface IndexingProgress {
+    isIndexing?: boolean; // ✅ ADDED: Missing isIndexing flag
     filesProcessed: number;
     totalFiles: number;
     errors: string[];
@@ -41,7 +42,7 @@ export interface KnowledgeSlice {
     indexingProgress: IndexingProgress;
     searchResults: DocumentChunk[];
 
-    // Actions - these replace your KnowledgeProvider methods
+    // Actions - ✅ FIXED: Added missing initializeKnowledgeBase
     initializeKnowledgeBase: () => Promise<void>;
     triggerIndexing: () => Promise<boolean>;
     searchRelevantKnowledge: (query: string, limit?: number) => Promise<DocumentChunk[]>;
@@ -69,6 +70,7 @@ export interface LLMSlice {
     clearConversation: (conversationId: string) => void;
 }
 
+// ✅ FIXED: Updated SpeechSlice to match implementation
 export interface SpeechSlice {
     // State - replaces your speech recognition useState calls
     isRecording: boolean;
@@ -85,48 +87,48 @@ export interface SpeechSlice {
     processAudioSession: (sessionId: string) => Promise<string>;
     clearTranscripts: () => void;
     handleRecognitionResult: (finalTranscript: string, interimTranscript: string) => void;
+    clearError: () => void;
 }
 
-export interface InterviewSlice {
+export interface CallContextSlice {
     // State - replaces your interview modal state
-    context: InitialInterviewContext | null;
+    context: CallContext | null;
     isModalOpen: boolean;
-    currentStep: string;
+    currentSetupStep: string; // Rename: Clarifies purpose
     validationErrors: Record<string, string>;
 
-    // Actions - these replace your interview context methods
-    setInterviewContext: (context: InitialInterviewContext) => void;
-    openInterviewModal: () => void;
-    closeInterviewModal: () => void;
-    updateInterviewField: <K extends keyof InitialInterviewContext>(
-        field: K,
-        value: InitialInterviewContext[K]
-    ) => void;
+    // Actions - renamed for broader scope
+    setCallContext: (context: CallContext) => void;
+    openSetupModal: () => void;
+    closeSetupModal: () => void;
+    updateContextField: <K extends keyof CallContext>(field: K, value: CallContext[K]) => void;
     validateContext: () => boolean;
+
+    // ✅ ADD: Enhanced workflow methods
+    nextSetupStep: () => void;
+    previousSetupStep: () => void;
+    resetSetupFlow: () => void;
 }
 
 export interface UISlice {
-    // State - centralizes all UI state management
+    // Simplified state - removed notifications array
     theme: 'light' | 'dark';
-    notifications: Array<{
-        id: string;
-        type: 'success' | 'error' | 'warning' | 'info';
-        message: string;
-        duration?: number;
-        timestamp: number;
-    }>;
     modals: Record<string, { isOpen: boolean; props?: any }>;
     isLoading: boolean;
     loadingMessage?: string;
 
-    // Actions - these handle all UI state changes
+    // Simplified actions using Sonner
     setTheme: (theme: 'light' | 'dark') => void;
-    addNotification: (notification: Omit<UISlice['notifications'][0], 'id' | 'timestamp'>) => void;
-    removeNotification: (id: string) => void;
+    addNotification: (notification: {
+        type: 'success' | 'error' | 'warning' | 'info';
+        message: string;
+        duration?: number;
+    }) => void;
+    removeNotification: () => void; // Deprecated but kept for compatibility
     openModal: (modalId: string, props?: any) => void;
     closeModal: (modalId: string) => void;
     setLoading: (isLoading: boolean, message?: string) => void;
 }
 
 // Combined application state
-export interface AppState extends KnowledgeSlice, LLMSlice, SpeechSlice, InterviewSlice, UISlice {}
+export interface AppState extends KnowledgeSlice, LLMSlice, SpeechSlice, CallContextSlice, UISlice {}
