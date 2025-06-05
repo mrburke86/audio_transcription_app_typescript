@@ -1,12 +1,8 @@
 // src/app/chat/page.tsx
 'use client';
 
-import { CallModalProvider } from '@/components/call-modal/CallModalContext';
-import { CallModalFooter } from '@/components/call-modal/CallModalFooter';
-import { CallModalTabs } from '@/components/call-modal/CallModalTabs';
 import { AIErrorBoundary, InlineErrorBoundary, SpeechErrorBoundary } from '@/components/error-boundary';
 import { Button, Card, CardContent, CardHeader, CardTitle, Separator } from '@/components/ui';
-import { CustomSpeechError, useSpeechRecognition, useTranscriptions } from '@/hooks';
 import { logger } from '@/modules';
 import {
     useConversationMessages,
@@ -15,9 +11,10 @@ import {
     useLLM,
     useStreamingResponse,
     useUI,
+    useSpeech,
 } from '@/stores/hooks/useSelectors';
 import { CallContext } from '@/types/callContext';
-import { ArrowRight, MessageSquare, X } from 'lucide-react';
+import { ArrowRight, MessageSquare } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ConversationContext,
@@ -29,6 +26,7 @@ import {
     TopNavigationBar,
     VoiceControls,
 } from './_components';
+import SimplifiedCallModal from '@/components/SimplifiedCallModal';
 
 export default function ChatPage() {
     /* ------------------------------------------------------------------ *
@@ -59,33 +57,55 @@ export default function ChatPage() {
         closeSetupModal,
     } = useInterview();
 
-    // ✅ FIXED: Remove setLoading from useUI since it doesn't exist
-    const { addNotification, isLoading: uiLoading } = useUI();
+    const { addNotification, isLoading: uiLoading, setLoading } = useUI();
 
-    // ✅ NEW: Get streaming response from store
+    // ✅ NEW: Use speech store instead of legacy hooks
+    const {
+        isRecording,
+        recognitionStatus,
+        error: speechError,
+        currentTranscript,
+        interimTranscripts,
+        startRecording,
+        stopRecording,
+        handleRecognitionResult,
+        clearTranscripts,
+        clearError: clearSpeechError,
+    } = useSpeech();
+
+    // ✅ Get streaming response from store
     const currentStreamingResponse = useStreamingResponse(currentStreamId || '');
     const streamedContent = currentStreamingResponse?.content || '';
     const isStreamingComplete = currentStreamingResponse?.isComplete ?? true;
 
-    // ✅ NEW: Get conversation messages from store
+    // ✅ Get conversation messages from store
     const conversationMessages = useConversationMessages('main');
 
     /* ------------------------------------------------------------------ *
-     * 🎙️  LOCAL STATE
+     * 🎙️  LOCAL STATE (only for UI-specific things)
      * ------------------------------------------------------------------ */
-    const [recognitionStatus, setRecognitionStatus] = useState<'inactive' | 'active' | 'error'>('inactive');
-    const [speechErrorMessage, setSpeechErrorMessage] = useState<string | null>(null);
     const [isLocalLoading, setIsLocalLoading] = useState(false);
-
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const visualizationStartedRef = useRef(false);
+    const mediaStreamRef = useRef<MediaStream | null>(null);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const recognitionRef = useRef<SpeechRecognition | null>(null);
 
     /* ------------------------------------------------------------------ *
      * 🔎  EFFECTS & TRACING
      * ------------------------------------------------------------------ */
     useEffect(() => {
         logger.debug('[ChatPage] Mount');
-        return () => logger.debug('[ChatPage] Unmount');
+        return () => {
+            logger.debug('[ChatPage] Unmount');
+            // Cleanup on unmount
+            if (mediaStreamRef.current) {
+                mediaStreamRef.current.getTracks().forEach(track => track.stop());
+            }
+            if (recognitionRef.current) {
+                recognitionRef.current.stop();
+            }
+        };
     }, []);
 
     useEffect(() => {
@@ -115,7 +135,7 @@ export default function ChatPage() {
                 .then(() => logger.info('[ChatPage] ✅ Knowledge base initialized'))
                 .catch(err => logger.error('[ChatPage] ❌ KB init failed', err));
         },
-        [setCallContext, closeSetupModal]
+        [setCallContext, closeSetupModal, initializeKnowledgeBase]
     );
 
     const handleModalClose = useCallback(() => {
@@ -124,19 +144,10 @@ export default function ChatPage() {
     }, [closeSetupModal]);
 
     /* ------------------------------------------------------------------ *
-     * 📝  TRANSCRIPTIONS HOOK
-     * ------------------------------------------------------------------ */
-    const { interimTranscriptions, currentInterimTranscript, handleClear, handleRecognitionResult } = useTranscriptions(
-        {
-            generateResponse,
-        }
-    );
-
-    /* ------------------------------------------------------------------ *
      * 🤖  MOVE ACTION (Generate Response)
      * ------------------------------------------------------------------ */
     const handleMove = useCallback(async () => {
-        const combined = [...interimTranscriptions.map(m => m.content), currentInterimTranscript].join(' ').trim();
+        const combined = [...interimTranscripts.map(m => m.content), currentTranscript].join(' ').trim();
 
         if (combined === '') return;
 
@@ -145,7 +156,7 @@ export default function ChatPage() {
         try {
             setIsLocalLoading(true);
             await generateResponse(combined);
-            handleClear();
+            clearTranscripts();
 
             addNotification?.({
                 type: 'success',
@@ -164,7 +175,7 @@ export default function ChatPage() {
         } finally {
             setIsLocalLoading(false);
         }
-    }, [interimTranscriptions, currentInterimTranscript, generateResponse, handleClear, addNotification]);
+    }, [interimTranscripts, currentTranscript, generateResponse, clearTranscripts, addNotification]);
 
     /* ------------------------------------------------------------------ *
      * 💡  SUGGEST ACTION (Strategic Intelligence)
@@ -196,66 +207,141 @@ export default function ChatPage() {
     }, [generateSuggestions, addNotification]);
 
     /* ------------------------------------------------------------------ *
-     * 🎙️  SPEECH RECOGNITION SETUP
+     * 🎙️  SPEECH RECOGNITION HANDLERS
      * ------------------------------------------------------------------ */
-    const getUserFriendlyError = useCallback((code: string): string => {
-        const map: Record<string, string> = {
-            network: 'Network error. Please check your internet connection.',
-            'not-allowed': 'Microphone access denied. Please allow microphone access in your browser settings.',
-            'service-not-allowed': 'Speech recognition service not allowed. Please check your browser settings.',
-            'no-speech': 'No speech detected. Please try speaking again.',
-            'audio-capture': 'Audio capture failed. Please check your microphone.',
-            aborted: 'Speech recognition was aborted.',
-            'language-not-supported': 'Language not supported. Please try a different language.',
-            'bad-grammar': 'Grammar configuration issue. Please contact support.',
+    const startAudioVisualization = useCallback((canvas: HTMLCanvasElement) => {
+        if (!mediaStreamRef.current) return;
+
+        const audioContext = new AudioContext();
+        const analyser = audioContext.createAnalyser();
+        const source = audioContext.createMediaStreamSource(mediaStreamRef.current);
+        source.connect(analyser);
+
+        analyser.fftSize = 256;
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        const canvasCtx = canvas.getContext('2d');
+        if (!canvasCtx) return;
+
+        const draw = () => {
+            if (!visualizationStartedRef.current) return;
+
+            requestAnimationFrame(draw);
+            analyser.getByteFrequencyData(dataArray);
+
+            canvasCtx.fillStyle = 'rgb(20, 20, 20)';
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const barWidth = (canvas.width / bufferLength) * 2.5;
+            let barHeight;
+            let x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                barHeight = dataArray[i] / 2;
+                canvasCtx.fillStyle = `rgb(50, ${barHeight + 100}, 50)`;
+                canvasCtx.fillRect(x, canvas.height - barHeight / 2, barWidth, barHeight);
+                x += barWidth + 1;
+            }
         };
-        return map[code] ?? 'An unexpected error occurred with speech recognition.';
+
+        draw();
     }, []);
 
-    const handleRecognitionStart = useCallback(() => {
-        logger.info('[ChatPage] 🎙️✅ Recognition started');
-        setRecognitionStatus('active');
-        setSpeechErrorMessage(null);
-    }, []);
+    const handleStartRecording = useCallback(async () => {
+        logger.info('[ChatPage] 🎙️ Start recording');
 
-    const handleRecognitionEnd = useCallback(() => {
-        logger.info('[ChatPage] 🎙️⏹️ Recognition ended');
-        setRecognitionStatus('inactive');
-    }, []);
+        try {
+            // Clear any previous errors
+            clearSpeechError();
 
-    const handleRecognitionError = useCallback(
-        (speechErr: SpeechRecognitionErrorEvent | CustomSpeechError) => {
-            const code = 'error' in speechErr ? speechErr.error : speechErr.code;
-            const msg = 'error' in speechErr ? getUserFriendlyError(code) : speechErr.message;
+            // Get microphone access
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaStreamRef.current = stream;
 
-            logger.error('[ChatPage] 🎙️❌', code, msg);
-            setRecognitionStatus('error');
-            setSpeechErrorMessage(msg);
-        },
-        [getUserFriendlyError]
-    );
+            // Initialize Web Speech API
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                throw new Error('Speech recognition not supported');
+            }
 
-    const { start, stop, startAudioVisualization } = useSpeechRecognition({
-        onStart: handleRecognitionStart,
-        onEnd: handleRecognitionEnd,
-        onError: handleRecognitionError,
-        onResult: handleRecognitionResult,
-    });
+            const recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
 
-    const handleStart = useCallback(() => {
-        logger.info('[ChatPage] 🎙️ Start button clicked');
-        start()
-            .then(() => {
-                if (canvasRef.current && !visualizationStartedRef.current) {
-                    logger.info('[ChatPage] 🎨 Starting audio visualization');
-                    startAudioVisualization(canvasRef.current);
-                    visualizationStartedRef.current = true;
-                } else if (!canvasRef.current) {
-                    logger.warning('[ChatPage] ⚠️ Canvas ref null, cannot visualize');
+            recognition.onresult = event => {
+                let finalTranscript = '';
+                let interimTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript + ' ';
+                    } else {
+                        interimTranscript += transcript;
+                    }
                 }
-            })
-            .catch(err => logger.error('[ChatPage] ❌ Speech start failed', err));
-    }, [start, startAudioVisualization]);
+
+                handleRecognitionResult(finalTranscript.trim(), interimTranscript.trim());
+            };
+
+            recognition.onerror = event => {
+                logger.error('[ChatPage] Recognition error:', event.error);
+                addNotification?.({
+                    type: 'error',
+                    message: `Speech recognition error: ${event.error}`,
+                    duration: 5000,
+                });
+            };
+
+            recognition.onend = () => {
+                logger.info('[ChatPage] Recognition ended');
+            };
+
+            recognitionRef.current = recognition;
+            recognition.start();
+
+            // Start audio visualization
+            if (canvasRef.current && !visualizationStartedRef.current) {
+                logger.info('[ChatPage] 🎨 Starting audio visualization');
+                startAudioVisualization(canvasRef.current);
+                visualizationStartedRef.current = true;
+            }
+
+            // Update store state
+            await startRecording();
+        } catch (err) {
+            logger.error('[ChatPage] ❌ Start recording failed', err);
+            addNotification?.({
+                type: 'error',
+                message: err instanceof Error ? err.message : 'Failed to start recording',
+                duration: 5000,
+            });
+        }
+    }, [startRecording, handleRecognitionResult, clearSpeechError, addNotification, startAudioVisualization]);
+
+    const handleStopRecording = useCallback(() => {
+        logger.info('[ChatPage] ⏹️ Stop recording');
+
+        // Stop recognition
+        if (recognitionRef.current) {
+            recognitionRef.current.stop();
+            recognitionRef.current = null;
+        }
+
+        // Stop media stream
+        if (mediaStreamRef.current) {
+            mediaStreamRef.current.getTracks().forEach(track => track.stop());
+            mediaStreamRef.current = null;
+        }
+
+        // Stop visualization
+        visualizationStartedRef.current = false;
+
+        // Update store state
+        stopRecording();
+    }, [stopRecording]);
 
     /* ------------------------------------------------------------------ *
      * ⏳  CONDITIONAL RENDERING
@@ -285,35 +371,13 @@ export default function ChatPage() {
     return (
         <div className="flex h-full flex-col gap-4 overflow-hidden p-1">
             {/* ════════════════════════  CALL SETUP MODAL ════════════════════════ */}
-            {showRoleModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center">
-                    <div className="absolute inset-0 backdrop-blur-sm bg-black/50" onClick={handleModalClose} />
-                    <div className="relative mx-4 w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-lg bg-white shadow-xl">
-                        <div className="flex items-center justify-between border-b p-6">
-                            <h2 className="text-xl font-semibold">🎯 Call Setup</h2>
-                            <Button variant="ghost" size="sm" onClick={handleModalClose} className="h-8 w-8 p-0">
-                                <X className="h-4 w-4" />
-                            </Button>
-                        </div>
-                        <CallModalProvider onSubmit={handleCallStart}>
-                            <div className="max-h-[calc(90vh-140px)] overflow-y-auto">
-                                <div className="p-6">
-                                    <CallModalTabs />
-                                    <div className="mt-6">
-                                        <CallModalFooter />
-                                    </div>
-                                </div>
-                            </div>
-                        </CallModalProvider>
-                    </div>
-                </div>
-            )}
+            <SimplifiedCallModal isOpen={showRoleModal} onClose={handleModalClose} onSubmit={handleCallStart} />
 
             {/* ════════════════════════  NAVBAR ════════════════════════ */}
             <InlineErrorBoundary>
                 <TopNavigationBar
                     status={recognitionStatus}
-                    errorMessage={speechErrorMessage}
+                    errorMessage={speechError}
                     knowledgeBaseName={knowledgeBaseName}
                     indexedDocumentsCount={indexedDocumentsCount}
                 />
@@ -350,8 +414,8 @@ export default function ChatPage() {
                             >
                                 <LiveTranscriptionBox
                                     id="preChat"
-                                    interimTranscriptions={interimTranscriptions}
-                                    currentInterimTranscript={currentInterimTranscript}
+                                    interimTranscriptions={interimTranscripts}
+                                    currentInterimTranscript={currentTranscript}
                                     className="flex-1"
                                 />
 
@@ -373,9 +437,9 @@ export default function ChatPage() {
                 <div className="col-span-1">
                     <SpeechErrorBoundary>
                         <VoiceControls
-                            onStart={handleStart}
-                            onStop={stop}
-                            onClear={handleClear}
+                            onStart={handleStartRecording}
+                            onStop={handleStopRecording}
+                            onClear={clearTranscripts}
                             isRecognitionActive={recognitionStatus === 'active'}
                             canvasRef={canvasRef}
                         />

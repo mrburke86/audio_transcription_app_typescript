@@ -1,9 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // src/stores/hooks/useSelectors.ts
 import { useAppStore } from '../store';
 import { useShallow } from 'zustand/react/shallow';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { logger } from '@/modules';
 // import { getCompleteCallConfig } from '@/utils/callContextAdapters';
 
@@ -22,38 +20,51 @@ interface StoreDebugInfo {
     stateTypes: Record<string, string>;
 }
 
-// ===== DEBUGGING UTILITIES =====
+// ===== ENHANCED LOGGING UTILITIES =====
+const createHookLogger = (hookName: string) => {
+    let callCount = 0;
+    const lastCall = { time: 0, data: null as any };
 
-// const logger = {
-//     debug: (hook: string, action: string, data?: LogData) => {
-//         console.log(`🔍 [${hook}] ${action}`, data ? JSON.stringify(data, null, 2) : '');
-//     },
-//     warn: (hook: string, message: string, data?: unknown) => {
-//         console.warn(`⚠️ [${hook}] ${message}`, data);
-//     },
-//     error: (hook: string, message: string, error?: unknown) => {
-//         console.error(`❌ [${hook}] ${message}`, error);
-//     },
-// };
+    return {
+        trace: (action: string, data?: LogData) => {
+            callCount++;
+            const now = Date.now();
+            const timeSinceLastCall = now - lastCall.time;
 
-// ===== MAIN HOOKS =====
+            // Warn if called too frequently (less than 16ms apart)
+            if (timeSinceLastCall < 16 && timeSinceLastCall > 0) {
+                logger.warning(
+                    `🔥 [${hookName}] Rapid fire detected! ${action} - ${timeSinceLastCall}ms since last call (Call #${callCount})`
+                );
+            }
+
+            logger.debug(`[${hookName}] ${action} (Call #${callCount})`, data);
+            lastCall.time = now;
+            lastCall.data = data;
+        },
+        warn: (message: string, data?: unknown) => {
+            logger.warning(`⚠️ [${hookName}] ${message}`, data);
+        },
+        error: (message: string, error?: unknown) => {
+            logger.error(`❌ [${hookName}] ${message}`, error);
+        },
+    };
+};
+
+// ===== MAIN HOOKS WITH ENHANCED LOGGING =====
 
 /**
  * 🧠 Optimized hook for knowledge base functionality
  */
-const useKnowledge = () => {
-    logger.debug('useKnowledge', 'Selecting knowledge state');
+export const useKnowledge = () => {
+    const hookLogger = createHookLogger('useKnowledge');
 
     return useAppStore(
         useShallow(state => {
-            const snapshot: StateSnapshot = {
-                hasIndexedDocumentsCount: 'indexedDocumentsCount' in state,
-                hasKnowledgeBaseName: 'knowledgeBaseName' in state,
-                hasSearchResults: 'searchResults' in state,
-                hasError: 'error' in state,
-            };
-
-            logger.debug('useKnowledge', 'State snapshot', snapshot);
+            hookLogger.trace('Selecting state', {
+                hasData: !!state.indexedDocumentsCount,
+                isLoading: state.isLoading,
+            });
 
             return {
                 // State
@@ -62,7 +73,12 @@ const useKnowledge = () => {
                 isLoading: state.isLoading || false,
                 error: state.error || null,
                 lastIndexedAt: state.lastIndexedAt || null,
-                indexingProgress: state.indexingProgress || 0,
+                indexingProgress: state.indexingProgress || {
+                    filesProcessed: 0,
+                    totalFiles: 0,
+                    errors: [],
+                    progress: '',
+                },
                 searchResults: state.searchResults || [],
 
                 // Actions
@@ -78,25 +94,26 @@ const useKnowledge = () => {
 /**
  * 🤖 Optimized hook for LLM functionality
  */
-const useLLM = () => {
-    logger.debug('useLLM', 'Selecting LLM state');
+export const useLLM = () => {
+    const hookLogger = createHookLogger('useLLM');
 
     return useAppStore(
         useShallow(state => {
-            const snapshot: StateSnapshot = {
-                hasIsGenerating: 'isGenerating' in state,
-                hasConversations: 'conversations' in state,
-                hasStreamingResponses: 'streamingResponses' in state,
-            };
-
-            logger.debug('useLLM', 'State snapshot', snapshot);
+            hookLogger.trace('Selecting state', {
+                isGenerating: state.isGenerating,
+                hasConversations: state.conversations?.size > 0,
+            });
 
             return {
                 // State
                 isGenerating: state.isGenerating || false,
                 currentStreamId: state.currentStreamId || null,
                 conversationSummary: state.conversationSummary || '',
-                conversationSuggestions: state.conversationSuggestions || [],
+                conversationSuggestions: state.conversationSuggestions || {
+                    powerUpContent: '',
+                    lastAnalysis: undefined,
+                    analysisHistory: [],
+                },
                 conversations: state.conversations || new Map(),
                 streamingResponses: state.streamingResponses || new Map(),
 
@@ -114,18 +131,15 @@ const useLLM = () => {
 /**
  * 🎤 Optimized hook for speech recognition
  */
-const useSpeech = () => {
-    logger.debug('useSpeech', 'Selecting speech state');
+export const useSpeech = () => {
+    const hookLogger = createHookLogger('useSpeech');
 
     return useAppStore(
         useShallow(state => {
-            const snapshot: StateSnapshot = {
-                hasIsRecording: 'isRecording' in state,
-                hasIsProcessing: 'isProcessing' in state,
-                hasAudioSessions: 'audioSessions' in state,
-            };
-
-            logger.debug('useSpeech', 'State snapshot', snapshot);
+            hookLogger.trace('Selecting state', {
+                isRecording: state.isRecording,
+                recognitionStatus: state.recognitionStatus,
+            });
 
             return {
                 // State
@@ -152,25 +166,22 @@ const useSpeech = () => {
 /**
  * 📞 Optimized hook for call context (renamed from useInterview)
  */
-const useCallContext = () => {
-    logger.debug('useCallContext', 'Selecting call context state');
+export const useCallContext = () => {
+    const hookLogger = createHookLogger('useCallContext');
 
     return useAppStore(
         useShallow(state => {
-            const snapshot: StateSnapshot = {
-                hasContext: 'context' in state,
-                hasIsModalOpen: 'isModalOpen' in state,
-                hasCurrentSetupStep: 'currentSetupStep' in state,
-            };
-
-            logger.debug('useCallContext', 'State snapshot', snapshot);
+            hookLogger.trace('Selecting state', {
+                hasContext: !!state.context,
+                isModalOpen: state.isModalOpen,
+            });
 
             return {
                 // State
                 context: state.context || null,
                 isModalOpen: state.isModalOpen || false,
-                currentSetupStep: state.currentSetupStep || 1,
-                validationErrors: state.validationErrors || [],
+                currentSetupStep: state.currentSetupStep || 'basic',
+                validationErrors: state.validationErrors || {},
 
                 // Actions
                 setCallContext: state.setCallContext,
@@ -178,89 +189,123 @@ const useCallContext = () => {
                 closeSetupModal: state.closeSetupModal,
                 updateContextField: state.updateContextField,
                 validateContext: state.validateContext,
+                nextSetupStep: state.nextSetupStep,
+                previousSetupStep: state.previousSetupStep,
+                resetSetupFlow: state.resetSetupFlow,
             };
         })
     );
 };
 
 /**
- * 🎨 Optimized hook for UI state (type-safe property checking)
+ * 🎨 Optimized hook for UI state
  */
-const useUI = () => {
-    logger.debug('useUI', 'Selecting UI state');
+export const useUI = () => {
+    const hookLogger = createHookLogger('useUI');
 
     return useAppStore(
         useShallow(state => {
-            logger.debug('useUI', 'Selecting basic UI state');
+            hookLogger.trace('Selecting state');
 
             return {
-                // Only include confirmed properties that exist
+                // State
                 isLoading: state.isLoading || false,
                 error: state.error || null,
+                theme: state.theme || 'dark',
+                modals: state.modals || {},
+                loadingMessage: state.loadingMessage,
 
-                // Add actions if they exist (without complex type checking)
-                ...(state.setTheme && { setTheme: state.setTheme }),
-                ...(state.addNotification && { addNotification: state.addNotification }),
-                ...(state.removeNotification && { removeNotification: state.removeNotification }),
+                // Actions
+                setTheme: state.setTheme,
+                addNotification: state.addNotification,
+                removeNotification: state.removeNotification,
+                openModal: state.openModal,
+                closeModal: state.closeModal,
+                setLoading: state.setLoading,
             };
         })
     );
 };
 
-// ===== SPECIALIZED SELECTORS =====
+// ===== SPECIALIZED SELECTORS WITH PROPER MEMOIZATION =====
 
 /**
- * 📡 Get streaming response by ID
+ * 📡 Get streaming response by ID with proper memoization
  */
-const useStreamingResponse = (streamId: string) => {
-    logger.debug('useStreamingResponse', `Selecting stream: ${streamId}`);
+export const useStreamingResponse = (streamId: string) => {
+    const hookLogger = createHookLogger(`useStreamingResponse[${streamId}]`);
 
     return useAppStore(state => {
         const response = state.streamingResponses?.get(streamId);
-        logger.debug('useStreamingResponse', `Found stream ${streamId}`, { found: !!response });
+        hookLogger.trace('Selected response', { found: !!response, streamId });
         return response;
     });
 };
 
 /**
- * 💬 Get conversation messages by ID
+ * 💬 Get conversation messages by ID - FIXED with proper memoization
  */
-const useConversationMessages = (conversationId: string = 'main') => {
-    logger.debug('useConversationMessages', `Selecting conversation: ${conversationId}`);
+export const useConversationMessages = (conversationId: string = 'main') => {
+    const hookLogger = createHookLogger(`useConversationMessages[${conversationId}]`);
+    const renderCountRef = useRef(0);
 
-    return useAppStore(state => {
-        const messages = state.conversations?.get(conversationId)?.messages || [];
-        logger.debug('useConversationMessages', `Found ${messages.length} messages for ${conversationId}`);
-        return messages;
-    });
+    // Track render count
+    useEffect(() => {
+        renderCountRef.current++;
+        if (renderCountRef.current > 50) {
+            hookLogger.error(`Excessive renders detected! Count: ${renderCountRef.current}`);
+        }
+    }, [hookLogger]);
+
+    // Use proper memoization to prevent infinite loops
+    const messages = useAppStore(
+        useShallow(state => {
+            const conversation = state.conversations?.get(conversationId);
+            const msgs = conversation?.messages || [];
+
+            hookLogger.trace('Selecting messages', {
+                conversationId,
+                messageCount: msgs.length,
+                renderCount: renderCountRef.current,
+            });
+
+            return msgs;
+        })
+    );
+
+    // Memoize the result to prevent unnecessary re-renders
+    return useMemo(() => messages, [messages]);
 };
 
 /**
- * 🔔 Get notification count (safe fallback)
+ * 🔔 Get notification count
  */
-const useNotificationCount = () => {
-    logger.debug('useNotificationCount', 'Selecting notification count');
+export const useNotificationCount = () => {
+    const hookLogger = createHookLogger('useNotificationCount');
 
     return useAppStore(state => {
-        // Simple fallback - just return 0 for now since notifications don't exist
-        logger.debug('useNotificationCount', 'Returning default count: 0');
-        return 0;
+        const count = state.notifications?.length || 0;
+        hookLogger.trace('Selected count', { count });
+        return count;
     });
 };
 
 // ===== COMPUTED SELECTORS =====
 
 /**
- * 🔍 Search results with highlighted text (memoized)
+ * 🔍 Search results with highlighted text (properly memoized)
  */
-const useSearchResultsWithHighlight = (searchTerm: string) => {
+export const useSearchResultsWithHighlight = (searchTerm: string) => {
+    const hookLogger = createHookLogger('useSearchResultsWithHighlight');
     const searchResults = useAppStore(state => state.searchResults || []);
 
     return useMemo(() => {
-        logger.debug('useSearchResultsWithHighlight', `Highlighting search term: "${searchTerm}"`);
+        hookLogger.trace('Computing highlights', {
+            searchTerm,
+            resultCount: searchResults.length,
+        });
 
         if (!searchTerm) {
-            logger.debug('useSearchResultsWithHighlight', 'No search term, returning original results');
             return searchResults;
         }
 
@@ -270,9 +315,8 @@ const useSearchResultsWithHighlight = (searchTerm: string) => {
                 result.text?.replace(new RegExp(searchTerm, 'gi'), match => `<mark>${match}</mark>`) || result.text,
         }));
 
-        logger.debug('useSearchResultsWithHighlight', `Highlighted ${highlighted.length} results`);
         return highlighted;
-    }, [searchResults, searchTerm]);
+    }, [searchResults, searchTerm, hookLogger]);
 };
 
 // ===== DEBUGGING HOOKS =====
@@ -280,13 +324,13 @@ const useSearchResultsWithHighlight = (searchTerm: string) => {
 /**
  * 🐛 Debug hook to inspect entire store state
  */
-const useStoreDebug = (): StoreDebugInfo => {
+export const useStoreDebug = (): StoreDebugInfo => {
+    const hookLogger = createHookLogger('useStoreDebug');
+
     return useAppStore(state => {
-        // Simple approach - just get basic info without complex type conversion
         const stateKeys = Object.keys(state);
         const stateTypes: Record<string, string> = {};
 
-        // Safe iteration without type assertions
         stateKeys.forEach(key => {
             try {
                 stateTypes[key] = typeof (state as any)[key];
@@ -295,10 +339,10 @@ const useStoreDebug = (): StoreDebugInfo => {
             }
         });
 
-        console.group('🔍 Store Debug');
-        console.log('Available state keys:', stateKeys);
-        console.log('State types:', stateTypes);
-        console.groupEnd();
+        hookLogger.trace('Store inspection', {
+            keyCount: stateKeys.length,
+            types: Object.keys(stateTypes).filter(k => stateTypes[k] === 'function').length + ' functions',
+        });
 
         return {
             stateKeys,
@@ -307,50 +351,63 @@ const useStoreDebug = (): StoreDebugInfo => {
     });
 };
 
-// ===== UTILITY HOOKS =====
-
 /**
- * 🔧 Helper hook for safely accessing nested store properties
+ * 🔧 Helper hook for performance monitoring
  */
-const useSafeSelector = <T>(selector: (state: any) => T, fallback: T, debugName: string): T => {
-    return useAppStore(state => {
-        try {
-            const result = selector(state);
-            logger.debug(debugName, 'Selector succeeded', { resultType: typeof result });
-            return result;
-        } catch (error) {
-            logger.error(debugName, 'Selector failed, using fallback', error);
-            return fallback;
+export const usePerformanceMonitor = (componentName: string) => {
+    const renderCount = useRef(0);
+    const lastRenderTime = useRef(Date.now());
+
+    useEffect(() => {
+        renderCount.current++;
+        const now = Date.now();
+        const timeSinceLastRender = now - lastRenderTime.current;
+
+        if (renderCount.current > 10 && timeSinceLastRender < 100) {
+            logger.error(
+                `🚨 [${componentName}] Rapid re-renders detected! ${renderCount.current} renders, last gap: ${timeSinceLastRender}ms`
+            );
+        }
+
+        lastRenderTime.current = now;
+
+        // Log every 10 renders
+        if (renderCount.current % 10 === 0) {
+            logger.info(`📊 [${componentName}] Render count: ${renderCount.current}`);
         }
     });
+
+    return {
+        renderCount: renderCount.current,
+        logRender: (reason: string) => {
+            logger.debug(`🔄 [${componentName}] Re-render triggered: ${reason}`);
+        },
+    };
 };
+
+// // ===== UTILITY HOOKS =====
+
+// /**
+//  * 🔧 Helper hook for safely accessing nested store properties
+//  */
+// const useSafeSelector = <T>(selector: (state: any) => T, fallback: T, debugName: string): T => {
+//     return useAppStore(state => {
+//         try {
+//             const result = selector(state);
+//             logger.debug(debugName, 'Selector succeeded', { resultType: typeof result });
+//             return result;
+//         } catch (error) {
+//             logger.error(debugName, 'Selector failed, using fallback', error);
+//             return fallback;
+//         }
+//     });
+// };
 
 // ===== EXPORTS =====
 
 export {
-    // Main hooks
-    useKnowledge,
-    useLLM,
-    useSpeech,
-    useCallContext,
-    useUI,
-
-    // Specialized selectors
-    useStreamingResponse,
-    useConversationMessages,
-    useNotificationCount,
-
-    // Computed selectors
-    useSearchResultsWithHighlight,
-
-    // Debugging
-    useStoreDebug,
-    useSafeSelector,
-
-    // Legacy exports (for backward compatibility)
-    useCallContext as useInterview, // Alias for backward compatibility
+    // Legacy exports for backward compatibility
+    useCallContext as useInterview,
 };
-
-// ===== TYPE EXPORTS =====
 
 export type { StateSnapshot, StoreDebugInfo, LogData };

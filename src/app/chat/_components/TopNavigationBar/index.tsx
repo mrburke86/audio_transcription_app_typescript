@@ -2,7 +2,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui';
 import { StatusIndicator } from './StatusIndicator';
-import { KnowledgeStatus } from './KnowledgeStatus';
+// import { KnowledgeStatus } from './KnowledgeStatus';
 import { ThemeToggle } from '@/components/global/theme-toggle';
 
 interface TopNavigationBarProps {
@@ -20,9 +20,9 @@ interface TopNavigationBarProps {
 export const TopNavigationBar = React.memo(function TopNavigationBar({
     status,
     errorMessage,
-    knowledgeBaseName,
-    indexedDocumentsCount,
-}: TopNavigationBarProps) {
+}: // knowledgeBaseName,
+// indexedDocumentsCount,
+TopNavigationBarProps) {
     // Determine which error to display (prioritize speech recognition errors)
     // const displayError = errorMessage || error;
     // const errorType = errorMessage ? 'Speech Recognition' : 'Knowledge';
@@ -72,7 +72,7 @@ export const TopNavigationBar = React.memo(function TopNavigationBar({
             <div className="col-span-4 flex flex-col justify-center">
                 <div className="flex items-center justify-end gap-4">
                     {/* Knowledge Status */}
-                    <KnowledgeStatus knowledgeBaseName={knowledgeBaseName} indexedDocumentsCount={indexedDocumentsCount} />
+                    {/* <KnowledgeStatus knowledgeBaseName={knowledgeBaseName} indexedDocumentsCount={indexedDocumentsCount} /> */}
 
                     {/* Status Indicator */}
                     <StatusIndicator status={status} />

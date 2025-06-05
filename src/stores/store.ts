@@ -5,7 +5,7 @@ import { create } from 'zustand';
 import { devtools, persist, subscribeWithSelector } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 
-import { AppState, Conversation } from '@/types/store';
+import { AppState } from '@/types/store';
 import { createCallSlice, createKnowledgeSlice, createLLMSlice, createSpeechSlice, createUISlice } from './slices';
 
 import { logger } from '@/modules/Logger';
@@ -29,37 +29,27 @@ export const useAppStore = create<AppState>()(
             ),
             {
                 name: 'audio-transcription-app',
+                // Simplified partialize - don't persist Maps
                 partialize: state => ({
                     theme: state.theme,
-                    // context: state.context,
+                    context: state.context,
                     lastIndexedAt: state.lastIndexedAt,
                     knowledgeBaseName: state.knowledgeBaseName,
                     indexedDocumentsCount: state.indexedDocumentsCount,
-                    conversations: Array.from(state.conversations.entries()),
                 }),
-                onRehydrateStorage: () => (state: AppState | undefined, error) => {
-                    if (error) {
-                        logger.error('❌ Error rehydrating state:', error);
-                        return;
-                    }
+                // Simplified rehydration
+                onRehydrateStorage: () => state => {
                     if (state) {
-                        if (Array.isArray(state.conversations)) {
-                            state.conversations = new Map(state.conversations as Array<[string, Conversation]>);
-                        } else if (!(state.conversations instanceof Map)) {
-                            state.conversations = new Map<string, Conversation>();
-                        }
-
+                        // Always initialize Maps fresh
+                        state.conversations = new Map();
                         state.streamingResponses = new Map();
                         state.audioSessions = new Map();
-
-                        logger.info('✅ State rehydrated successfully');
                     }
                 },
             }
         ),
         {
             name: 'AudioTranscriptionStore',
-            enabled: process.env.NODE_ENV === 'development',
         }
     )
 );
