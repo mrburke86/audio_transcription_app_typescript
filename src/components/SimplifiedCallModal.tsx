@@ -118,6 +118,7 @@ export default function SimplifiedCallModal({ isOpen, onClose, onSubmit }: Simpl
         desired_tone: 'professional',
         response_style: 'structured',
         verbosity: 'moderate',
+        communication_approach: 'professional',
         knowledge_search_enabled: true,
         include_emotional_guidance: false,
         include_professional_tips: true,
@@ -125,7 +126,7 @@ export default function SimplifiedCallModal({ isOpen, onClose, onSubmit }: Simpl
         target_role: '',
     });
 
-    const updateField = useCallback((field: keyof CallContext, value: any) => {
+    const updateField = useCallback((field: keyof CallContext, value: unknown) => {
         setContext(prev => ({ ...prev, [field]: value }));
     }, []);
 
@@ -202,7 +203,12 @@ export default function SimplifiedCallModal({ isOpen, onClose, onSubmit }: Simpl
                 </DialogHeader>
 
                 {/* Tabs */}
-                <Tabs value={activeTab} onValueChange={val => setActiveTab(val as any)} className="mt-2">
+                <Tabs
+                    value={activeTab}
+                    onValueChange={val => setActiveTab(val as 'basics' | 'strategy' | 'settings')}
+                    className="mt-2"
+                >
+                    {' '}
                     <TabsList>
                         {tabs.map(tab => (
                             <TabsTrigger key={tab.id} value={tab.id} className="flex items-center gap-1">
@@ -210,7 +216,6 @@ export default function SimplifiedCallModal({ isOpen, onClose, onSubmit }: Simpl
                             </TabsTrigger>
                         ))}
                     </TabsList>
-
                     {/* ------------------------------ */}
                     {/* BASICS TAB */}
                     {/* ------------------------------ */}
@@ -347,7 +352,10 @@ export default function SimplifiedCallModal({ isOpen, onClose, onSubmit }: Simpl
                                     <Select
                                         onValueChange={v => {
                                             const updated = [...(context.participants || [])];
-                                            updated[idx] = { ...updated[idx], relationship: v };
+                                            updated[idx] = {
+                                                ...updated[idx],
+                                                relationship: v as Participant['relationship'],
+                                            };
                                             updateField('participants', updated);
                                         }}
                                         value={p.relationship || 'colleague'}
@@ -387,7 +395,6 @@ export default function SimplifiedCallModal({ isOpen, onClose, onSubmit }: Simpl
                             ))}
                         </div>
                     </TabsContent>
-
                     {/* ------------------------------ */}
                     {/* STRATEGY TAB */}
                     {/* ------------------------------ */}
@@ -562,7 +569,6 @@ export default function SimplifiedCallModal({ isOpen, onClose, onSubmit }: Simpl
                             ))}
                         </div>
                     </TabsContent>
-
                     {/* ------------------------------ */}
                     {/* SETTINGS TAB */}
                     {/* ------------------------------ */}

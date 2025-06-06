@@ -18,7 +18,7 @@ export const KnowledgeIndexingButton: React.FC<KnowledgeIndexingButtonProps> = (
     showProgress = true,
     className = '',
 }) => {
-    const { triggerIndexing, indexingStatus, indexedDocumentsCount, lastIndexedAt } = useKnowledgeStore();
+    const { triggerIndexing, indexingProgress, indexedDocumentsCount, lastIndexedAt } = useKnowledgeStore();
     const [showDetails, setShowDetails] = useState(false);
 
     const handleIndexing = async () => {
@@ -56,7 +56,7 @@ export const KnowledgeIndexingButton: React.FC<KnowledgeIndexingButtonProps> = (
 
     // Button content based on state
     const getButtonContent = () => {
-        if (indexingStatus.isIndexing) {
+        if (indexingProgress.isIndexing) {
             return (
                 <>
                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -108,9 +108,9 @@ export const KnowledgeIndexingButton: React.FC<KnowledgeIndexingButtonProps> = (
             {/* Main Button */}
             <button
                 onClick={handleIndexing}
-                disabled={indexingStatus.isIndexing}
+                disabled={indexingProgress.isIndexing}
                 className={buttonClasses}
-                title={indexingStatus.isIndexing ? 'Indexing in progress...' : 'Index knowledge base files'}
+                title={indexingProgress.isIndexing ? 'Indexing in progress...' : 'Index knowledge base files'}
             >
                 {getButtonContent()}
             </button>
@@ -127,40 +127,40 @@ export const KnowledgeIndexingButton: React.FC<KnowledgeIndexingButtonProps> = (
                     </div>
 
                     {/* Progress Text */}
-                    {indexingStatus.progress && (
+                    {indexingProgress.progress && (
                         <div
                             className={`text-sm p-2 rounded ${
-                                indexingStatus.isIndexing
+                                indexingProgress.isIndexing
                                     ? 'bg-blue-50 text-blue-700'
-                                    : indexingStatus.errors.length > 0
+                                    : indexingProgress.errors.length > 0
                                     ? 'bg-yellow-50 text-yellow-700'
                                     : 'bg-green-50 text-green-700'
                             }`}
                         >
-                            {indexingStatus.progress}
+                            {indexingProgress.progress}
                         </div>
                     )}
 
                     {/* Processing Details */}
-                    {indexingStatus.isIndexing && indexingStatus.filesProcessed > 0 && (
+                    {indexingProgress.isIndexing && indexingProgress.filesProcessed > 0 && (
                         <div className="text-xs text-gray-500">
-                            Processed: {indexingStatus.filesProcessed}/{indexingStatus.totalFiles} files
+                            Processed: {indexingProgress.filesProcessed}/{indexingProgress.totalFiles} files
                         </div>
                     )}
 
                     {/* Error Summary */}
-                    {indexingStatus.errors.length > 0 && (
+                    {indexingProgress.errors.length > 0 && (
                         <div className="space-y-1">
                             <button
                                 onClick={() => setShowDetails(!showDetails)}
                                 className="text-xs text-red-600 hover:text-red-800 underline"
                             >
-                                {indexingStatus.errors.length} error(s) - {showDetails ? 'Hide' : 'Show'} details
+                                {indexingProgress.errors.length} error(s) - {showDetails ? 'Hide' : 'Show'} details
                             </button>
 
                             {showDetails && (
                                 <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700 max-h-32 overflow-y-auto">
-                                    {indexingStatus.errors.map((error, index) => (
+                                    {indexingProgress.errors.map((error: string, index: number) => (
                                         <div key={index} className="mb-1">
                                             • {error}
                                         </div>
@@ -180,9 +180,9 @@ export const KnowledgeIndexingButton: React.FC<KnowledgeIndexingButtonProps> = (
                         {JSON.stringify(
                             {
                                 indexedCount: indexedDocumentsCount,
-                                isIndexing: indexingStatus.isIndexing,
+                                isIndexing: indexingProgress.isIndexing,
                                 lastIndexed: lastIndexedAt?.toISOString(),
-                                errorCount: indexingStatus.errors.length,
+                                errorCount: indexingProgress.errors.length,
                             },
                             null,
                             2

@@ -86,7 +86,7 @@ export interface CallContext {
     // questions_to_ask?: string[];
 
     // Strategy
-    // communication_approach: 'direct' | 'diplomatic' | 'collaborative' | 'supportive' | 'persuasive' | 'professional';
+    communication_approach: 'direct' | 'diplomatic' | 'collaborative' | 'supportive' | 'persuasive' | 'professional';
 
     // Session metadata
     // estimated_duration?: string;
@@ -264,7 +264,7 @@ export function createDefaultCallContext(callType?: CallContext['call_type']): C
 
         // ✅ ADD: Missing required properties with sensible defaults
         desired_tone: 'professional',
-        // communication_approach: 'collaborative',
+        communication_approach: 'collaborative',
         key_points: ['Initial discussion point'],
         response_style: 'structured',
         verbosity: 'moderate',
@@ -340,7 +340,7 @@ export function createBasicCallContext(
         urgency_level: 'medium',
         sensitivity_level: 'confidential',
         desired_tone: 'professional',
-        // communication_approach: 'collaborative',
+        communication_approach: 'collaborative',
         key_points: keyPoints,
         response_style: 'structured',
         verbosity: 'moderate',

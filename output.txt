@@ -1,18 +1,29 @@
- blank.tsx                                       |  42 +-
- output.txt                                      |   0
- src/app/chat/page.tsx                           | 252 +++---
- src/contexts/KnowledgeProvider.tsx              | 257 -------
- src/contexts/index.ts                           |   3 -
- src/hooks/useCallContextForm.ts                 | 243 ------
- src/hooks/useInterviewContextForm.ts            | 133 ----
- src/hooks/useLLMProviderOptimized.ts            | 970 ------------------------
- src/hooks/useSpeechRecognition.ts               | 291 -------
- src/hooks/useTranscriptions.ts                  | 172 -----
- src/modules/Logger.ts                           |  14 +-
- src/stores/hooks/useKnowledge.ts                |  66 +-
- src/stores/hooks/useSelectors.ts                |  23 +-
- src/stores/middlewares/performanceMiddleware.ts |  33 +-
- src/stores/slices/knowledgeSlice.ts             | 300 +++-----
- src/stores/slices/uiSlice.ts                    | 110 ++-
- src/stores/store.ts                             |  42 +-
- 17 files changed, 414 insertions(+), 2537 deletions(-)
+ .gitignore                                         |    3 +-
+ output.txt                                         |   18 +
+ .../TopNavigationBar/KnowledgeStatus.tsx           |  152 +--
+ .../chat/_components/TopNavigationBar/index.tsx    |   10 +-
+ src/app/chat/page.tsx                              |  280 +++---
+ src/components/SimplifiedCallModal.tsx             |  696 +++++++++++++
+ src/components/call-modal/CallModalContext.tsx     |  250 ++---
+ src/components/call-modal/CallModalFooter.tsx      |  186 ++--
+ src/components/call-modal/CallModalTabs.tsx        |   74 +-
+ src/components/call-modal/CallSetupModal.tsx       |  226 ++---
+ src/components/call-modal/NewCallModal.tsx         | 1018 ++++++++++++++++++++
+ .../call-modal/components/CallModalTabs.tsx        |   74 +-
+ .../call-modal/components/DynamicList.tsx          |  102 +-
+ src/components/call-modal/components/FormField.tsx |   97 +-
+ .../call-modal/tabs/AdvancedSettingsTab.tsx        |  616 ++++++------
+ src/components/call-modal/tabs/CallDetailsTab.tsx  |  688 ++++++-------
+ .../call-modal/tabs/ContentStrategyTab.tsx         |  422 ++++----
+ .../call-modal/tabs/KnowledgeBaseTab.tsx           |  641 ++++++------
+ .../call-modal/tabs/ResponseSettingsTab.tsx        |  482 ++++-----
+ src/hooks/index.ts                                 |   16 +-
+ src/hooks/useCallContextForm.ts                    |   50 +
+ src/stores/hooks/index.ts                          |    6 +
+ src/stores/hooks/useKnowledge.ts                   |   96 --
+ src/stores/hooks/useLLM.ts                         |   48 -
+ src/stores/hooks/useSelectors.ts                   |  325 ++++---
+ src/stores/hooks/useSpeech.ts                      |   52 -
+ src/stores/store.ts                                |   24 +-
+ src/types/callContext.ts                           |  365 +++----
+ 28 files changed, 4388 insertions(+), 2629 deletions(-)

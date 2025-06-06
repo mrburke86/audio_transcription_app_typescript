@@ -1,16 +1,23 @@
 import { StateCreator } from 'zustand';
 import { AppState, LLMSlice } from '@/types/store';
 import { OpenAILLMService } from '@/services/OpenAILLMService';
+// import {
+//     createSystemPrompt,
+//     createUserPrompt,
+//     createAnalysisSystemPrompt,
+//     createAnalysisUserPrompt,
+//     createGenerationSystemPrompt,
+//     createGenerationUserPrompt,
+// } from '@/utils';
+import { logger } from '@/modules';
+import { v4 as uuidv4 } from 'uuid';
+import { createSystemPrompt, createUserPrompt } from '@/utils/prompts';
 import {
-    createSystemPrompt,
-    createUserPrompt,
     createAnalysisSystemPrompt,
     createAnalysisUserPrompt,
     createGenerationSystemPrompt,
     createGenerationUserPrompt,
 } from '@/utils';
-import { logger } from '@/modules';
-import { v4 as uuidv4 } from 'uuid';
 
 /**
  * 🧠 LLM Slice — Manages real-time LLM interaction, streaming, and strategic insight generation
@@ -85,8 +92,9 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
 
             // ✅ Use knowledgeContext in the user prompt
             const userPromptWithContext = await createUserPrompt(
-                `${userMessage}\n\nRelevant Context:\n${knowledgeContext}`,
-                get().conversationSummary
+                userMessage,
+                get().conversationSummary,
+                knowledgeContext
             );
 
             // Initialize LLM service
@@ -279,10 +287,9 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
             );
 
             const analysisMessages = [
-                { role: 'system' as const, content: createAnalysisSystemPrompt },
+                { role: 'system' as const, content: createAnalysisSystemPrompt() },
                 { role: 'user' as const, content: analysisUserPrompt },
             ];
-
             const analysisContent = await llmService.generateCompleteResponse(analysisMessages, {
                 model: 'gpt-4o-mini',
                 temperature: 0.3,
@@ -320,7 +327,7 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
             );
 
             const generationMessages = [
-                { role: 'system' as const, content: createGenerationSystemPrompt },
+                { role: 'system' as const, content: createGenerationSystemPrompt() },
                 { role: 'user' as const, content: generationUserPrompt },
             ];
 

@@ -23,8 +23,7 @@ interface StoreDebugInfo {
 // ===== ENHANCED LOGGING UTILITIES =====
 const createHookLogger = (hookName: string) => {
     let callCount = 0;
-    const lastCall = { time: 0, data: null as any };
-
+    const lastCall = { time: 0, data: undefined as LogData | null | undefined };
     return {
         trace: (action: string, data?: LogData) => {
             callCount++;
@@ -284,7 +283,7 @@ export const useNotificationCount = () => {
     const hookLogger = createHookLogger('useNotificationCount');
 
     return useAppStore(state => {
-        const count = state.notifications?.length || 0;
+        const count = state.addNotification?.length || 0;
         hookLogger.trace('Selected count', { count });
         return count;
     });
@@ -333,7 +332,7 @@ export const useStoreDebug = (): StoreDebugInfo => {
 
         stateKeys.forEach(key => {
             try {
-                stateTypes[key] = typeof (state as any)[key];
+                stateTypes[key] = typeof (state as unknown as Record<string, unknown>)[key];
             } catch {
                 stateTypes[key] = 'unknown';
             }

@@ -1,10 +1,26 @@
-// src\utils\index.ts
+// src/utils/index.ts
 
-export * from './response/createSystemPrompt';
-export * from './response/createUserPrompt';
-export * from './suggestions/createAnalysisSystemPrompt';
-export * from './suggestions/createAnalysisUserPrompt';
-export * from './suggestions/createGenerationSystemPrompt';
-export * from './suggestions/createGenerationUserPrompt';
-export * from './summarise/createSummarisationSystemPrompt';
-export * from './summarise/createSummarisationUserPrompt';
+// Export all prompt-related functions from the prompts directory
+export {
+    // Main response prompts
+    createSystemPrompt,
+    createUserPrompt,
+    // Analysis prompts
+    createAnalysisSystemPrompt,
+    createAnalysisUserPrompt,
+    // Generation prompts
+    createGenerationSystemPrompt,
+    createGenerationUserPrompt,
+    // Summarization prompts
+    createSummarisationSystemPrompt,
+    createSummarisationUserPrompt,
+    // Template manager and utilities
+    PromptTemplateManager,
+    PROMPT_INSTRUCTIONS,
+    InstructionBuilder,
+} from './prompts';
+
+// Export types
+export type { PromptContext, PromptOptions, InstructionSet } from './prompts';
+
+// ... other utils exports ...
