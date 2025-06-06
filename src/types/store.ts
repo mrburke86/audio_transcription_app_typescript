@@ -36,8 +36,8 @@ export interface KnowledgeSlice {
     // State
     indexedDocumentsCount: number;
     knowledgeBaseName: string;
-    isLoading: boolean;
-    error: string | null;
+    kbIsLoading: boolean;
+    kbError: string | null;
     lastIndexedAt: Date | null;
     indexingProgress: IndexingProgress;
     searchResults: DocumentChunk[];
