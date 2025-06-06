@@ -221,33 +221,33 @@ export interface CallContext {
 //     { value: 'highly-sensitive', label: '🔐 Highly Sensitive', description: 'Extremely private, maximum protection' },
 // ] as const;
 
-// // Validation helpers
-// export function validateContext(context: Partial<CallContext>): string[] {
-//     const errors: string[] = [];
+// Validation helpers
+export function validateContext(context: Partial<CallContext>): string[] {
+    const errors: string[] = [];
 
-//     if (!context.call_type) errors.push('Call type is required');
-//     if (!context.call_context) errors.push('Call context is required');
-//     if (!context.key_points || context.key_points.length === 0) errors.push('At least one key point is required');
-//     if (!context.objectives || context.objectives.length === 0) errors.push('At least one objective is required');
+    if (!context.call_type) errors.push('Call type is required');
+    if (!context.call_context) errors.push('Call context is required');
+    if (!context.key_points || context.key_points.length === 0) errors.push('At least one key point is required');
+    if (!context.objectives || context.objectives.length === 0) errors.push('At least one objective is required');
 
-//     // Validate objectives
-//     if (context.objectives) {
-//         context.objectives.forEach((obj, index) => {
-//             if (!obj.primary_goal || obj.primary_goal.trim() === '') {
-//                 errors.push(`Objective ${index + 1} is missing a primary goal`);
-//             }
-//         });
-//     }
+    // Validate objectives
+    if (context.objectives) {
+        context.objectives.forEach((obj, index) => {
+            if (!obj.primary_goal || obj.primary_goal.trim() === '') {
+                errors.push(`Objective ${index + 1} is missing a primary goal`);
+            }
+        });
+    }
 
-//     // Emergency call specific validation
-//     if (context.call_type === 'emergency-call') {
-//         if (context.knowledge_search_enabled) {
-//             errors.push('Knowledge search should be disabled for emergency calls');
-//         }
-//     }
+    // Emergency call specific validation
+    if (context.call_type === 'emergency-call') {
+        if (context.knowledge_search_enabled) {
+            errors.push('Knowledge search should be disabled for emergency calls');
+        }
+    }
 
-//     return errors;
-// }
+    return errors;
+}
 
 // ✅ FIXED: Complete default context factory with all required properties
 export function createDefaultCallContext(callType?: CallContext['call_type']): CallContext {

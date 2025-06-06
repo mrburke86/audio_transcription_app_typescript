@@ -6,7 +6,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Separator } from '@/c
 import { logger } from '@/modules';
 import {
     useConversationMessages,
-    useInterview,
+    useCallContext, // ✅ Updated from useInterview
     useKnowledge,
     useLLM,
     useStreamingResponse,
@@ -50,16 +50,15 @@ export default function ChatPage() {
     } = useLLM();
 
     const {
-        context: interviewContext,
+        context: callContext, // ✅ Updated variable name for clarity
         isModalOpen: showRoleModal,
         setCallContext,
         openSetupModal,
         closeSetupModal,
-    } = useInterview();
+    } = useCallContext(); // ✅ Updated from useInterview
 
     const { addNotification, isLoading: uiLoading, setLoading } = useUI();
 
-    // ✅ NEW: Use speech store instead of legacy hooks
     const {
         isRecording,
         recognitionStatus,
@@ -120,22 +119,32 @@ export default function ChatPage() {
      * 🪄  MODAL LOGIC
      * ------------------------------------------------------------------ */
     useEffect(() => {
-        if (!interviewContext) {
+        if (!callContext) {
             logger.info('[ChatPage] No call context — opening setup modal');
             openSetupModal();
         }
-    }, [interviewContext, openSetupModal]);
+    }, [callContext, openSetupModal]);
 
     const handleCallStart = useCallback(
         (context: CallContext) => {
             logger.info('[ChatPage] 🚀 Starting call with context:', context);
             setCallContext(context);
             closeSetupModal();
+
+            // ✅ Safely initialize knowledge base
             initializeKnowledgeBase()
                 .then(() => logger.info('[ChatPage] ✅ Knowledge base initialized'))
-                .catch(err => logger.error('[ChatPage] ❌ KB init failed', err));
+                .catch(err => {
+                    logger.error('[ChatPage] ❌ KB init failed', err);
+                    // Don't block the call if KB init fails
+                    addNotification?.({
+                        type: 'warning',
+                        message: 'Knowledge base initialization failed, but you can still use the app',
+                        duration: 5000,
+                    });
+                });
         },
-        [setCallContext, closeSetupModal, initializeKnowledgeBase]
+        [setCallContext, closeSetupModal, initializeKnowledgeBase, addNotification]
     );
 
     const handleModalClose = useCallback(() => {
@@ -149,7 +158,14 @@ export default function ChatPage() {
     const handleMove = useCallback(async () => {
         const combined = [...interimTranscripts.map(m => m.content), currentTranscript].join(' ').trim();
 
-        if (combined === '') return;
+        if (combined === '') {
+            addNotification?.({
+                type: 'warning',
+                message: 'No text to process. Please speak first.',
+                duration: 3000,
+            });
+            return;
+        }
 
         logger.debug('[ChatPage] ▶️ handleMove triggered, tokens', combined.split(' ').length);
 
@@ -422,11 +438,16 @@ export default function ChatPage() {
                                 <Button
                                     variant="move"
                                     onClick={handleMove}
-                                    disabled={uiLoading || isGenerating || isLocalLoading}
+                                    disabled={
+                                        uiLoading ||
+                                        isGenerating ||
+                                        isLocalLoading ||
+                                        (!currentTranscript && interimTranscripts.length === 0)
+                                    }
                                     className="mt-2 inline-flex h-8 items-center justify-center gap-1.5 self-end whitespace-nowrap rounded-md bg-blue-500 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-600 disabled:pointer-events-none disabled:opacity-50"
                                 >
                                     <ArrowRight className="mr-1 h-4 w-4" />
-                                    {uiLoading || isLocalLoading ? 'Generating…' : 'Move'}
+                                    {uiLoading || isLocalLoading || isGenerating ? 'Generating…' : 'Move'}
                                 </Button>
                             </div>
                         </CardContent>
@@ -447,13 +468,10 @@ export default function ChatPage() {
                 </div>
 
                 {/* RIGHT: Context + Insights */}
-                <div className="col-span-4 h-full w-full overflow-hidden">
+                <div className="col-span-5 h-full w-full overflow-hidden">
                     <div className="grid h-full w-full grid-rows-2 gap-2">
                         <div className="overflow-hidden scroll-smooth">
-                            <ConversationContext
-                                summary={conversationSummary}
-                                goals={interviewContext?.key_points ?? []}
-                            />
+                            <ConversationContext summary={conversationSummary} goals={callContext?.key_points ?? []} />
                         </div>
 
                         <div className="overflow-hidden scroll-smooth">
@@ -461,7 +479,7 @@ export default function ChatPage() {
                                 <ConversationInsights
                                     suggestions={conversationSuggestions}
                                     onSuggest={handleSuggest}
-                                    isLoading={isGenerating}
+                                    isLoading={isGenerating || isLocalLoading}
                                 />
                             </AIErrorBoundary>
                         </div>

@@ -1,14 +1,6 @@
 import { StateCreator } from 'zustand';
 import { AppState, LLMSlice } from '@/types/store';
 import { OpenAILLMService } from '@/services/OpenAILLMService';
-// import {
-//     createSystemPrompt,
-//     createUserPrompt,
-//     createAnalysisSystemPrompt,
-//     createAnalysisUserPrompt,
-//     createGenerationSystemPrompt,
-//     createGenerationUserPrompt,
-// } from '@/utils';
 import { logger } from '@/modules';
 import { v4 as uuidv4 } from 'uuid';
 import { createSystemPrompt, createUserPrompt } from '@/utils/prompts';
@@ -21,21 +13,11 @@ import {
 
 /**
  * 🧠 LLM Slice — Manages real-time LLM interaction, streaming, and strategic insight generation
- *
- * ✅ Responsibilities:
- * - Manages conversation history in a Map structure by conversation ID
- * - Generates streaming responses using OpenAI with real-time content updates
- * - Combines multiple contexts: interview context + knowledge base results + conversation history
- * - Creates sophisticated prompts using your utility functions (system/user/analysis/generation prompts)
- * - Generates strategic suggestions through a 2-stage analysis pipeline:
- *     1. Strategic Analysis (identifies opportunities using gpt-4o-mini)
- *     2. Intelligence Generation (creates actionable insights using gpt-4o-mini)
- * - Summarizes conversations and maintains analysis history
  */
 
 export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, get) => ({
-    // Initialize state - this replaces your useLLMProviderOptimized state
-    conversations: new Map(), // 🗃️ Stores all conversations by ID (e.g., "main")
+    // Initialize state
+    conversations: new Map(),
     streamingResponses: new Map(),
     isGenerating: false,
     currentStreamId: null,
@@ -47,8 +29,7 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
     },
 
     /**
-     * 🔍 Two-stage pipeline to generate strategic insights:
-     * Stage 1: Analysis → Stage 2: Generation
+     * 🔍 Generate response using the new prompt system
      */
     generateResponse: async (userMessage: string) => {
         const streamId = uuidv4();
@@ -65,7 +46,7 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
         }
 
         try {
-            // Get interview context and search knowledge base
+            // Get call context and search knowledge base
             const callContext = get().context;
             const knowledgeResults = await get().searchRelevantKnowledge(userMessage, 3);
 
@@ -87,14 +68,15 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
             // ✅ Fixed: Safe access to objectives with fallback
             const primaryGoal = callContext.objectives?.[0]?.primary_goal || 'Successful communication';
 
-            // Create prompts using your existing utility functions
+            // Create prompts using the new unified prompt system
             const systemPrompt = await createSystemPrompt(callContext, primaryGoal);
 
-            // ✅ Use knowledgeContext in the user prompt
+            // ✅ Fixed: Use correct signature for createUserPrompt
             const userPromptWithContext = await createUserPrompt(
                 userMessage,
                 get().conversationSummary,
-                knowledgeContext
+                knowledgeContext,
+                callContext // ✅ Added missing callContext parameter
             );
 
             // Initialize LLM service
@@ -111,7 +93,7 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
                 { role: 'user' as const, content: userPromptWithContext },
             ];
 
-            // Start streaming response - this preserves your streaming functionality
+            // Start streaming response
             let accumulatedContent = '';
             let chunkCount = 0;
 
@@ -157,7 +139,7 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
             }));
 
             // Store in conversation history
-            const conversationId = 'main'; // You can make this dynamic based on context
+            const conversationId = 'main';
             const conversation = get().conversations.get(conversationId) || {
                 id: conversationId,
                 messages: [],
@@ -225,7 +207,7 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
                 });
             }
 
-            // ✅ Fixed: Clean up using Array.from instead of spread operator
+            // ✅ Clean up streaming response on error
             if (streamId) {
                 set(state => ({
                     streamingResponses: new Map(
@@ -237,8 +219,7 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
     },
 
     /**
-     * 🧠 Two-stage pipeline to generate strategic insights:
-     * Stage 1: Analysis → Stage 2: Generation
+     * 🧠 Two-stage pipeline to generate strategic insights
      */
     generateSuggestions: async () => {
         if (get().isGenerating) {
@@ -255,14 +236,14 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
         }
 
         try {
-            const interviewContext = get().context;
+            const callContext = get().context;
             const conversation = get().conversations.get('main');
 
-            if (!interviewContext) {
-                throw new Error('Interview context required for suggestions');
+            if (!callContext) {
+                throw new Error('Call context required for suggestions');
             }
 
-            // Build context for strategic analysis - preserving your existing logic
+            // Build context for strategic analysis
             const contextMessage = conversation?.messages[conversation.messages.length - 1]?.content || '';
             const knowledgeResults = await get().searchRelevantKnowledge(contextMessage, 3);
             const knowledgeContext = knowledgeResults
@@ -271,7 +252,7 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
 
             const previousAnalysisHistory = get().conversationSuggestions.analysisHistory || [];
 
-            // Stage 1: Strategic Analysis - using your existing prompts
+            // Stage 1: Strategic Analysis
             logger.info('Stage 1: Strategic opportunity analysis');
 
             const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
@@ -281,7 +262,7 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
 
             const analysisUserPrompt = await createAnalysisUserPrompt(
                 get().conversationSummary,
-                interviewContext,
+                callContext,
                 knowledgeContext,
                 previousAnalysisHistory
             );
@@ -290,6 +271,7 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
                 { role: 'system' as const, content: createAnalysisSystemPrompt() },
                 { role: 'user' as const, content: analysisUserPrompt },
             ];
+
             const analysisContent = await llmService.generateCompleteResponse(analysisMessages, {
                 model: 'gpt-4o-mini',
                 temperature: 0.3,
@@ -297,7 +279,7 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
 
             logger.info('Strategic analysis completed');
 
-            // Parse strategic analysis results - preserving your existing logic
+            // Parse strategic analysis results
             let strategicAnalysis;
             try {
                 const jsonMatch = analysisContent.match(/\{[\s\S]*\}/) || [analysisContent];
@@ -321,7 +303,7 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
 
             const generationUserPrompt = await createGenerationUserPrompt(
                 strategicAnalysis,
-                interviewContext,
+                callContext,
                 knowledgeContext,
                 previousAnalysisHistory
             );
@@ -422,17 +404,15 @@ Your combination of experience and strategic thinking sets you apart from other 
     },
 
     /**
-     * 📄 Generates a quick summary of conversation for downstream prompt context.
+     * 📄 Generates a quick summary of conversation
      */
     summarizeConversation: async messages => {
         if (messages.length === 0) return;
 
         try {
-            // Implementation would use your existing summarization logic
             logger.info('Updating conversation summary');
 
-            // This would call your existing summarization utilities
-            // For now, create a simple summary
+            // Simple summary for now - you can enhance this with LLM summarization later
             const summary = `Conversation with ${
                 messages.length
             } messages, last updated: ${new Date().toLocaleTimeString()}`;
@@ -444,10 +424,9 @@ Your combination of experience and strategic thinking sets you apart from other 
     },
 
     /**
-     * ⛔ Stop streaming response and clear state for a given stream ID
+     * ⛔ Stop streaming response and clear state
      */
     stopStreaming: (streamId: string) => {
-        // ✅ Fixed: Use Array.from instead of spread operator
         set(state => ({
             streamingResponses: new Map(
                 Array.from(state.streamingResponses.entries()).filter(([id]) => id !== streamId)
@@ -466,10 +445,9 @@ Your combination of experience and strategic thinking sets you apart from other 
     },
 
     /**
-     * 🧹 Clears conversation by ID and resets summary if "main"
+     * 🧹 Clears conversation by ID
      */
     clearConversation: (conversationId: string) => {
-        // ✅ Fixed: Use Array.from instead of spread operator
         set(state => ({
             conversations: new Map(Array.from(state.conversations.entries()).filter(([id]) => id !== conversationId)),
             conversationSummary: conversationId === 'main' ? '' : state.conversationSummary,
