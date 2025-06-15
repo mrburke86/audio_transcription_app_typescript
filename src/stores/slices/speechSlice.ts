@@ -18,9 +18,9 @@ import { Message } from '@/types';
 export const createSpeechSlice: StateCreator<AppState, [], [], SpeechSlice> = (set, get) => ({
     // ✅ FIXED: Properly typed speech state
     isRecording: false,
-    isProcessing: false,
+    speechIsProcessing: false,
     recognitionStatus: 'inactive',
-    error: null,
+    speechError: null,
     audioSessions: new Map(),
     currentTranscript: '',
     interimTranscripts: [],
@@ -31,7 +31,7 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechSlice> = (s
      */
     startRecording: async () => {
         try {
-            set({ error: null });
+            set({ speechError: null });
 
             // Request microphone permission
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -80,7 +80,7 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechSlice> = (s
             const errorMessage = error instanceof Error ? error.message : 'Failed to start recording';
 
             set({
-                error: errorMessage,
+                speechError: errorMessage,
                 isRecording: false,
                 recognitionStatus: 'error',
             });
@@ -126,7 +126,7 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechSlice> = (s
             return '';
         }
 
-        set({ isProcessing: true });
+        set({ speechIsProcessing: true });
 
         try {
             // Create form data for audio transcription
@@ -151,7 +151,7 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechSlice> = (s
                     transcription: text,
                     confidence,
                 }),
-                isProcessing: false,
+                speechIsProcessing: false,
             }));
 
             get().addNotification({
@@ -167,8 +167,8 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechSlice> = (s
             const errorMessage = error instanceof Error ? error.message : 'Transcription failed';
 
             set({
-                isProcessing: false,
-                error: errorMessage,
+                speechIsProcessing: false,
+                speechError: errorMessage,
             });
 
             get().addNotification({
@@ -224,6 +224,6 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechSlice> = (s
      * ❌ Clears error from state
      */
     clearError: () => {
-        set({ error: null });
+        set({ speechError: null });
     },
 });

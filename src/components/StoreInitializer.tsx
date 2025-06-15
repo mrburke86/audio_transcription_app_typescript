@@ -1,7 +1,7 @@
 // src/components/StoreInitializer.tsx
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useKnowledge, useUI } from '@/stores/hooks/useSelectors';
 import { logger } from '@/modules';
 
@@ -13,20 +13,24 @@ export function StoreInitializer() {
     const { initializeKnowledgeBase, isLoading, error, indexedDocumentsCount } = useKnowledge();
     const { setTheme, addNotification } = useUI();
 
+    const hasInitialized = useRef(false); // 🧠 Prevent multiple inits
+
+    // 🎨 Initialize theme from system preference
     useEffect(() => {
-        // Initialize theme from system preference
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         setTheme(prefersDark ? 'dark' : 'light');
-
         logger.info('🎨 Theme initialized from system preference');
     }, [setTheme]);
 
+    // 🧠 Initialize knowledge base if needed
     useEffect(() => {
-        // Initialize knowledge base on app startup
-        if (!isLoading && !error && indexedDocumentsCount === 0) {
+        if (!hasInitialized.current && !isLoading && !error && indexedDocumentsCount === 0) {
+            hasInitialized.current = true;
             logger.info('🚀 StoreInitializer: Triggering knowledge base initialization...');
+
             initializeKnowledgeBase().catch((err: Error) => {
                 logger.error('❌ StoreInitializer: Knowledge base initialization failed:', err);
+                hasInitialized.current = false; // allow retry if needed
                 addNotification({
                     type: 'error',
                     message: 'Failed to initialize knowledge base. Some features may be limited.',
@@ -36,9 +40,11 @@ export function StoreInitializer() {
         }
     }, [initializeKnowledgeBase, isLoading, error, indexedDocumentsCount, addNotification]);
 
+    // ✅ Show welcome message once KB is ready
+    const hasWelcomed = useRef(false);
     useEffect(() => {
-        // Show welcome notification after store is ready
-        if (!isLoading && !error && indexedDocumentsCount > 0) {
+        if (!hasWelcomed.current && !isLoading && !error && indexedDocumentsCount > 0) {
+            hasWelcomed.current = true;
             addNotification({
                 type: 'success',
                 message: `Welcome! Knowledge base ready with ${indexedDocumentsCount} documents.`,
@@ -47,8 +53,7 @@ export function StoreInitializer() {
         }
     }, [isLoading, error, indexedDocumentsCount, addNotification]);
 
-    // This component doesn't render anything - it's just for initialization
-    return null;
+    return null; // Initialization-only component
 }
 
 // Alternative: Hook-based initialization for components that need more control

@@ -2,9 +2,9 @@
 import { PersistOptions } from 'zustand/middleware';
 import { AppState } from '@/types/store';
 
-export const createPersistenceConfig = (): PersistOptions<AppState> => ({
+export const createPersistenceConfig = (): PersistOptions<AppState, Partial<AppState>> => ({
     name: 'audio-transcription-app',
-    partialize: state => ({
+    partialize: (state): Partial<AppState> => ({
         // Only persist essential user preferences and context
         theme: state.theme,
         context: state.context,
@@ -13,9 +13,11 @@ export const createPersistenceConfig = (): PersistOptions<AppState> => ({
         indexedDocumentsCount: state.indexedDocumentsCount,
         conversationSummary: state.conversationSummary,
         // Convert Maps to arrays for JSON serialization
-        conversations: Array.from(state.conversations.entries()),
+        conversations: Array.from(state.conversations.entries()) as any,
     }),
-    onRehydrateStorage: () => state => {
+    onRehydrateStorage: () => rawState => {
+        const state = rawState ?? undefined;
+        if (!state) return;
         // Restore Maps from persisted arrays
         if (state?.conversations) {
             state.conversations = new Map(state.conversations);

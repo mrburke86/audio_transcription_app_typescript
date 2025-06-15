@@ -69,8 +69,8 @@ export const useKnowledge = () => {
                 // State
                 indexedDocumentsCount: state.indexedDocumentsCount || 0,
                 knowledgeBaseName: state.knowledgeBaseName || '',
-                isLoading: state.isLoading || false,
-                error: state.error || null,
+                isLoading: state.kbIsLoading || false,
+                error: state.kbError || null,
                 lastIndexedAt: state.lastIndexedAt || null,
                 indexingProgress: state.indexingProgress || {
                     filesProcessed: 0,
@@ -143,9 +143,9 @@ export const useSpeech = () => {
             return {
                 // State
                 isRecording: state.isRecording || false,
-                isProcessing: state.isProcessing || false,
+                isProcessing: state.speechIsProcessing || false,
                 recognitionStatus: state.recognitionStatus || 'idle',
-                error: state.error || null,
+                error: state.speechError || null,
                 audioSessions: state.audioSessions || [],
                 currentTranscript: state.currentTranscript || '',
                 interimTranscripts: state.interimTranscripts || [],
@@ -209,7 +209,7 @@ export const useUI = () => {
             return {
                 // State
                 isLoading: state.isLoading || false,
-                error: state.error || null,
+                error: state.uiError || null,
                 theme: state.theme || 'dark',
                 modals: state.modals || {},
                 loadingMessage: state.loadingMessage,
@@ -283,7 +283,7 @@ export const useNotificationCount = () => {
     const hookLogger = createHookLogger('useNotificationCount');
 
     return useAppStore(state => {
-        const count = state.addNotification?.length || 0;
+        const count = state.notifications?.length;
         hookLogger.trace('Selected count', { count });
         return count;
     });

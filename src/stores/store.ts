@@ -42,6 +42,8 @@ export const useAppStore = create<AppState>()(
                     lastIndexedAt: state.lastIndexedAt,
                     knowledgeBaseName: state.knowledgeBaseName,
                     indexedDocumentsCount: state.indexedDocumentsCount,
+                    kbIsLoading: state.kbIsLoading,
+                    kbError: state.kbError,
 
                     // Conversation summary (but not full conversations - too large)
                     conversationSummary: state.conversationSummary,
@@ -68,10 +70,12 @@ export const useAppStore = create<AppState>()(
                         state.isLoading = false;
                         state.isGenerating = false;
                         state.isRecording = false;
-                        state.isProcessing = false;
+                        state.speechIsProcessing = false;
                         state.currentStreamId = null;
                         state.recognitionStatus = 'inactive';
-                        state.error = null;
+                        state.speechError = null;
+                        state.kbIsLoading = false;
+                        state.kbError = null;
                         state.currentTranscript = '';
                         state.isModalOpen = false;
                         state.loadingMessage = undefined;

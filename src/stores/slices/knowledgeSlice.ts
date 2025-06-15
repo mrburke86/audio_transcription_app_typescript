@@ -33,6 +33,8 @@ export const createKnowledgeSlice: StateCreator<AppState, [], [], KnowledgeSlice
      * 🛠  INITIALIZE KNOWLEDGE BASE
      * ------------------------------------------------------------------ */
     initializeKnowledgeBase: async () => {
+        const { kbIsLoading, indexedDocumentsCount } = get();
+        if (kbIsLoading || indexedDocumentsCount > 0) return;
         set({ kbIsLoading: true, kbError: null });
 
         try {

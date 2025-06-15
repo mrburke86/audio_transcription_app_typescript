@@ -3,7 +3,12 @@ import { AppState, LLMSlice } from '@/types/store';
 import { OpenAILLMService } from '@/services/OpenAILLMService';
 import { logger } from '@/modules';
 import { v4 as uuidv4 } from 'uuid';
-import { createSystemPrompt, createUserPrompt } from '@/utils/prompts';
+import {
+    createSummarisationSystemPrompt,
+    createSummarisationUserPrompt,
+    createSystemPrompt,
+    createUserPrompt,
+} from '@/utils/prompts';
 import {
     createAnalysisSystemPrompt,
     createAnalysisUserPrompt,
@@ -76,7 +81,7 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
                 userMessage,
                 get().conversationSummary,
                 knowledgeContext,
-                callContext // ✅ Added missing callContext parameter
+                callContext
             );
 
             // Initialize LLM service
@@ -244,11 +249,20 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
             }
 
             // Build context for strategic analysis
-            const contextMessage = conversation?.messages[conversation.messages.length - 1]?.content || '';
-            const knowledgeResults = await get().searchRelevantKnowledge(contextMessage, 3);
-            const knowledgeContext = knowledgeResults
-                .map(chunk => `--- ${chunk.source} ---\n${chunk.text}`)
-                .join('\n\n');
+            const userMessage = conversation?.messages[conversation.messages.length - 1]?.content || '';
+            let knowledgeContext = '';
+            if (callContext.knowledge_search_enabled !== false) {
+                const knowledgeResults = await get().searchRelevantKnowledge(userMessage, 3);
+                knowledgeContext =
+                    knowledgeResults.length > 0
+                        ? knowledgeResults
+                              .map(
+                                  chunk =>
+                                      `--- Relevant Information from ${chunk.source} ---\n${chunk.text}\n--- End Information ---`
+                              )
+                              .join('\n\n')
+                        : '';
+            }
 
             const previousAnalysisHistory = get().conversationSuggestions.analysisHistory || [];
 
@@ -407,15 +421,30 @@ Your combination of experience and strategic thinking sets you apart from other 
      * 📄 Generates a quick summary of conversation
      */
     summarizeConversation: async messages => {
-        if (messages.length === 0) return;
+        // if (messages.length === 0) return;
 
         try {
-            logger.info('Updating conversation summary');
+            const callContext = get().context;
+            if (!callContext) return;
 
-            // Simple summary for now - you can enhance this with LLM summarization later
-            const summary = `Conversation with ${
-                messages.length
-            } messages, last updated: ${new Date().toLocaleTimeString()}`;
+            logger.info('🔎 Generating LLM summary');
+
+            const system = createSummarisationSystemPrompt();
+            const user = createSummarisationUserPrompt(
+                messages.map(m => m.content).join('\n'),
+                callContext,
+                get().conversationSummary
+            );
+            const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+            const llmService = new OpenAILLMService(apiKey as string);
+
+            const summary = await llmService.generateCompleteResponse(
+                [
+                    { role: 'system', content: system },
+                    { role: 'user', content: user },
+                ],
+                { model: 'gpt-4o-mini', temperature: 0.3 }
+            );
 
             set({ conversationSummary: summary });
         } catch (error) {

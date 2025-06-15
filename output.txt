@@ -1,8 +1,7 @@
- output.txt                                |  69 +++---
- src/app/chat/page.tsx                     |  52 ++--
- src/components/KnowledgeManagementTab.tsx | 393 ++++++++++++++++++++++++++++++
- src/components/SimplifiedCallModal.tsx    | 298 +++-------------------
- src/stores/slices/llmSlice.ts             |  72 ++----
- src/stores/store.ts                       | 103 ++++++--
- src/types/callContext.ts                  |  54 ++--
- 7 files changed, 638 insertions(+), 403 deletions(-)
+ blank.tsx                           |  1 -
+ delete.json                         | 41 -------------------------------
+ output.txt                          | 48 +++++++------------------------------
+ src/stores/slices/knowledgeSlice.ts | 14 +++++------
+ src/types/store.ts                  |  4 ++--
+ src/types/storeHelpers.ts           |  2 ++
+ 6 files changed, 19 insertions(+), 91 deletions(-)

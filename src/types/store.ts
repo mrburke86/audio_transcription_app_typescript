@@ -74,9 +74,9 @@ export interface LLMSlice {
 export interface SpeechSlice {
     // State - replaces your speech recognition useState calls
     isRecording: boolean;
-    isProcessing: boolean;
+    speechIsProcessing: boolean;
     recognitionStatus: 'inactive' | 'active' | 'error';
-    error: string | null;
+    speechError: string | null;
     audioSessions: Map<string, AudioSession>;
     currentTranscript: string;
     interimTranscripts: Message[];
@@ -110,21 +110,26 @@ export interface CallContextSlice {
     resetSetupFlow: () => void;
 }
 
+export interface NotificationEntry {
+    id: number;
+    type: 'success' | 'error' | 'warning' | 'info';
+    message: string;
+    duration?: number;
+}
+
 export interface UISlice {
     // Simplified state - removed notifications array
     theme: 'light' | 'dark';
     modals: Record<string, { isOpen: boolean; props?: any }>;
+    notifications: NotificationEntry[];
     isLoading: boolean;
     loadingMessage?: string;
+    uiError: string | null;
 
     // Simplified actions using Sonner
     setTheme: (theme: 'light' | 'dark') => void;
-    addNotification: (notification: {
-        type: 'success' | 'error' | 'warning' | 'info';
-        message: string;
-        duration?: number;
-    }) => void;
-    removeNotification: () => void; // Deprecated but kept for compatibility
+    addNotification: (notification: Omit<NotificationEntry, 'id'>) => void;
+    removeNotification: (id?: number) => void; // Deprecated but kept for compatibility
     openModal: (modalId: string, props?: any) => void;
     closeModal: (modalId: string) => void;
     setLoading: (isLoading: boolean, message?: string) => void;

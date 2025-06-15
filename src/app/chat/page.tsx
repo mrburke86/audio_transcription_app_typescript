@@ -6,7 +6,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Separator } from '@/c
 import { logger } from '@/modules';
 import {
     useConversationMessages,
-    useCallContext, // ✅ Updated from useInterview
+    useCallContext, //
     useKnowledge,
     useLLM,
     useStreamingResponse,
@@ -50,17 +50,17 @@ export default function ChatPage() {
     } = useLLM();
 
     const {
-        context: callContext, // ✅ Updated variable name for clarity
+        context: callContext,
         isModalOpen: showRoleModal,
         setCallContext,
         openSetupModal,
         closeSetupModal,
     } = useCallContext(); // ✅ Updated from useInterview
 
-    const { addNotification, isLoading: uiLoading, setLoading } = useUI();
+    const { addNotification, isLoading: uiLoading, setLoading: _setLoading } = useUI();
 
     const {
-        isRecording,
+        isRecording: _isRecording,
         recognitionStatus,
         error: speechError,
         currentTranscript,
@@ -87,7 +87,7 @@ export default function ChatPage() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const visualizationStartedRef = useRef(false);
     const mediaStreamRef = useRef<MediaStream | null>(null);
-    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const _mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const recognitionRef = useRef<SpeechRecognition | null>(null);
 
     /* ------------------------------------------------------------------ *
