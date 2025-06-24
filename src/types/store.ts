@@ -1,8 +1,9 @@
-import { CallContext, Message, DocumentChunk } from '@/types';
+import { CallContext, Message, DocumentChunk, StrategicAnalysis, AnalysisPreview } from '@/types';
+import { Nullable } from './storeHelpers';
 
 // Your existing types, reorganized for Zustand
 export interface IndexingProgress {
-    isIndexing?: boolean; // ✅ ADDED: Missing isIndexing flag
+    isIndexing: boolean; // ✅ ADDED: Missing isIndexing flag
     filesProcessed: number;
     totalFiles: number;
     errors: string[];
@@ -36,9 +37,9 @@ export interface KnowledgeSlice {
     // State
     indexedDocumentsCount: number;
     knowledgeBaseName: string;
-    kbIsLoading: boolean;
-    kbError: string | null;
-    lastIndexedAt: Date | null;
+    isLoading: boolean; // ⚠️ RENAMED: from kbIsLoading
+    error: Nullable<string>; // ⚠️ RENAMED: from kbError, used Nullable<T>
+    lastIndexedAt: Nullable<Date>; // ⚠️ MODIFIED: Used Nullable<T>
     indexingProgress: IndexingProgress;
     searchResults: DocumentChunk[];
 
@@ -54,13 +55,20 @@ export interface LLMSlice {
     conversations: Map<string, Conversation>;
     streamingResponses: Map<string, StreamingResponse>;
     isGenerating: boolean;
-    currentStreamId: string | null;
+    currentStreamId: Nullable<string>; // ⚠️ MODIFIED
     conversationSummary: string;
     conversationSuggestions: {
         powerUpContent: string;
-        lastAnalysis?: any;
-        analysisHistory?: any[];
+        lastAnalysis?: StrategicAnalysis;
+        analysisHistory?: AnalysisPreview[];
     };
+    // Missing error states
+    llmError: string | null;
+    isGeneratingResponse: boolean;
+    isGeneratingSuggestions: boolean;
+    isSummarizing: boolean;
+    // Missing abort controllers
+    currentAbortController: AbortController | null;
 
     // Actions - these replace your LLM hook methods
     generateResponse: (userMessage: string) => Promise<void>;
@@ -68,6 +76,9 @@ export interface LLMSlice {
     summarizeConversation: (messages: Message[]) => Promise<void>;
     stopStreaming: (streamId: string) => void;
     clearConversation: (conversationId: string) => void;
+
+    clearLLMError: () => void;
+    cancelCurrentRequest: () => void;
 }
 
 // ✅ FIXED: Updated SpeechSlice to match implementation
@@ -76,23 +87,30 @@ export interface SpeechSlice {
     isRecording: boolean;
     speechIsProcessing: boolean;
     recognitionStatus: 'inactive' | 'active' | 'error';
-    speechError: string | null;
+    speechError: Nullable<string>; // ⚠️ MODIFIED
     audioSessions: Map<string, AudioSession>;
     currentTranscript: string;
     interimTranscripts: Message[];
 
+    // ✅ ADDED: Internal state for managing speech APIs
+    _recognition: SpeechRecognition | null;
+    _mediaStream: MediaStream | null;
+
     // Actions - these replace your speech hook methods
     startRecording: () => Promise<void>;
     stopRecording: () => void;
-    processAudioSession: (sessionId: string) => Promise<string>;
     clearTranscripts: () => void;
     handleRecognitionResult: (finalTranscript: string, interimTranscript: string) => void;
     clearError: () => void;
+
+    // ✅ ADDED: New utility methods
+    _cleanup: () => void;
+    getMediaStream: () => MediaStream | null;
 }
 
 export interface CallContextSlice {
     // State - replaces your interview modal state
-    context: CallContext | null;
+    context: Nullable<CallContext>; // ⚠️ MODIFIED
     isModalOpen: boolean;
     currentSetupStep: string; // Rename: Clarifies purpose
     validationErrors: Record<string, string>;
@@ -120,17 +138,17 @@ export interface NotificationEntry {
 export interface UISlice {
     // Simplified state - removed notifications array
     theme: 'light' | 'dark';
-    modals: Record<string, { isOpen: boolean; props?: any }>;
+    modals: Record<string, { isOpen: boolean; props?: Record<string, unknown> }>;
     notifications: NotificationEntry[];
     isLoading: boolean;
     loadingMessage?: string;
-    uiError: string | null;
+    uiError: Nullable<string>; // ⚠️ MODIFIED
 
     // Simplified actions using Sonner
     setTheme: (theme: 'light' | 'dark') => void;
     addNotification: (notification: Omit<NotificationEntry, 'id'>) => void;
     removeNotification: (id?: number) => void; // Deprecated but kept for compatibility
-    openModal: (modalId: string, props?: any) => void;
+    openModal: (modalId: string, props?: Record<string, unknown>) => void;
     closeModal: (modalId: string) => void;
     setLoading: (isLoading: boolean, message?: string) => void;
 }

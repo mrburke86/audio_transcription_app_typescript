@@ -1,24 +1,18 @@
-import { StateCreator } from 'zustand';
-import { AppState, LLMSlice } from '@/types/store';
-import { OpenAILLMService } from '@/services/OpenAILLMService';
 import { logger } from '@/modules';
-import { v4 as uuidv4 } from 'uuid';
-import {
-    createSummarisationSystemPrompt,
-    createSummarisationUserPrompt,
-    createSystemPrompt,
-    createUserPrompt,
-} from '@/utils/prompts';
+import { OpenAILLMService } from '@/services/OpenAILLMService';
+import { AnalysisPreview, StrategicAnalysis } from '@/types';
+import { AppState, LLMSlice } from '@/types/store';
 import {
     createAnalysisSystemPrompt,
     createAnalysisUserPrompt,
     createGenerationSystemPrompt,
     createGenerationUserPrompt,
+    createSystemPrompt,
+    createUserPrompt,
 } from '@/utils';
-
-/**
- * 🧠 LLM Slice — Manages real-time LLM interaction, streaming, and strategic insight generation
- */
+import { createSummarisationSystemPrompt, createSummarisationUserPrompt } from '@/utils/prompts';
+import { v4 as uuidv4 } from 'uuid';
+import { StateCreator } from 'zustand';
 
 export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, get) => ({
     // Initialize state
@@ -32,19 +26,29 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
         lastAnalysis: undefined,
         analysisHistory: [],
     },
+    // Add missing state properties
+    llmError: null,
+    isGeneratingResponse: false,
+    isGeneratingSuggestions: false,
+    isSummarizing: false,
+    currentAbortController: null,
 
     /**
      * 🔍 Generate response using the new prompt system
      */
     generateResponse: async (userMessage: string) => {
         const streamId = uuidv4();
+        const abortController = new AbortController();
 
         set({
             isGenerating: true,
+            isGeneratingResponse: true,
             currentStreamId: streamId,
+            llmError: null,
+            currentAbortController: abortController,
         });
 
-        // ✅ Safe call to setLoading
+        // ✅ Safe call to setLoading - make it optional
         const state = get();
         if (state.setLoading && typeof state.setLoading === 'function') {
             state.setLoading(true, 'Generating response...');
@@ -57,6 +61,11 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
 
             if (!callContext) {
                 throw new Error('Call context not configured. Please set up your call profile.');
+            }
+
+            // Check for cancellation
+            if (abortController.signal.aborted) {
+                throw new Error('Request was cancelled');
             }
 
             // Build knowledge context from search results
@@ -90,7 +99,7 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
                 throw new Error('OpenAI API key not configured');
             }
 
-            const llmService = new OpenAILLMService(apiKey);
+            const llmService = new OpenAILLMService();
 
             // Prepare messages for API
             const messages = [
@@ -104,10 +113,18 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
 
             logger.info(`Starting LLM response generation (Stream ID: ${streamId})`);
 
-            for await (const chunk of llmService.generateStreamedResponse(messages, {
+            // Create streaming with abort signal
+            const streamGenerator = llmService.generateStreamedResponse(messages, {
                 model: 'gpt-4o',
                 temperature: 0.7,
-            })) {
+            });
+
+            for await (const chunk of streamGenerator) {
+                // Check for cancellation after each chunk
+                if (abortController.signal.aborted) {
+                    throw new Error('Request was cancelled');
+                }
+
                 accumulatedContent += chunk;
                 chunkCount++;
 
@@ -140,7 +157,9 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
                     timestamp: Date.now(),
                 }),
                 isGenerating: false,
+                isGeneratingResponse: false,
                 currentStreamId: null,
+                currentAbortController: null,
             }));
 
             // Store in conversation history
@@ -190,9 +209,14 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
             // Auto-trigger conversation summary update
             get().summarizeConversation(conversation.messages);
         } catch (error) {
+            const isAborted = error instanceof Error && error.message.includes('cancelled');
+
             set({
                 isGenerating: false,
+                isGeneratingResponse: false,
                 currentStreamId: null,
+                currentAbortController: null,
+                llmError: isAborted ? null : error instanceof Error ? error.message : 'Unknown error occurred',
             });
 
             // ✅ Safe error handling
@@ -201,15 +225,17 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
                 errorState.setLoading(false);
             }
 
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            logger.error('LLM response generation failed:', error);
+            if (!isAborted) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+                logger.error('LLM response generation failed:', error);
 
-            if (errorState.addNotification && typeof errorState.addNotification === 'function') {
-                errorState.addNotification({
-                    type: 'error',
-                    message: `Failed to generate response: ${errorMessage}`,
-                    duration: 10000,
-                });
+                if (errorState.addNotification && typeof errorState.addNotification === 'function') {
+                    errorState.addNotification({
+                        type: 'error',
+                        message: `Failed to generate response: ${errorMessage}`,
+                        duration: 10000,
+                    });
+                }
             }
 
             // ✅ Clean up streaming response on error
@@ -232,7 +258,14 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
             return;
         }
 
-        set({ isGenerating: true });
+        const abortController = new AbortController();
+
+        set({
+            isGenerating: true,
+            isGeneratingSuggestions: true,
+            llmError: null,
+            currentAbortController: abortController,
+        });
 
         // ✅ Safe call to setLoading
         const state = get();
@@ -246,6 +279,11 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
 
             if (!callContext) {
                 throw new Error('Call context required for suggestions');
+            }
+
+            // Check for cancellation
+            if (abortController.signal.aborted) {
+                throw new Error('Request was cancelled');
             }
 
             // Build context for strategic analysis
@@ -272,7 +310,7 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
             const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
             if (!apiKey) throw new Error('OpenAI API key not configured');
 
-            const llmService = new OpenAILLMService(apiKey);
+            const llmService = new OpenAILLMService();
 
             const analysisUserPrompt = await createAnalysisUserPrompt(
                 get().conversationSummary,
@@ -286,6 +324,11 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
                 { role: 'user' as const, content: analysisUserPrompt },
             ];
 
+            // Check for cancellation before API call
+            if (abortController.signal.aborted) {
+                throw new Error('Request was cancelled');
+            }
+
             const analysisContent = await llmService.generateCompleteResponse(analysisMessages, {
                 model: 'gpt-4o-mini',
                 temperature: 0.3,
@@ -294,7 +337,7 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
             logger.info('Strategic analysis completed');
 
             // Parse strategic analysis results
-            let strategicAnalysis;
+            let strategicAnalysis: StrategicAnalysis;
             try {
                 const jsonMatch = analysisContent.match(/\{[\s\S]*\}/) || [analysisContent];
                 strategicAnalysis = JSON.parse(jsonMatch[0]);
@@ -310,6 +353,11 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
                     differentiation_angle: 'Demonstrate advanced strategic thinking and industry expertise',
                     research_suggestions: 'Industry trends, competitive landscape, real-world examples',
                 };
+            }
+
+            // Check for cancellation before second API call
+            if (abortController.signal.aborted) {
+                throw new Error('Request was cancelled');
             }
 
             // Stage 2: Strategic Intelligence Generation
@@ -334,7 +382,7 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
 
             if (strategicIntelligence) {
                 // Create enhanced analysis preview for history
-                const analysisPreview = {
+                const analysisPreview: AnalysisPreview = {
                     strategic_opportunity: strategicAnalysis.strategic_opportunity,
                     focus_area: strategicAnalysis.focus_area,
                     insight_summary: strategicAnalysis.insight_potential,
@@ -351,6 +399,8 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
                         analysisHistory: updatedHistory,
                     },
                     isGenerating: false,
+                    isGeneratingSuggestions: false,
+                    currentAbortController: null,
                 });
 
                 // ✅ Safe call to setLoading
@@ -374,7 +424,14 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
         } catch (error) {
             logger.error('Strategic intelligence generation failed:', error);
 
-            set({ isGenerating: false });
+            const isAborted = error instanceof Error && error.message.includes('cancelled');
+
+            set({
+                isGenerating: false,
+                isGeneratingSuggestions: false,
+                currentAbortController: null,
+                llmError: isAborted ? null : error instanceof Error ? error.message : 'Unknown error occurred',
+            });
 
             // ✅ Safe error handling
             const errorState = get();
@@ -382,8 +439,9 @@ export const createLLMSlice: StateCreator<AppState, [], [], LLMSlice> = (set, ge
                 errorState.setLoading(false);
             }
 
-            // Enhanced fallback with strategic intelligence theme
-            const fallbackContent = `# 🧠 Strategic Intelligence Boost
+            if (!isAborted) {
+                // Enhanced fallback with strategic intelligence theme
+                const fallbackContent = `# 🧠 Strategic Intelligence Boost
 
 ## 🎯 Strategic Positioning
 You're in an excellent position to demonstrate thought leadership and strategic thinking.
@@ -400,19 +458,20 @@ You're in an excellent position to demonstrate thought leadership and strategic 
 ## 🚀 Competitive Advantage
 Your combination of experience and strategic thinking sets you apart from other candidates.`;
 
-            set({
-                conversationSuggestions: {
-                    powerUpContent: fallbackContent,
-                    analysisHistory: get().conversationSuggestions.analysisHistory || [],
-                },
-            });
-
-            if (errorState.addNotification && typeof errorState.addNotification === 'function') {
-                errorState.addNotification({
-                    type: 'warning',
-                    message: 'Used fallback strategic intelligence due to generation error',
-                    duration: 8000,
+                set({
+                    conversationSuggestions: {
+                        powerUpContent: fallbackContent,
+                        analysisHistory: get().conversationSuggestions.analysisHistory || [],
+                    },
                 });
+
+                if (errorState.addNotification && typeof errorState.addNotification === 'function') {
+                    errorState.addNotification({
+                        type: 'warning',
+                        message: 'Used fallback strategic intelligence due to generation error',
+                        duration: 8000,
+                    });
+                }
             }
         }
     },
@@ -422,6 +481,14 @@ Your combination of experience and strategic thinking sets you apart from other 
      */
     summarizeConversation: async messages => {
         // if (messages.length === 0) return;
+
+        const abortController = new AbortController();
+
+        set({
+            isSummarizing: true,
+            llmError: null,
+            currentAbortController: abortController,
+        });
 
         try {
             const callContext = get().context;
@@ -435,20 +502,38 @@ Your combination of experience and strategic thinking sets you apart from other 
                 callContext,
                 get().conversationSummary
             );
-            const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-            const llmService = new OpenAILLMService(apiKey as string);
+            const llmService = new OpenAILLMService();
+
+            // Check for cancellation
+            if (abortController.signal.aborted) {
+                return;
+            }
 
             const summary = await llmService.generateCompleteResponse(
                 [
                     { role: 'system', content: system },
                     { role: 'user', content: user },
                 ],
-                { model: 'gpt-4o-mini', temperature: 0.3 }
+                {
+                    model: 'gpt-4o-mini',
+                    temperature: 0.3,
+                }
             );
 
-            set({ conversationSummary: summary });
+            set({
+                conversationSummary: summary,
+                isSummarizing: false,
+                currentAbortController: null,
+            });
         } catch (error) {
+            const isAborted = error instanceof Error && error.message.includes('cancelled');
             logger.error('Conversation summarization failed:', error);
+
+            set({
+                isSummarizing: false,
+                currentAbortController: null,
+                llmError: isAborted ? null : error instanceof Error ? error.message : 'Summarization failed',
+            });
         }
     },
 
@@ -461,6 +546,7 @@ Your combination of experience and strategic thinking sets you apart from other 
                 Array.from(state.streamingResponses.entries()).filter(([id]) => id !== streamId)
             ),
             isGenerating: state.currentStreamId === streamId ? false : state.isGenerating,
+            isGeneratingResponse: state.currentStreamId === streamId ? false : state.isGeneratingResponse,
             currentStreamId: state.currentStreamId === streamId ? null : state.currentStreamId,
         }));
 
@@ -491,6 +577,35 @@ Your combination of experience and strategic thinking sets you apart from other 
                 type: 'info',
                 message: 'Conversation cleared',
                 duration: 3000,
+            });
+        }
+    },
+
+    /**
+     * ❌ Clear LLM error state
+     */
+    clearLLMError: () => {
+        set({ llmError: null });
+        logger.info('LLM error cleared');
+    },
+
+    /**
+     * 🛑 Cancel current request
+     */
+    cancelCurrentRequest: () => {
+        const { currentAbortController } = get();
+        if (currentAbortController) {
+            currentAbortController.abort();
+            logger.info('Current LLM request cancelled');
+
+            // Update state
+            set({
+                isGenerating: false,
+                isGeneratingResponse: false,
+                isGeneratingSuggestions: false,
+                isSummarizing: false,
+                currentStreamId: null,
+                currentAbortController: null,
             });
         }
     },

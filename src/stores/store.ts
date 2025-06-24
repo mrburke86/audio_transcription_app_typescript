@@ -42,8 +42,8 @@ export const useAppStore = create<AppState>()(
                     lastIndexedAt: state.lastIndexedAt,
                     knowledgeBaseName: state.knowledgeBaseName,
                     indexedDocumentsCount: state.indexedDocumentsCount,
-                    kbIsLoading: state.kbIsLoading,
-                    kbError: state.kbError,
+                    kbIsLoading: state.isLoading,
+                    kbError: state.error,
 
                     // Conversation summary (but not full conversations - too large)
                     conversationSummary: state.conversationSummary,
@@ -69,24 +69,29 @@ export const useAppStore = create<AppState>()(
                         // Initialize other transient state
                         state.isLoading = false;
                         state.isGenerating = false;
+                        state.isGeneratingResponse = false;
+                        state.isGeneratingSuggestions = false;
+                        state.isSummarizing = false;
+                        state.llmError = null;
+                        state.currentAbortController = null;
                         state.isRecording = false;
                         state.speechIsProcessing = false;
                         state.currentStreamId = null;
                         state.recognitionStatus = 'inactive';
                         state.speechError = null;
-                        state.kbIsLoading = false;
-                        state.kbError = null;
+                        state.isLoading = false;
+                        state.error = null;
                         state.currentTranscript = '';
                         state.isModalOpen = false;
                         state.loadingMessage = undefined;
 
                         // Initialize default progress states
                         state.indexingProgress = {
+                            isIndexing: false, // ✅ ADDED
                             filesProcessed: 0,
                             totalFiles: 0,
                             errors: [],
                             progress: '',
-                            isIndexing: false,
                         };
 
                         state.conversationSuggestions = {
@@ -137,6 +142,6 @@ if (typeof window !== 'undefined') {
 
 // ✅ Development helper to access store in browser console
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-    (window as any).__appStore = useAppStore;
+    (window as typeof window & { __appStore: typeof useAppStore }).__appStore = useAppStore;
     logger.info('🛠️ Store available in console as __appStore');
 }

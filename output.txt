@@ -1,7 +1,12 @@
- blank.tsx                           |  1 -
- delete.json                         | 41 -------------------------------
- output.txt                          | 48 +++++++------------------------------
- src/stores/slices/knowledgeSlice.ts | 14 +++++------
- src/types/store.ts                  |  4 ++--
- src/types/storeHelpers.ts           |  2 ++
- 6 files changed, 19 insertions(+), 91 deletions(-)
+ output.txt                                      |  15 +-
+ src/app/chat/page.tsx                           |  10 +-
+ src/components/StoreInitializer.tsx             |  23 +-
+ src/stores/hooks/useSelectors.ts                |  12 +-
+ src/stores/middlewares/persistenceMiddleware.ts |  10 +-
+ src/stores/slices/knowledgeSlice.ts             |   2 +
+ src/stores/slices/llmSlice.ts                   |  55 +++-
+ src/stores/slices/speechSlice.ts                |  18 +-
+ src/stores/slices/uiSlice.ts                    | 335 +++++++++++++++++++++---
+ src/stores/store.ts                             |   8 +-
+ src/types/store.ts                              |  21 +-
+ 11 files changed, 406 insertions(+), 103 deletions(-)

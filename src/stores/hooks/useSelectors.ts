@@ -1,9 +1,10 @@
 // src/stores/hooks/useSelectors.ts
-import { useAppStore } from '../store';
-import { useShallow } from 'zustand/react/shallow';
-import { useEffect, useMemo, useRef } from 'react';
 import { logger } from '@/modules';
-// import { getCompleteCallConfig } from '@/utils/callContextAdapters';
+import { DocumentChunk, Message } from '@/types';
+import { debounce } from 'lodash';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
+import { useAppStore } from '../store';
 
 // ===== TYPE DEFINITIONS =====
 
@@ -56,23 +57,24 @@ const createHookLogger = (hookName: string) => {
  * 🧠 Optimized hook for knowledge base functionality
  */
 export const useKnowledge = () => {
-    const hookLogger = createHookLogger('useKnowledge');
+    // const hookLogger = createHookLogger('useKnowledge');
 
     return useAppStore(
         useShallow(state => {
-            hookLogger.trace('Selecting state', {
-                hasData: !!state.indexedDocumentsCount,
-                isLoading: state.isLoading,
-            });
+            // hookLogger.trace('Selecting state', {
+            //     hasData: !!state.indexedDocumentsCount,
+            //     isLoading: state.isLoading,
+            // });
 
             return {
-                // State
+                // State - directly use standardized properties
                 indexedDocumentsCount: state.indexedDocumentsCount || 0,
                 knowledgeBaseName: state.knowledgeBaseName || '',
-                isLoading: state.kbIsLoading || false,
-                error: state.kbError || null,
+                isLoading: state.isLoading || false, // ⚠️ MODIFIED: Direct use
+                error: state.error || null, // ⚠️ MODIFIED: Direct use
                 lastIndexedAt: state.lastIndexedAt || null,
                 indexingProgress: state.indexingProgress || {
+                    isIndexing: false, // ✅ ADDED: Complete default
                     filesProcessed: 0,
                     totalFiles: 0,
                     errors: [],
@@ -101,11 +103,16 @@ export const useLLM = () => {
             hookLogger.trace('Selecting state', {
                 isGenerating: state.isGenerating,
                 hasConversations: state.conversations?.size > 0,
+                hasErrors: !!state.llmError,
             });
 
             return {
                 // State
                 isGenerating: state.isGenerating || false,
+                isGeneratingResponse: state.isGeneratingResponse || false,
+                isGeneratingSuggestions: state.isGeneratingSuggestions || false,
+                isSummarizing: state.isSummarizing || false,
+                llmError: state.llmError || null,
                 currentStreamId: state.currentStreamId || null,
                 conversationSummary: state.conversationSummary || '',
                 conversationSuggestions: state.conversationSuggestions || {
@@ -115,6 +122,7 @@ export const useLLM = () => {
                 },
                 conversations: state.conversations || new Map(),
                 streamingResponses: state.streamingResponses || new Map(),
+                currentAbortController: state.currentAbortController || null,
 
                 // Actions
                 generateResponse: state.generateResponse,
@@ -122,6 +130,8 @@ export const useLLM = () => {
                 summarizeConversation: state.summarizeConversation,
                 stopStreaming: state.stopStreaming,
                 clearConversation: state.clearConversation,
+                clearLLMError: state.clearLLMError,
+                cancelCurrentRequest: state.cancelCurrentRequest,
             };
         })
     );
@@ -144,19 +154,22 @@ export const useSpeech = () => {
                 // State
                 isRecording: state.isRecording || false,
                 isProcessing: state.speechIsProcessing || false,
-                recognitionStatus: state.recognitionStatus || 'idle',
+                recognitionStatus: state.recognitionStatus || 'inactive', // ⚠️ CHANGED: 'idle' -> 'inactive' to match our slice
                 error: state.speechError || null,
-                audioSessions: state.audioSessions || [],
+                audioSessions: state.audioSessions || new Map(), // ⚠️ CHANGED: [] -> new Map() to match actual type
                 currentTranscript: state.currentTranscript || '',
                 interimTranscripts: state.interimTranscripts || [],
 
                 // Actions
                 startRecording: state.startRecording,
                 stopRecording: state.stopRecording,
-                processAudioSession: state.processAudioSession,
+                // processAudioSession: state.processAudioSession,
                 clearTranscripts: state.clearTranscripts,
                 handleRecognitionResult: state.handleRecognitionResult,
                 clearError: state.clearError,
+
+                // ✅ ADDED: New method for getting media stream
+                getMediaStream: state.getMediaStream,
             };
         })
     );
@@ -241,39 +254,80 @@ export const useStreamingResponse = (streamId: string) => {
     });
 };
 
+export const useDebouncedKnowledgeSearch = (searchTerm: string, delay: number = 500) => {
+    const searchFunction = useAppStore(state => state.searchRelevantKnowledge);
+    const [results, setResults] = useState<DocumentChunk[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+
+    const debouncedSearch = useMemo(
+        () =>
+            debounce(async (term: string) => {
+                if (!term.trim()) {
+                    setResults([]);
+                    return;
+                }
+
+                setIsSearching(true);
+                try {
+                    const searchResults = await searchFunction(term, 5);
+                    setResults(searchResults);
+                } catch (error) {
+                    console.error('Search error:', error);
+                    setResults([]);
+                } finally {
+                    setIsSearching(false);
+                }
+            }, delay),
+        [searchFunction, delay]
+    );
+
+    useEffect(() => {
+        debouncedSearch(searchTerm);
+        return () => {
+            debouncedSearch.cancel();
+        };
+    }, [searchTerm, debouncedSearch]);
+
+    return { results, isSearching };
+};
+
 /**
  * 💬 Get conversation messages by ID - FIXED with proper memoization
  */
 export const useConversationMessages = (conversationId: string = 'main') => {
     const hookLogger = createHookLogger(`useConversationMessages[${conversationId}]`);
-    const renderCountRef = useRef(0);
 
-    // Track render count
-    useEffect(() => {
-        renderCountRef.current++;
-        if (renderCountRef.current > 50) {
-            hookLogger.error(`Excessive renders detected! Count: ${renderCountRef.current}`);
-        }
-    }, [hookLogger]);
+    // Use a ref to track the last messages to prevent unnecessary re-renders
+    const lastMessagesRef = useRef<Message[]>([]);
+    const lastConversationIdRef = useRef<string>(conversationId);
 
-    // Use proper memoization to prevent infinite loops
-    const messages = useAppStore(
+    return useAppStore(
         useShallow(state => {
             const conversation = state.conversations?.get(conversationId);
-            const msgs = conversation?.messages || [];
+            const currentMessages = conversation?.messages || [];
 
-            hookLogger.trace('Selecting messages', {
-                conversationId,
-                messageCount: msgs.length,
-                renderCount: renderCountRef.current,
-            });
+            // Only update if messages actually changed or conversation ID changed
+            if (
+                conversationId !== lastConversationIdRef.current ||
+                currentMessages.length !== lastMessagesRef.current.length ||
+                currentMessages.some(
+                    (msg, index) =>
+                        msg.content !== lastMessagesRef.current[index]?.content ||
+                        msg.timestamp !== lastMessagesRef.current[index]?.timestamp
+                )
+            ) {
+                lastMessagesRef.current = currentMessages;
+                lastConversationIdRef.current = conversationId;
 
-            return msgs;
+                hookLogger.trace('Messages updated', {
+                    conversationId,
+                    messageCount: currentMessages.length,
+                });
+            }
+
+            return lastMessagesRef.current;
         })
     );
-
-    // Memoize the result to prevent unnecessary re-renders
-    return useMemo(() => messages, [messages]);
 };
 
 /**
@@ -409,4 +463,4 @@ export {
     useCallContext as useInterview,
 };
 
-export type { StateSnapshot, StoreDebugInfo, LogData };
+export type { LogData, StateSnapshot, StoreDebugInfo };

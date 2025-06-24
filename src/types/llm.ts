@@ -13,6 +13,7 @@ export interface StrategicAnalysis {
     differentiation_angle: string;
     research_suggestions: string;
     focus_area: string; // New: More specific focus for variety
+    [key: string]: unknown;
 }
 
 export interface AnalysisPreview {
@@ -20,6 +21,7 @@ export interface AnalysisPreview {
     focus_area: string;
     insight_summary: string; // Enhanced preview that serves dual purpose
     timestamp: number;
+    [key: string]: unknown;
 }
 
 export interface ConversationSuggestions {

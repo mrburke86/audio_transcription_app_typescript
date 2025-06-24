@@ -1,5 +1,5 @@
 // src/utils/prompts/PromptTemplateManager.ts
-import { CallContext } from '@/types';
+import { AnalysisPreview, CallContext } from '@/types';
 import { logger } from '@/modules';
 import { PROMPT_INSTRUCTIONS } from './PromptInstructions';
 
@@ -9,7 +9,7 @@ export interface PromptContext {
     userMessage?: string;
     knowledgeContext?: string;
     conversationSummary?: string;
-    previousAnalysis?: Record<string, unknown>[];
+    previousAnalysis?: AnalysisPreview[];
 }
 
 export interface PromptOptions {

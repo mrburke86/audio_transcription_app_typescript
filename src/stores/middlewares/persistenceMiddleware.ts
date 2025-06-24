@@ -1,4 +1,4 @@
-// Custom persistence middleware for specialized data handling
+// src\stores\middlewares\persistenceMiddleware.ts
 import { PersistOptions } from 'zustand/middleware';
 import { AppState } from '@/types/store';
 

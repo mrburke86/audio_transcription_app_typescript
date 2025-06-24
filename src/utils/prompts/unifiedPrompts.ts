@@ -1,6 +1,6 @@
 // src/utils/prompts/unifiedPrompts.ts
 import { PromptTemplateManager, PromptContext } from './PromptTemplateManager';
-import { CallContext } from '@/types';
+import { AnalysisPreview, CallContext } from '@/types';
 
 /**
  * Creates all prompt functions using the unified PromptTemplateManager
@@ -57,7 +57,7 @@ export async function createAnalysisUserPrompt(
     conversationSummary: string,
     callContext: CallContext,
     knowledgeContext: string,
-    previousAnalysisHistory: Record<string, unknown>[]
+    previousAnalysisHistory: AnalysisPreview[]
 ): Promise<string> {
     const context: PromptContext = {
         callContext,
@@ -85,7 +85,7 @@ export async function createGenerationUserPrompt(
     strategicAnalysis: Record<string, unknown>,
     callContext: CallContext,
     knowledgeContext: string,
-    previousAnalysisHistory: Record<string, unknown>[]
+    previousAnalysisHistory: AnalysisPreview[]
 ): Promise<string> {
     const context: PromptContext = {
         callContext,

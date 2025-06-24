@@ -1,40 +1,36 @@
 // src/services/OpenAILLMService.ts
-import OpenAI from 'openai';
-import {
-    ChatMessageParam,
-    ILLMService,
-    isOpenAIModel,
-    LLMRequestOptions,
-    OpenAIModelName,
-} from '@/types';
 import { logger } from '@/modules';
+import { ChatMessageParam, ILLMService, LLMRequestOptions, OpenAIModelName } from '@/types';
+import OpenAI from 'openai';
 
 export class OpenAILLMService implements ILLMService {
     private openai: OpenAI;
     private modelName: OpenAIModelName;
 
-    constructor(apiKey: string, modelName: OpenAIModelName = 'gpt-4o-mini') {
+    constructor(modelName: OpenAIModelName = 'gpt-4o-mini') {
+        // ✅ Security: Never expose API key client-side
+        if (typeof window !== 'undefined') {
+            throw new Error('OpenAILLMService cannot be instantiated on the client side');
+        }
+
+        // ✅ Get API key from environment variables securely
+        const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
-            throw new Error('OpenAI API key is required.');
+            throw new Error('OPENAI_API_KEY environment variable is required');
         }
-        if (!isOpenAIModel(modelName)) {
-            throw new Error(`Invalid OpenAI model name: ${modelName}`);
-        }
-        this.openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+
+        this.openai = new OpenAI({
+            apiKey: apiKey,
+        });
         this.modelName = modelName;
 
         logger.debug(`OpenAILLMService: Initialized with model ${modelName}`);
     }
 
     // Generate Completions API Response
-    async generateCompleteResponse(
-        messages: ChatMessageParam[],
-        options?: LLMRequestOptions
-    ): Promise<string> {
+    async generateCompleteResponse(messages: ChatMessageParam[], options?: LLMRequestOptions): Promise<string> {
         const startTime = performance.now();
-        logger.debug(
-            `OpenAILLMService: Generating complete response with ${messages.length} messages`
-        );
+        logger.debug(`OpenAILLMService: Generating complete response with ${messages.length} messages`);
 
         try {
             const completion = await this.openai.chat.completions.create({
@@ -52,23 +48,15 @@ export class OpenAILLMService implements ILLMService {
             return response;
         } catch (error) {
             const errorTime = Math.round(performance.now() - startTime);
-            logger.error(
-                `OpenAILLMService: Error generating complete response after ${errorTime}ms:`,
-                error
-            );
+            logger.error(`OpenAILLMService: Error generating complete response after ${errorTime}ms:`, error);
             throw error;
         }
     }
 
     // Generate Streamed Response
-    async *generateStreamedResponse(
-        messages: ChatMessageParam[],
-        options?: LLMRequestOptions
-    ): AsyncIterable<string> {
+    async *generateStreamedResponse(messages: ChatMessageParam[], options?: LLMRequestOptions): AsyncIterable<string> {
         const startTime = performance.now();
-        logger.debug(
-            `OpenAILLMService: Starting streamed response with ${messages.length} messages`
-        );
+        logger.debug(`OpenAILLMService: Starting streamed response with ${messages.length} messages`);
 
         try {
             const stream = await this.openai.chat.completions.create({
@@ -96,10 +84,7 @@ export class OpenAILLMService implements ILLMService {
             );
         } catch (error) {
             const errorTime = Math.round(performance.now() - startTime);
-            logger.error(
-                `OpenAILLMService: Error in streamed response after ${errorTime}ms:`,
-                error
-            );
+            logger.error(`OpenAILLMService: Error in streamed response after ${errorTime}ms:`, error);
             throw error;
         }
     }
@@ -117,8 +102,7 @@ export class OpenAILLMService implements ILLMService {
 
             // Truncate if too long (OpenAI has token limits)
             const maxLength = 8000; // Conservative limit
-            const processedText =
-                text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+            const processedText = text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
 
             if (processedText !== text) {
                 logger.warning(
@@ -136,14 +120,10 @@ export class OpenAILLMService implements ILLMService {
 
             // Validate embedding
             if (!embedding || embedding.length !== 1536) {
-                throw new Error(
-                    `Invalid embedding received: expected 1536D, got ${embedding?.length || 0}D`
-                );
+                throw new Error(`Invalid embedding received: expected 1536D, got ${embedding?.length || 0}D`);
             }
 
-            logger.debug(
-                `OpenAILLMService: Embedding generated in ${embeddingTime}ms (${embedding.length}D vector)`
-            );
+            logger.debug(`OpenAILLMService: Embedding generated in ${embeddingTime}ms (${embedding.length}D vector)`);
 
             // Log embedding statistics for debugging
             const embeddingStats = {
@@ -152,18 +132,15 @@ export class OpenAILLMService implements ILLMService {
                 max: Math.max(...embedding),
             };
             logger.debug(
-                `Embedding stats - Mean: ${embeddingStats.mean.toFixed(
+                `Embedding stats - Mean: ${embeddingStats.mean.toFixed(4)}, Range: [${embeddingStats.min.toFixed(
                     4
-                )}, Range: [${embeddingStats.min.toFixed(4)}, ${embeddingStats.max.toFixed(4)}]`
+                )}, ${embeddingStats.max.toFixed(4)}]`
             );
 
             return embedding;
         } catch (error) {
             const errorTime = Math.round(performance.now() - startTime);
-            logger.error(
-                `OpenAILLMService: Error generating embedding after ${errorTime}ms:`,
-                error
-            );
+            logger.error(`OpenAILLMService: Error generating embedding after ${errorTime}ms:`, error);
             throw error;
         }
     }
@@ -216,9 +193,7 @@ export const getOpenAIEmbedding = async (text: string): Promise<number[]> => {
         }
 
         if (embedding.length !== 1536) {
-            throw new Error(
-                `Invalid embedding dimension: expected 1536, received ${embedding.length}`
-            );
+            throw new Error(`Invalid embedding dimension: expected 1536, received ${embedding.length}`);
         }
 
         // Check for invalid values
@@ -227,9 +202,7 @@ export const getOpenAIEmbedding = async (text: string): Promise<number[]> => {
             throw new Error('Embedding contains invalid values (NaN or Infinity)');
         }
 
-        logger.debug(
-            `getOpenAIEmbedding: Successfully generated ${embedding.length}D embedding in ${embeddingTime}ms`
-        );
+        logger.debug(`getOpenAIEmbedding: Successfully generated ${embedding.length}D embedding in ${embeddingTime}ms`);
 
         // Log sample values for debugging (first 5 dimensions)
         const sampleValues = embedding

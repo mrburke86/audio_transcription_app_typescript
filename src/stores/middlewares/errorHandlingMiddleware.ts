@@ -1,4 +1,4 @@
-// Custom error handling middleware for centralized error management
+// src\stores\middlewares\errorHandlingMiddleware.ts
 import { StateCreator } from 'zustand';
 import { AppState } from '@/types/store';
 import { logger } from '@/modules';

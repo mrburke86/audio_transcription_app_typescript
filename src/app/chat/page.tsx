@@ -26,7 +26,7 @@ import {
     TopNavigationBar,
     VoiceControls,
 } from './_components';
-import SimplifiedCallModal from '@/components/SimplifiedCallModal';
+import { SimplifiedCallModal } from '@/components/SimplifiedCallModal';
 
 export default function ChatPage() {
     /* ------------------------------------------------------------------ *
@@ -44,9 +44,14 @@ export default function ChatPage() {
         generateResponse,
         generateSuggestions,
         isGenerating,
+        isGeneratingResponse,
+        isGeneratingSuggestions,
+        llmError,
         conversationSummary,
         conversationSuggestions,
         currentStreamId,
+        clearLLMError,
+        cancelCurrentRequest,
     } = useLLM();
 
     const {
@@ -57,19 +62,18 @@ export default function ChatPage() {
         closeSetupModal,
     } = useCallContext(); // ✅ Updated from useInterview
 
-    const { addNotification, isLoading: uiLoading, setLoading: _setLoading } = useUI();
+    const { addNotification, isLoading: uiLoading } = useUI();
 
     const {
-        isRecording: _isRecording,
+        isRecording,
         recognitionStatus,
         error: speechError,
         currentTranscript,
         interimTranscripts,
         startRecording,
         stopRecording,
-        handleRecognitionResult,
         clearTranscripts,
-        clearError: clearSpeechError,
+        getMediaStream,
     } = useSpeech();
 
     // ✅ Get streaming response from store
@@ -86,9 +90,11 @@ export default function ChatPage() {
     const [isLocalLoading, setIsLocalLoading] = useState(false);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const visualizationStartedRef = useRef(false);
-    const mediaStreamRef = useRef<MediaStream | null>(null);
-    const _mediaRecorderRef = useRef<MediaRecorder | null>(null);
-    const recognitionRef = useRef<SpeechRecognition | null>(null);
+
+    // ❌ REMOVED: No longer needed since slice manages these
+    // const mediaStreamRef = useRef<MediaStream | null>(null);
+    // const _mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    // const recognitionRef = useRef<SpeechRecognition | null>(null);
 
     /* ------------------------------------------------------------------ *
      * 🔎  EFFECTS & TRACING
@@ -97,13 +103,13 @@ export default function ChatPage() {
         logger.debug('[ChatPage] Mount');
         return () => {
             logger.debug('[ChatPage] Unmount');
-            // Cleanup on unmount
-            if (mediaStreamRef.current) {
-                mediaStreamRef.current.getTracks().forEach(track => track.stop());
-            }
-            if (recognitionRef.current) {
-                recognitionRef.current.stop();
-            }
+            // ❌ REMOVED: Cleanup now handled by slice
+            // if (mediaStreamRef.current) {
+            //     mediaStreamRef.current.getTracks().forEach(track => track.stop());
+            // }
+            // if (recognitionRef.current) {
+            //     recognitionRef.current.stop();
+            // }
         };
     }, []);
 
@@ -114,6 +120,21 @@ export default function ChatPage() {
     useEffect(() => {
         logger.debug('[ChatPage] recognitionStatus', recognitionStatus);
     }, [recognitionStatus]);
+
+    // // ✅ ADDED: Effect to manage audio visualization based on slice state
+    // useEffect(() => {
+    //     if (isRecording && canvasRef.current && !visualizationStartedRef.current) {
+    //         const mediaStream = getMediaStream();
+    //         if (mediaStream) {
+    //             logger.info('[ChatPage] 🎨 Starting audio visualization');
+    //             startAudioVisualization(canvasRef.current, mediaStream);
+    //             visualizationStartedRef.current = true;
+    //         }
+    //     } else if (!isRecording && visualizationStartedRef.current) {
+    //         logger.info('[ChatPage] 🎨 Stopping audio visualization');
+    //         visualizationStartedRef.current = false;
+    //     }
+    // }, [isRecording, getMediaStream]);
 
     /* ------------------------------------------------------------------ *
      * 🪄  MODAL LOGIC
@@ -152,6 +173,18 @@ export default function ChatPage() {
         closeSetupModal();
     }, [closeSetupModal]);
 
+    // Add error handling effect
+    useEffect(() => {
+        if (llmError) {
+            logger.error('[ChatPage] LLM Error detected:', llmError);
+            // Auto-clear error after showing it
+            const timer = setTimeout(() => {
+                clearLLMError();
+            }, 10000);
+            return () => clearTimeout(timer);
+        }
+    }, [llmError, clearLLMError]);
+
     /* ------------------------------------------------------------------ *
      * 🤖  MOVE ACTION (Generate Response)
      * ------------------------------------------------------------------ */
@@ -168,6 +201,11 @@ export default function ChatPage() {
         }
 
         logger.debug('[ChatPage] ▶️ handleMove triggered, tokens', combined.split(' ').length);
+
+        // Clear any existing errors
+        if (llmError) {
+            clearLLMError();
+        }
 
         try {
             setIsLocalLoading(true);
@@ -191,13 +229,26 @@ export default function ChatPage() {
         } finally {
             setIsLocalLoading(false);
         }
-    }, [interimTranscripts, currentTranscript, generateResponse, clearTranscripts, addNotification]);
+    }, [
+        interimTranscripts,
+        currentTranscript,
+        generateResponse,
+        clearTranscripts,
+        addNotification,
+        llmError,
+        clearLLMError,
+    ]);
 
     /* ------------------------------------------------------------------ *
      * 💡  SUGGEST ACTION (Strategic Intelligence)
      * ------------------------------------------------------------------ */
     const handleSuggest = useCallback(async () => {
         logger.debug('[ChatPage] 💡 handleSuggest triggered');
+
+        // Clear any existing errors
+        if (llmError) {
+            clearLLMError();
+        }
 
         try {
             setIsLocalLoading(true);
@@ -220,17 +271,17 @@ export default function ChatPage() {
         } finally {
             setIsLocalLoading(false);
         }
-    }, [generateSuggestions, addNotification]);
+    }, [generateSuggestions, addNotification, llmError, clearLLMError]);
 
     /* ------------------------------------------------------------------ *
      * 🎙️  SPEECH RECOGNITION HANDLERS
      * ------------------------------------------------------------------ */
-    const startAudioVisualization = useCallback((canvas: HTMLCanvasElement) => {
-        if (!mediaStreamRef.current) return;
+    const startAudioVisualization = useCallback((canvas: HTMLCanvasElement, mediaStream: MediaStream) => {
+        logger.info('[ChatPage] 🎨 Starting audio visualization');
 
         const audioContext = new AudioContext();
         const analyser = audioContext.createAnalyser();
-        const source = audioContext.createMediaStreamSource(mediaStreamRef.current);
+        const source = audioContext.createMediaStreamSource(mediaStream);
         source.connect(analyser);
 
         analyser.fftSize = 256;
@@ -262,98 +313,114 @@ export default function ChatPage() {
         };
 
         draw();
-    }, []);
+    }, []); // ✅ Empty dependency array since this function is pure
 
-    const handleStartRecording = useCallback(async () => {
-        logger.info('[ChatPage] 🎙️ Start recording');
-
-        try {
-            // Clear any previous errors
-            clearSpeechError();
-
-            // Get microphone access
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaStreamRef.current = stream;
-
-            // Initialize Web Speech API
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) {
-                throw new Error('Speech recognition not supported');
-            }
-
-            const recognition = new SpeechRecognition();
-            recognition.continuous = true;
-            recognition.interimResults = true;
-            recognition.lang = 'en-US';
-
-            recognition.onresult = event => {
-                let finalTranscript = '';
-                let interimTranscript = '';
-
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcript = event.results[i][0].transcript;
-                    if (event.results[i].isFinal) {
-                        finalTranscript += transcript + ' ';
-                    } else {
-                        interimTranscript += transcript;
-                    }
-                }
-
-                handleRecognitionResult(finalTranscript.trim(), interimTranscript.trim());
-            };
-
-            recognition.onerror = event => {
-                logger.error('[ChatPage] Recognition error:', event.error);
-                addNotification?.({
-                    type: 'error',
-                    message: `Speech recognition error: ${event.error}`,
-                    duration: 5000,
-                });
-            };
-
-            recognition.onend = () => {
-                logger.info('[ChatPage] Recognition ended');
-            };
-
-            recognitionRef.current = recognition;
-            recognition.start();
-
-            // Start audio visualization
-            if (canvasRef.current && !visualizationStartedRef.current) {
-                logger.info('[ChatPage] 🎨 Starting audio visualization');
-                startAudioVisualization(canvasRef.current);
+    // ✅ Now the useEffect has all its dependencies properly listed
+    useEffect(() => {
+        if (isRecording && canvasRef.current && !visualizationStartedRef.current) {
+            const mediaStream = getMediaStream();
+            if (mediaStream) {
+                startAudioVisualization(canvasRef.current, mediaStream);
                 visualizationStartedRef.current = true;
             }
-
-            // Update store state
-            await startRecording();
-        } catch (err) {
-            logger.error('[ChatPage] ❌ Start recording failed', err);
-            addNotification?.({
-                type: 'error',
-                message: err instanceof Error ? err.message : 'Failed to start recording',
-                duration: 5000,
-            });
+        } else if (!isRecording && visualizationStartedRef.current) {
+            logger.info('[ChatPage] 🎨 Stopping audio visualization');
+            visualizationStartedRef.current = false;
         }
-    }, [startRecording, handleRecognitionResult, clearSpeechError, addNotification, startAudioVisualization]);
+    }, [isRecording, getMediaStream, startAudioVisualization]); // ✅ All dependencies included
+
+    // ✅ DRAMATICALLY SIMPLIFIED: Just calls slice action
+    const handleStartRecording = useCallback(async () => {
+        logger.info('[ChatPage] 🎙️ Calling slice startRecording action');
+
+        try {
+            await startRecording();
+
+            // // 2. Get microphone access for visualization
+            // const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            // mediaStreamRef.current = stream;
+
+            // // 3. Initialize Web Speech API
+            // const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            // if (!SpeechRecognition) {
+            //     throw new Error('Speech recognition not supported');
+            // }
+
+            // const recognition = new SpeechRecognition();
+            // recognition.continuous = true;
+            // recognition.interimResults = true;
+            // recognition.lang = 'en-US';
+
+            // recognition.onresult = event => {
+            //     let finalTranscript = '';
+            //     let interimTranscript = '';
+
+            //     for (let i = event.resultIndex; i < event.results.length; i++) {
+            //         const transcript = event.results[i][0].transcript;
+            //         if (event.results[i].isFinal) {
+            //             finalTranscript += transcript + ' ';
+            //         } else {
+            //             interimTranscript += transcript;
+            //         }
+            //     }
+
+            //     handleRecognitionResult(finalTranscript.trim(), interimTranscript.trim());
+            // };
+
+            // recognition.onerror = event => {
+            //     logger.error('[ChatPage] Recognition error:', event.error);
+            //     // Update store error state
+            //     addNotification?.({
+            //         type: 'error',
+            //         message: `Speech recognition error: ${event.error}`,
+            //         duration: 5000,
+            //     });
+            // };
+
+            // recognition.onend = () => {
+            //     logger.info('[ChatPage] Recognition ended');
+            //     // Update store state
+            //     stopRecording();
+            // };
+
+            // recognitionRef.current = recognition;
+            // recognition.start();
+
+            // // 4. Start audio visualization
+            // if (canvasRef.current && !visualizationStartedRef.current) {
+            //     logger.info('[ChatPage] 🎨 Starting audio visualization');
+            //     startAudioVisualization(canvasRef.current);
+            //     visualizationStartedRef.current = true;
+            // }
+        } catch (error) {
+            logger.error('[ChatPage] ❌ Start recording failed:', error);
+
+            // Make sure to update store error state
+            // addNotification?.({
+            //     type: 'error',
+            //     message: err instanceof Error ? err.message : 'Failed to start recording',
+            //     duration: 5000,
+            // });
+        }
+    }, [startRecording]);
 
     const handleStopRecording = useCallback(() => {
-        logger.info('[ChatPage] ⏹️ Stop recording');
+        logger.info('[ChatPage] ⏹️ Calling slice stopRecording action');
 
-        // Stop recognition
-        if (recognitionRef.current) {
-            recognitionRef.current.stop();
-            recognitionRef.current = null;
-        }
+        // // Stop recognition
+        // if (recognitionRef.current) {
+        //     recognitionRef.current.stop();
+        //     recognitionRef.current = null;
+        // }
 
-        // Stop media stream
-        if (mediaStreamRef.current) {
-            mediaStreamRef.current.getTracks().forEach(track => track.stop());
-            mediaStreamRef.current = null;
-        }
+        // // Stop media stream
+        // if (mediaStreamRef.current) {
+        //     mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        //     mediaStreamRef.current = null;
+        // }
 
-        // Stop visualization
-        visualizationStartedRef.current = false;
+        // // Stop visualization
+        // visualizationStartedRef.current = false;
 
         // Update store state
         stopRecording();
@@ -435,20 +502,48 @@ export default function ChatPage() {
                                     className="flex-1"
                                 />
 
+                                {/* Show LLM error if present */}
+                                {llmError && (
+                                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-xs">
+                                        <div className="flex items-center justify-between">
+                                            <span>LLM Error: {llmError}</span>
+                                            <button
+                                                onClick={clearLLMError}
+                                                className="ml-2 text-red-500 hover:text-red-700"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <Button
                                     variant="move"
                                     onClick={handleMove}
                                     disabled={
                                         uiLoading ||
                                         isGenerating ||
+                                        isGeneratingResponse ||
                                         isLocalLoading ||
                                         (!currentTranscript && interimTranscripts.length === 0)
                                     }
                                     className="mt-2 inline-flex h-8 items-center justify-center gap-1.5 self-end whitespace-nowrap rounded-md bg-blue-500 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-600 disabled:pointer-events-none disabled:opacity-50"
                                 >
                                     <ArrowRight className="mr-1 h-4 w-4" />
-                                    {uiLoading || isLocalLoading || isGenerating ? 'Generating…' : 'Move'}
+                                    {uiLoading || isLocalLoading || isGeneratingResponse ? 'Generating…' : 'Move'}
                                 </Button>
+
+                                {/* Add cancel button when generating */}
+                                {(isGeneratingResponse || isGeneratingSuggestions) && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={cancelCurrentRequest}
+                                        className="mt-1 text-xs"
+                                    >
+                                        Cancel
+                                    </Button>
+                                )}
                             </div>
                         </CardContent>
                     </Card>

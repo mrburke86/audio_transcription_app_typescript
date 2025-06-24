@@ -113,3 +113,234 @@
 .hide-scrollbar::-webkit-scrollbar {
     display: none; /* Chrome, Safari and Opera */
 }
+
+[data-radix-popper-content-wrapper] {
+    z-index: 9999 !important;
+}
+
+[data-radix-popover-content] {
+    z-index: 9999 !important;
+    pointer-events: auto !important;
+}
+
+/* Fix Command component pointer events */
+[cmdk-root] {
+    pointer-events: auto !important;
+}
+
+[cmdk-list] {
+    pointer-events: auto !important;
+}
+
+[cmdk-item] {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+/* Ensure hover effects work */
+[cmdk-item]:hover,
+[cmdk-item][data-selected='true'] {
+    background-color: rgb(243 244 246) !important; /* gray-100 */
+}
+
+.dark [cmdk-item]:hover,
+.dark [cmdk-item][data-selected='true'] {
+    background-color: rgb(31 41 55) !important; /* gray-800 */
+}
+
+/* Fix any potential overlay issues */
+.command-overlay-fix {
+    position: relative;
+    z-index: 9999;
+    pointer-events: auto;
+}
+
+/* Specific fixes for your DynamicList component */
+.dynamic-list-popover {
+    z-index: 9999 !important;
+}
+
+.dynamic-list-popover [data-radix-popover-content] {
+    z-index: 9999 !important;
+    pointer-events: auto !important;
+}
+
+.dynamic-list-command {
+    pointer-events: auto !important;
+}
+
+.dynamic-list-command [cmdk-item] {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    transition: background-color 0.2s ease;
+}
+
+.dynamic-list-command [cmdk-item]:hover {
+    background-color: rgb(243 244 246) !important;
+}
+
+.dark .dynamic-list-command [cmdk-item]:hover {
+    background-color: rgb(31 41 55) !important;
+}
+
+/* Modal scrolling fixes */
+.modal-tabs-content {
+    height: 100%;
+    overflow: hidden;
+}
+
+.modal-tab-content {
+    height: 100%;
+    margin-top: 0;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+.modal-tab-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modal-tab-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.modal-tab-content::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.modal-tab-content::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Dark mode scrollbar */
+.dark .modal-tab-content::-webkit-scrollbar-track {
+    background: #374151;
+}
+
+.dark .modal-tab-content::-webkit-scrollbar-thumb {
+    background: #6b7280;
+}
+
+.dark .modal-tab-content::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+/* Knowledge tab specific fixes */
+.knowledge-tab-container {
+    height: 100%;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+.knowledge-card {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.knowledge-card .card-header {
+    padding-bottom: 8px;
+}
+
+.knowledge-card .card-content {
+    padding-top: 8px;
+}
+
+/* Compact form elements for knowledge tab */
+.knowledge-tab-container .text-base {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+}
+
+.knowledge-tab-container .text-xs {
+    font-size: 0.75rem;
+    line-height: 1rem;
+}
+
+.knowledge-tab-container .space-y-4 > * + * {
+    margin-top: 1rem;
+}
+
+.knowledge-tab-container .space-y-3 > * + * {
+    margin-top: 0.75rem;
+}
+
+.knowledge-tab-container .space-y-2 > * + * {
+    margin-top: 0.5rem;
+}
+
+.knowledge-tab-container .space-y-1 > * + * {
+    margin-top: 0.25rem;
+}
+
+/* File list max height for selected files */
+.selected-files-list {
+    max-height: 80px;
+    overflow-y: auto;
+}
+
+.selected-files-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.selected-files-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.selected-files-list::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 2px;
+}
+
+/* Ensure proper spacing in modal */
+.modal-dialog-content {
+    max-width: 1024px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-tabs-wrapper {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.modal-tabs-content-area {
+    flex-grow: 1;
+    overflow: hidden;
+    margin-top: 16px;
+}
+
+/* Fix tab content heights */
+[data-state='active'][data-radix-tabs-content] {
+    height: 100%;
+    margin-top: 0;
+}
+
+.modal-tab-content-inner {
+    padding-bottom: 16px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .modal-dialog-content {
+        max-width: 95vw;
+        max-height: 95vh;
+    }
+
+    .knowledge-tab-container .grid-cols-2 {
+        grid-template-columns: 1fr;
+    }
+
+    .knowledge-tab-container .text-base {
+        font-size: 0.875rem;
+    }
+
+    .knowledge-tab-container .text-xs {
+        font-size: 0.75rem;
+    }
+}

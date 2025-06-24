@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useKnowledge as useKnowledgeStore } from '@/stores/hooks/useSelectors';
+import { useKnowledge } from '@/stores/hooks/useSelectors';
 import { logger } from '@/modules/Logger';
 
 interface KnowledgeIndexingButtonProps {
@@ -18,7 +18,7 @@ export const KnowledgeIndexingButton: React.FC<KnowledgeIndexingButtonProps> = (
     showProgress = true,
     className = '',
 }) => {
-    const { triggerIndexing, indexingProgress, indexedDocumentsCount, lastIndexedAt } = useKnowledgeStore();
+    const { triggerIndexing, indexingProgress, indexedDocumentsCount, lastIndexedAt } = useKnowledge();
     const [showDetails, setShowDetails] = useState(false);
 
     const handleIndexing = async () => {
@@ -119,12 +119,12 @@ export const KnowledgeIndexingButton: React.FC<KnowledgeIndexingButtonProps> = (
             {showProgress && (
                 <div className="space-y-2">
                     {/* Status Display */}
-                    <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">📊 {indexedDocumentsCount} items indexed</span>
-                        {lastIndexedAt && (
-                            <span className="text-gray-500">Last: {lastIndexedAt.toLocaleTimeString()}</span>
+                    {indexingProgress.isIndexing &&
+                        indexingProgress.filesProcessed > 0 && ( // ⚠️ MODIFIED
+                            <div className="text-xs text-gray-500">
+                                Processed: {indexingProgress.filesProcessed}/{indexingProgress.totalFiles} files
+                            </div>
                         )}
-                    </div>
 
                     {/* Progress Text */}
                     {indexingProgress.progress && (

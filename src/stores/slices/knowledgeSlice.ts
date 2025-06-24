@@ -9,6 +9,7 @@ import {
     KNOWLEDGE_COLLECTION_NAME,
 } from '@/services/QdrantService';
 import { logger } from '@/modules/Logger';
+import { withRetry } from '@/utils/retryUtils';
 
 const SLICE = 'KnowledgeSlice';
 
@@ -18,10 +19,11 @@ export const createKnowledgeSlice: StateCreator<AppState, [], [], KnowledgeSlice
      * ------------------------------------------------------------------ */
     indexedDocumentsCount: 0,
     knowledgeBaseName: `Qdrant Collection: ${KNOWLEDGE_COLLECTION_NAME}`,
-    kbIsLoading: false,
-    kbError: null,
+    isLoading: false, // ⚠️ RENAMED: from kbIsLoading
+    error: null, // ⚠️ RENAMED: from kbError
     lastIndexedAt: null,
     indexingProgress: {
+        isIndexing: false, // ✅ ADDED: Missing flag
         filesProcessed: 0,
         totalFiles: 0,
         errors: [],
@@ -33,9 +35,9 @@ export const createKnowledgeSlice: StateCreator<AppState, [], [], KnowledgeSlice
      * 🛠  INITIALIZE KNOWLEDGE BASE
      * ------------------------------------------------------------------ */
     initializeKnowledgeBase: async () => {
-        const { kbIsLoading, indexedDocumentsCount } = get();
-        if (kbIsLoading || indexedDocumentsCount > 0) return;
-        set({ kbIsLoading: true, kbError: null });
+        const { isLoading, indexedDocumentsCount } = get(); // ⚠️ MODIFIED
+        if (isLoading || indexedDocumentsCount > 0) return;
+        set({ isLoading: true, error: null }); // ⚠️ MODIFIED
 
         try {
             logger.info(`[${SLICE}] ⏳ Initializing knowledge base…`);
@@ -44,7 +46,7 @@ export const createKnowledgeSlice: StateCreator<AppState, [], [], KnowledgeSlice
 
             const count = await countKnowledgePoints();
 
-            set({ indexedDocumentsCount: count, kbIsLoading: false });
+            set({ indexedDocumentsCount: count, isLoading: false }); // ⚠️ MODIFIED
 
             if (count === 0) {
                 logger.warning(`[${SLICE}] ⚠️ Knowledge base empty`);
@@ -65,7 +67,7 @@ export const createKnowledgeSlice: StateCreator<AppState, [], [], KnowledgeSlice
             const message = err instanceof Error ? err.message : 'Unknown initialization error';
             logger.error(`[${SLICE}] ❌ Init failed: ${message}`, err);
 
-            set({ kbError: message, kbIsLoading: false });
+            set({ error: message, isLoading: false }); // ⚠️ MODIFIED
 
             get().addNotification?.({
                 type: 'error',
@@ -156,7 +158,7 @@ export const createKnowledgeSlice: StateCreator<AppState, [], [], KnowledgeSlice
      * 🔍  SEARCH KNOWLEDGE
      * ------------------------------------------------------------------ */
     searchRelevantKnowledge: async (query, limit = 3) => {
-        if (get().kbError) {
+        if (get().error) {
             logger.error(`[${SLICE}] 🚫 Search aborted due to existing error`);
             return [];
         }
@@ -164,7 +166,13 @@ export const createKnowledgeSlice: StateCreator<AppState, [], [], KnowledgeSlice
         logger.debug(`[${SLICE}] 🔎 Searching for: "${query.slice(0, 50)}${query.length > 50 ? '…' : ''}"`);
         try {
             const t0 = performance.now();
-            const results = await searchRelevantChunks(query, limit);
+
+            // Add retry logic for search operations
+            const results = await withRetry(() => searchRelevantChunks(query, limit), {
+                maxAttempts: 3,
+                baseDelay: 1000,
+            });
+
             const elapsed = Math.round(performance.now() - t0);
 
             set({ searchResults: results });
@@ -183,7 +191,7 @@ export const createKnowledgeSlice: StateCreator<AppState, [], [], KnowledgeSlice
             const message = err instanceof Error ? err.message : 'Unknown search error';
             logger.error(`[${SLICE}] ❌ Search failed: ${message}`, err);
 
-            set({ kbError: message });
+            set({ error: message });
             get().addNotification?.({
                 type: 'error',
                 message: `Knowledge search failed: ${message}`,
