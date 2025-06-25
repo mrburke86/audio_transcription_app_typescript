@@ -3,6 +3,14 @@ import { StateCreator } from 'zustand';
 import { AppState } from '@/types/store';
 import { logger } from '@/modules';
 
+interface GlobalWithStore {
+    __appStore?: {
+        getState: () => {
+            addNotification?: (notification: { type: string; message: string; duration?: number }) => void;
+        };
+    };
+}
+
 /**
  * Notification Middleware - Handles cross-slice notifications in a decoupled way
  *
@@ -23,7 +31,7 @@ export interface NotificationEvent {
 }
 
 // ✅ ADDED: Internal notification queue to prevent infinite loops
-let notificationQueue: NotificationEvent[] = [];
+const notificationQueue: NotificationEvent[] = [];
 let isProcessingQueue = false;
 
 /**
@@ -41,7 +49,7 @@ const processNotificationQueue = async () => {
             setTimeout(() => {
                 try {
                     // Get fresh state reference
-                    const store = (globalThis as any).__appStore?.getState?.();
+                    const store = (globalThis as GlobalWithStore).__appStore?.getState?.();
                     if (store?.addNotification) {
                         store.addNotification({
                             type: event.type,

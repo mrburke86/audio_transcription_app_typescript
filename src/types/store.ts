@@ -1,6 +1,7 @@
 // src\types\store.ts
 import { CallContext, Message, DocumentChunk, StrategicAnalysis, AnalysisPreview } from '@/types';
 import { Nullable } from './storeHelpers';
+import type { UseBoundStore, StoreApi } from 'zustand';
 
 /**
  * UI State Boundaries:
@@ -22,6 +23,22 @@ import { Nullable } from './storeHelpers';
  * - Component-specific loading (that doesn't need to be shared)
  * - Transient visual states
  */
+
+declare global {
+    interface Window {
+        // __appStore?: typeof useAppStore;
+        SpeechRecognition?: typeof SpeechRecognition;
+        webkitSpeechRecognition?: typeof SpeechRecognition;
+    }
+
+    interface GlobalThis {
+        __appStore?: UseBoundStore<StoreApi<AppState>>;
+    }
+
+    interface GlobalWindow extends Window {
+        __appStore?: UseBoundStore<StoreApi<AppState>>;
+    }
+}
 
 export interface NotificationEntry {
     id: number;
@@ -177,13 +194,6 @@ export interface CallContextSlice {
     nextSetupStep: () => void;
     previousSetupStep: () => void;
     resetSetupFlow: () => void;
-}
-
-export interface NotificationEntry {
-    id: number;
-    type: 'success' | 'error' | 'warning' | 'info';
-    message: string;
-    duration?: number;
 }
 
 export interface UISlice {

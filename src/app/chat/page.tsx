@@ -54,7 +54,7 @@ export default function ChatPage() {
         cancelCurrentRequest,
     } = useLLM();
 
-    const { context: callContext, openSetupModal, closeSetupModal } = useCallContext();
+    const { context: callContext, openSetupModal, closeSetupModal, setCallContext } = useCallContext();
 
     // ✅ UPDATED: Use proper global modal state check
     const {
@@ -69,7 +69,7 @@ export default function ChatPage() {
     const showRoleModal = globalModals['call-setup-modal']?.isOpen ?? false;
 
     const {
-        isRecording,
+        // isRecording,
         recognitionStatus,
         error: speechError,
         currentTranscript,
@@ -77,7 +77,7 @@ export default function ChatPage() {
         startRecording,
         stopRecording,
         clearTranscripts,
-        getMediaStream,
+        // getMediaStream,
     } = useSpeech();
 
     // ✅ Get streaming response from store
@@ -92,7 +92,7 @@ export default function ChatPage() {
      * ------------------------------------------------------------------ */
     // const [isLocalLoading, setIsLocalLoading] = useState(false);
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const visualizationStartedRef = useRef(false);
+    // const visualizationStartedRef = useRef(false);
 
     // ❌ REMOVED: No longer needed since slice manages these
     // const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -153,11 +153,8 @@ export default function ChatPage() {
         (context: CallContext) => {
             logger.info('[ChatPage] 🚀 Starting call with context:', context);
 
-            // ✅ IMPROVED: Set call context (this will handle notifications via the slice)
-            const { setCallContext } = useCallContext.getState?.() || {};
-            if (setCallContext) {
-                setCallContext(context);
-            }
+            // ✅ Use the setCallContext directly (already destructured above)
+            setCallContext(context);
 
             closeSetupModal();
 
@@ -182,7 +179,8 @@ export default function ChatPage() {
                     });
                 });
         },
-        [closeSetupModal, initializeKnowledgeBase, addNotification, setGlobalLoading]
+        [setCallContext, closeSetupModal, initializeKnowledgeBase, addNotification, setGlobalLoading]
+        // ✅ ADDED: setCallContext to the dependency array
     );
 
     const handleModalClose = useCallback(() => {
@@ -290,44 +288,44 @@ export default function ChatPage() {
     /* ------------------------------------------------------------------ *
      * 🎙️  SPEECH RECOGNITION HANDLERS
      * ------------------------------------------------------------------ */
-    const startAudioVisualization = useCallback((canvas: HTMLCanvasElement, mediaStream: MediaStream) => {
-        logger.info('[ChatPage] 🎨 Starting audio visualization');
+    // const startAudioVisualization = useCallback((canvas: HTMLCanvasElement, mediaStream: MediaStream) => {
+    //     logger.info('[ChatPage] 🎨 Starting audio visualization');
 
-        const audioContext = new AudioContext();
-        const analyser = audioContext.createAnalyser();
-        const source = audioContext.createMediaStreamSource(mediaStream);
-        source.connect(analyser);
+    //     const audioContext = new AudioContext();
+    //     const analyser = audioContext.createAnalyser();
+    //     const source = audioContext.createMediaStreamSource(mediaStream);
+    //     source.connect(analyser);
 
-        analyser.fftSize = 256;
-        const bufferLength = analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
+    //     analyser.fftSize = 256;
+    //     const bufferLength = analyser.frequencyBinCount;
+    //     const dataArray = new Uint8Array(bufferLength);
 
-        const canvasCtx = canvas.getContext('2d');
-        if (!canvasCtx) return;
+    //     const canvasCtx = canvas.getContext('2d');
+    //     if (!canvasCtx) return;
 
-        const draw = () => {
-            if (!visualizationStartedRef.current) return;
+    //     const draw = () => {
+    //         if (!visualizationStartedRef.current) return;
 
-            requestAnimationFrame(draw);
-            analyser.getByteFrequencyData(dataArray);
+    //         requestAnimationFrame(draw);
+    //         analyser.getByteFrequencyData(dataArray);
 
-            canvasCtx.fillStyle = 'rgb(20, 20, 20)';
-            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+    //         canvasCtx.fillStyle = 'rgb(20, 20, 20)';
+    //         canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-            const barWidth = (canvas.width / bufferLength) * 2.5;
-            let barHeight;
-            let x = 0;
+    //         const barWidth = (canvas.width / bufferLength) * 2.5;
+    //         let barHeight;
+    //         let x = 0;
 
-            for (let i = 0; i < bufferLength; i++) {
-                barHeight = dataArray[i] / 2;
-                canvasCtx.fillStyle = `rgb(50, ${barHeight + 100}, 50)`;
-                canvasCtx.fillRect(x, canvas.height - barHeight / 2, barWidth, barHeight);
-                x += barWidth + 1;
-            }
-        };
+    //         for (let i = 0; i < bufferLength; i++) {
+    //             barHeight = dataArray[i] / 2;
+    //             canvasCtx.fillStyle = `rgb(50, ${barHeight + 100}, 50)`;
+    //             canvasCtx.fillRect(x, canvas.height - barHeight / 2, barWidth, barHeight);
+    //             x += barWidth + 1;
+    //         }
+    //     };
 
-        draw();
-    }, []);
+    //     draw();
+    // }, []);
 
     // // ✅ Now the useEffect has all its dependencies properly listed
     // useEffect(() => {

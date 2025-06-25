@@ -93,22 +93,23 @@ export const useAppStore = create<AppState>()(
                         // ✅ UPDATED: Migrate old state names if they exist
                         if (legacyState.isLoading !== undefined && state.globalLoading.isActive === false) {
                             state.globalLoading.isActive = legacyState.isLoading;
-                            delete legacyState.isLoading;
+                            // ⚠️ MODIFIED: Use Reflect.deleteProperty instead of delete operator
+                            Reflect.deleteProperty(legacyState, 'isLoading');
                         }
 
                         if (legacyState.loadingMessage !== undefined && !state.globalLoading.message) {
                             state.globalLoading.message = legacyState.loadingMessage;
-                            delete legacyState.loadingMessage;
+                            Reflect.deleteProperty(legacyState, 'loadingMessage');
                         }
 
                         if (legacyState.uiError !== undefined && !state.globalError) {
                             state.globalError = legacyState.uiError;
-                            delete legacyState.uiError;
+                            Reflect.deleteProperty(legacyState, 'uiError');
                         }
 
                         if (legacyState.modals !== undefined && Object.keys(state.globalModals).length === 0) {
                             state.globalModals = legacyState.modals;
-                            delete legacyState.modals;
+                            Reflect.deleteProperty(legacyState, 'modals');
                         }
 
                         // Initialize other transient state
@@ -164,16 +165,14 @@ export const useAppStore = create<AppState>()(
     )
 );
 
-// ✅ FIXED: Properly typed global store reference
-declare global {
-    interface GlobalThis {
-        __appStore?: typeof useAppStore;
-    }
+// ✅ ADDED: Type-safe global store interface
+interface GlobalWindow extends Window {
+    __appStore?: typeof useAppStore;
 }
 
 if (typeof window !== 'undefined') {
     // ✅ ADDED: Make store available to notification middleware
-    globalThis.__appStore = useAppStore;
+    (globalThis as GlobalThis).__appStore = useAppStore;
 
     // Wait for next tick to ensure store is fully initialized
     queueMicrotask(() => {
@@ -188,7 +187,6 @@ if (typeof window !== 'undefined') {
         if (shouldInitialize) {
             logger.info('🧠 Triggering knowledge base initialization...');
 
-            // ✅ IMPROVED: Use global loading for initialization
             state.setGlobalLoading(true, 'Initializing knowledge base...', 'StoreInit');
 
             state
@@ -209,6 +207,6 @@ if (typeof window !== 'undefined') {
 
 // ✅ Development helper to access store in browser console
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-    (window as Window & { __appStore: typeof useAppStore }).__appStore = useAppStore;
+    (window as GlobalWindow).__appStore = useAppStore;
     logger.info('🛠️ Store available in console as __appStore');
 }
