@@ -205,22 +205,34 @@ export const createCallSlice: StateCreator<AppState, [], [], CallContextSlice> =
 
         const isValid = errors.length === 0;
 
-        const errorObject = errors.reduce(
-            (acc, error) => ({
-                ...acc,
-                [error.toLowerCase().replace(/ /g, '_')]: error,
-            }),
-            {}
-        );
+        // ✅ Create more specific error mapping
+        const errorObject = errors.reduce((acc, error) => {
+            // Map validation errors to specific field names
+            const fieldMappings: Record<string, string> = {
+                'Call type is required': 'call_type',
+                'Call context is required': 'call_context',
+                'At least one key point is required': 'key_points',
+                'At least one objective is required': 'objectives',
+            };
+
+            const fieldKey = fieldMappings[error] || error.toLowerCase().replace(/ /g, '_');
+            return { ...acc, [fieldKey]: error };
+        }, {});
 
         set({ validationErrors: errorObject });
 
         if (!isValid) {
-            // ✅ IMPROVED: Use consistent notification pattern
             const state = get();
+            // ✅ More specific error message based on missing fields
+            const missingFields = errors.length;
+            const message =
+                missingFields === 1
+                    ? `Please complete: ${errors[0].toLowerCase()}`
+                    : `Please complete ${missingFields} required fields`;
+
             state.addNotification({
                 type: 'error',
-                message: 'Please complete all required fields',
+                message,
                 duration: 5000,
             });
         }

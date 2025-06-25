@@ -92,12 +92,34 @@ export function SimplifiedCallModal({ isOpen, onClose, onSubmit }: SimplifiedCal
             console.log('🔥 SimplifiedCallModal: handleAddParticipant called with:', value);
 
             try {
-                const newParticipant: Participant = { relationship: value };
+                const validRelationships = [
+                    'colleague',
+                    'manager',
+                    'direct-report',
+                    'client',
+                    'prospect',
+                    'customer',
+                    'partner',
+                    'friend',
+                    'family',
+                    'romantic-interest',
+                    'spouse',
+                    'stranger',
+                    'authority',
+                ] as const;
+
+                // ✅ Validate and cast the relationship value
+                const relationship = validRelationships.includes(value as any)
+                    ? (value as Participant['relationship'])
+                    : 'colleague'; // Default fallback
+
+                const newParticipant: Participant = { relationship };
                 const currentParticipants = context.participants || [];
                 const updatedParticipants = [...currentParticipants, newParticipant];
 
                 console.log('📝 Adding participant:', {
-                    value,
+                    originalValue: value,
+                    usedRelationship: relationship,
                     currentCount: currentParticipants.length,
                     newCount: updatedParticipants.length,
                 });
@@ -271,9 +293,28 @@ export function SimplifiedCallModal({ isOpen, onClose, onSubmit }: SimplifiedCal
     };
 
     const handleSubmit = () => {
+        console.log('🔍 SimplifiedCallModal: handleSubmit called with context:', {
+            call_type: context.call_type,
+            participants: context.participants?.length || 0,
+            key_points: context.key_points?.length || 0,
+            objectives: context.objectives?.length || 0,
+            isValid: isValid(),
+        });
+
         if (isValid()) {
-            onSubmit(context);
-            onClose();
+            try {
+                onSubmit(context);
+                onClose();
+
+                console.log('✅ SimplifiedCallModal: Context submitted successfully');
+            } catch (error) {
+                console.error('❌ SimplifiedCallModal: Context submission failed:', error);
+
+                // ✅ Show user-friendly error message
+                alert('Failed to save call context. Please try again or check your inputs.');
+            }
+        } else {
+            console.warn('⚠️ SimplifiedCallModal: Validation failed, cannot submit');
         }
     };
 

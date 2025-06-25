@@ -87,6 +87,32 @@ export default function ChatPage() {
 
     const conversationMessages = useConversationMessages('main');
 
+    // ✅ Add debug logging for call context state changes
+    useEffect(() => {
+        if (callContext) {
+            logger.info('[ChatPage] Call context updated:', {
+                type: callContext.call_type,
+                organization: callContext.target_organization,
+                role: callContext.target_role,
+                knowledgeEnabled: callContext.knowledge_search_enabled,
+            });
+        }
+    }, [callContext]);
+
+    // ✅ Add effect to validate context setup completion
+    useEffect(() => {
+        if (callContext && !callContext.target_role && !callContext.target_organization) {
+            logger.warning('[ChatPage] Call context missing essential information');
+
+            // Optionally show a warning to the user
+            addNotification?.({
+                type: 'warning',
+                message: 'Call context setup may be incomplete',
+                duration: 3000,
+            });
+        }
+    }, [callContext, addNotification]);
+
     /* ------------------------------------------------------------------ *
      * 🎙️  LOCAL STATE (only for UI-specific things)
      * ------------------------------------------------------------------ */
@@ -123,21 +149,6 @@ export default function ChatPage() {
     useEffect(() => {
         logger.debug('[ChatPage] recognitionStatus', recognitionStatus);
     }, [recognitionStatus]);
-
-    // // ✅ ADDED: Effect to manage audio visualization based on slice state
-    // useEffect(() => {
-    //     if (isRecording && canvasRef.current && !visualizationStartedRef.current) {
-    //         const mediaStream = getMediaStream();
-    //         if (mediaStream) {
-    //             logger.info('[ChatPage] 🎨 Starting audio visualization');
-    //             startAudioVisualization(canvasRef.current, mediaStream);
-    //             visualizationStartedRef.current = true;
-    //         }
-    //     } else if (!isRecording && visualizationStartedRef.current) {
-    //         logger.info('[ChatPage] 🎨 Stopping audio visualization');
-    //         visualizationStartedRef.current = false;
-    //     }
-    // }, [isRecording, getMediaStream]);
 
     /* ------------------------------------------------------------------ *
      * 🪄  MODAL LOGIC

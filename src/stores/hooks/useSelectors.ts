@@ -599,9 +599,9 @@ export const usePerformanceMonitor = (componentName: string) => {
 
 // ===== EXPORTS =====
 
-export {
-    // Legacy exports for backward compatibility
-    useCallContext as useInterview,
-};
+// export {
+//     // Legacy exports for backward compatibility
+//     useCallContext as useInterview,
+// };
 
 export type { LogData, StateSnapshot, StoreDebugInfo };

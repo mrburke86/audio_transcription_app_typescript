@@ -10,3 +10,6 @@ export * from './promptTemplates';
 export * from './documentChunk';
 export * from './store';
 export * from './storeHelpers';
+export { validateContext, createDefaultCallContext, createBasicCallContext } from './callContext';
+
+export type { CallContext, CallObjective, Participant } from './callContext';

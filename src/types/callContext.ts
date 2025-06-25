@@ -15,7 +15,8 @@ export interface Participant {
         | 'romantic-interest'
         | 'spouse'
         | 'stranger'
-        | 'authority';
+        | 'authority'
+        | string;
     // current_sentiment?: 'positive' | 'neutral' | 'frustrated' | 'angry' | 'sad' | 'unknown';
     // background?: string;
     // priorities?: string[];
