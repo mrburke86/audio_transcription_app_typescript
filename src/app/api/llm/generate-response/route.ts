@@ -1,34 +1,48 @@
 // src/app/api/llm/generate-response/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { enhancedLogger } from '@/modules/EnhancedLogger';
 import { OpenAILLMService } from '@/services/OpenAILLMService';
+import { errorHandler } from '@/utils/enhancedErrorHandler';
 import { createSystemPrompt, createUserPrompt } from '@/utils/prompts';
-import { logger } from '@/modules';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
+    const context = errorHandler.createContext('generateResponse', {
+        component: 'API',
+        slice: 'llm',
+    });
+
     try {
         const { userMessage, callContext, knowledgeResults, conversationSummary } = await request.json();
 
         // Validate required inputs
         if (!userMessage?.trim()) {
-            return NextResponse.json({ error: 'User message is required' }, { status: 400 });
+            throw new Error('User message is required');
         }
 
         if (!callContext) {
-            return NextResponse.json({ error: 'Call context is required' }, { status: 400 });
+            throw new Error('Call context is required');
         }
 
-        logger.info(`[API] Starting LLM generation for message: "${userMessage.slice(0, 50)}..."`);
+        enhancedLogger.api('info', 'Starting LLM generation', {
+            messageLength: userMessage.length,
+            hasKnowledge: knowledgeResults?.length > 0,
+            hasSummary: !!conversationSummary,
+        });
 
         // Build knowledge context from search results
-        const knowledgeContext =
-            knowledgeResults?.length > 0
-                ? knowledgeResults
-                      .map(
-                          (chunk: any) =>
-                              `--- Relevant Information from ${chunk.source} ---\n${chunk.text}\n--- End Information ---`
-                      )
-                      .join('\n\n')
-                : 'No specific knowledge context found for this query.';
+        const knowledgeContext = errorHandler.safeTry(
+            () =>
+                knowledgeResults?.length > 0
+                    ? knowledgeResults
+                          .map(
+                              (chunk: any) =>
+                                  `--- Relevant Information from ${chunk.source} ---\n${chunk.text}\n--- End Information ---`
+                          )
+                          .join('\n\n')
+                    : 'No specific knowledge context found for this query.',
+            { ...context, operation: 'buildKnowledgeContext' },
+            'No specific knowledge context found for this query.'
+        );
 
         // Get primary goal with fallback
         const primaryGoal = callContext.objectives?.[0]?.primary_goal || 'Successful communication';
@@ -44,14 +58,12 @@ export async function POST(request: NextRequest) {
 
         // Initialize LLM service (server-side only)
         const llmService = new OpenAILLMService();
-
-        // Prepare messages for API
         const messages = [
             { role: 'system' as const, content: systemPrompt },
             { role: 'user' as const, content: userPromptWithContext },
         ];
 
-        logger.debug('[API] Prompts created, starting streaming response');
+        enhancedLogger.api('debug', 'Prompts created, starting streaming response');
 
         // Create streaming response
         const encoder = new TextEncoder();
@@ -74,14 +86,23 @@ export async function POST(request: NextRequest) {
 
                         // Log progress periodically
                         if (chunkCount % 20 === 0) {
-                            logger.debug(`[API] Streaming progress: ${chunkCount} chunks, ${totalLength} chars`);
+                            enhancedLogger.api('debug', 'Streaming progress', {
+                                chunks: chunkCount,
+                                totalChars: totalLength,
+                            });
                         }
                     }
 
-                    logger.info(`[API] LLM generation completed: ${totalLength} characters, ${chunkCount} chunks`);
+                    enhancedLogger.api('info', 'LLM generation completed', {
+                        totalChars: totalLength,
+                        chunks: chunkCount,
+                    });
                 } catch (error) {
-                    logger.error('[API] LLM generation error:', error);
-                    controller.error(error);
+                    const enhancedError = errorHandler.handleError(error, {
+                        ...context,
+                        operation: 'LLM streaming',
+                    });
+                    controller.error(enhancedError);
                 } finally {
                     controller.close();
                 }
@@ -98,9 +119,15 @@ export async function POST(request: NextRequest) {
             },
         });
     } catch (error) {
-        logger.error('[API] Generate response error:', error);
+        const enhancedError = errorHandler.handleError(error, context);
 
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-        return NextResponse.json({ error: `Failed to generate response: ${errorMessage}` }, { status: 500 });
+        return NextResponse.json(
+            {
+                error: enhancedError.message,
+                errorId: enhancedError.errorId,
+                context: enhancedError.context.operation,
+            },
+            { status: 500 }
+        );
     }
 }

@@ -5,6 +5,8 @@ import { debounce } from 'lodash';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../store';
+import { enhancedLogger } from '@/modules/EnhancedLogger';
+import { errorHandler } from '@/utils/enhancedErrorHandler';
 
 // ===== TYPE DEFINITIONS =====
 
@@ -57,8 +59,6 @@ const createHookLogger = (hookName: string) => {
  * 🧠 Optimized hook for knowledge base functionality
  */
 export const useKnowledge = () => {
-    // const hookLogger = createHookLogger('useKnowledge');
-
     return useAppStore(
         useShallow(state => {
             return {
@@ -78,8 +78,24 @@ export const useKnowledge = () => {
                 searchResults: state.searchResults || [],
 
                 // Actions
-                initializeKnowledgeBase: state.initializeKnowledgeBase,
-                triggerIndexing: state.triggerIndexing,
+                initializeKnowledgeBase: () =>
+                    errorHandler.withRetry(
+                        state.initializeKnowledgeBase,
+                        errorHandler.createContext('initializeKnowledgeBase', {
+                            component: 'useKnowledge',
+                            slice: 'knowledge',
+                        })
+                    ),
+
+                triggerIndexing: () =>
+                    errorHandler.withRetry(
+                        state.triggerIndexing,
+                        errorHandler.createContext('triggerIndexing', {
+                            component: 'useKnowledge',
+                            slice: 'knowledge',
+                        })
+                    ),
+
                 searchRelevantKnowledge: state.searchRelevantKnowledge,
                 refreshIndexedDocumentsCount: state.refreshIndexedDocumentsCount,
             };
@@ -91,15 +107,35 @@ export const useKnowledge = () => {
  * 🤖 Optimized hook for LLM functionality
  */
 export const useLLM = () => {
-    const hookLogger = createHookLogger('useLLM');
+    // const hook    const prevStateRef = useRef<{ isGenerating: boolean; hasError: boolean } | null>(null);
+    const prevStateRef = useRef<{ isGenerating: boolean; hasError: boolean } | null>(null);
 
     return useAppStore(
         useShallow(state => {
-            hookLogger.trace('Selecting state', {
-                isGenerating: state.isGenerating,
-                hasConversations: state.conversations?.size > 0,
-                hasErrors: !!state.llmError,
-            });
+            // hookLogger.trace('Selecting state', {
+            //     isGenerating: state.isGenerating,
+            //     hasConversations: state.conversations?.size > 0,
+            //     hasErrors: !!state.llmError,
+            // });
+
+            const currentState = {
+                isGenerating: state.isGenerating || false,
+                hasError: !!state.llmError,
+            };
+
+            // Only log when important state actually changes
+            if (
+                prevStateRef.current &&
+                (prevStateRef.current.isGenerating !== currentState.isGenerating ||
+                    prevStateRef.current.hasError !== currentState.hasError)
+            ) {
+                enhancedLogger.hook('info', 'LLM state changed', {
+                    previous: prevStateRef.current,
+                    current: currentState,
+                });
+            }
+
+            prevStateRef.current = currentState;
 
             return {
                 // State
@@ -120,8 +156,26 @@ export const useLLM = () => {
                 currentAbortController: state.currentAbortController || null,
 
                 // Actions
-                generateResponse: state.generateResponse,
-                generateSuggestions: state.generateSuggestions,
+                // Enhanced action methods
+                generateResponse: (userMessage: string) =>
+                    errorHandler.safeAsyncTry(
+                        () => state.generateResponse(userMessage),
+                        errorHandler.createContext('generateResponse', {
+                            component: 'useLLM',
+                            slice: 'llm',
+                            metadata: { messageLength: userMessage.length },
+                        })
+                    ),
+
+                generateSuggestions: () =>
+                    errorHandler.safeAsyncTry(
+                        () => state.generateSuggestions(),
+                        errorHandler.createContext('generateSuggestions', {
+                            component: 'useLLM',
+                            slice: 'llm',
+                        })
+                    ),
+
                 summarizeConversation: state.summarizeConversation,
                 stopStreaming: state.stopStreaming,
                 clearConversation: state.clearConversation,

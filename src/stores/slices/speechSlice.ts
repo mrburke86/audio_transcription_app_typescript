@@ -2,6 +2,8 @@ import { StateCreator } from 'zustand';
 import { AppState, SpeechSlice } from '@/types/store';
 import { logger } from '@/modules';
 import { Message } from '@/types';
+import { enhancedLogger } from '@/modules/EnhancedLogger';
+import { errorHandler } from '@/utils/enhancedErrorHandler';
 
 /**
  * 🎙️ Speech Slice — Manages audio capture, real-time speech recognition, and transcription workflows
@@ -34,6 +36,11 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechSlice> = (s
      * This consolidates all speech logic into the slice where it belongs
      */
     startRecording: async () => {
+        const context = errorHandler.createContext('startRecording', {
+            slice: 'speech',
+            component: 'SpeechSlice',
+        });
+
         try {
             // Clear any previous errors
             set({ speechError: null });
@@ -41,14 +48,18 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechSlice> = (s
             // Check if already recording
             const currentState = get();
             if (currentState.isRecording) {
-                logger.warning('[SpeechSlice] Already recording, ignoring start request');
+                enhancedLogger.slice('warning', 'Already recording, ignoring start request');
                 return;
             }
 
-            logger.info('[SpeechSlice] 🎙️ Starting speech recognition...');
+            enhancedLogger.slice('info', 'Starting speech recognition...');
 
             // ✅ Request microphone access (needed for audio visualization)
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const stream = await errorHandler.withRetry(
+                () => navigator.mediaDevices.getUserMedia({ audio: true }),
+                { ...context, operation: 'getUserMedia' },
+                { maxAttempts: 2, baseDelay: 500 }
+            );
 
             // ✅ Initialize Web Speech API
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -63,53 +74,51 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechSlice> = (s
 
             // ✅ Set up event handlers within the slice
             recognition.onresult = event => {
-                let finalTranscript = '';
-                let interimTranscript = '';
+                try {
+                    let finalTranscript = '';
+                    let interimTranscript = '';
 
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcript = event.results[i][0].transcript;
-                    if (event.results[i].isFinal) {
-                        finalTranscript += transcript + ' ';
-                    } else {
-                        interimTranscript += transcript;
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+                        if (event.results[i].isFinal) {
+                            finalTranscript += transcript + ' ';
+                        } else {
+                            interimTranscript += transcript;
+                        }
                     }
-                }
 
-                // ✅ Use existing handleRecognitionResult method
-                get().handleRecognitionResult(finalTranscript.trim(), interimTranscript.trim());
-            };
-
-            recognition.onerror = event => {
-                logger.error('[SpeechSlice] Recognition error:', event.error);
-
-                set({
-                    speechError: `Speech recognition error: ${event.error}`,
-                    isRecording: false,
-                    recognitionStatus: 'error',
-                });
-
-                // ✅ Cleanup on error
-                get()._cleanup();
-
-                // ✅ Notify UI about the error
-                const state = get();
-                if (state.addNotification) {
-                    state.addNotification({
-                        type: 'error',
-                        message: `Speech recognition error: ${event.error}`,
-                        duration: 5000,
+                    get().handleRecognitionResult(finalTranscript.trim(), interimTranscript.trim());
+                } catch (error) {
+                    errorHandler.handleError(error, {
+                        ...context,
+                        operation: 'recognition.onresult',
                     });
                 }
             };
 
+            recognition.onerror = event => {
+                const errorMessage = `Speech recognition error: ${event.error}`;
+
+                enhancedLogger.slice('error', errorMessage, {
+                    errorType: event.error,
+                    timestamp: new Date().toISOString(),
+                });
+
+                set({
+                    speechError: errorMessage,
+                    isRecording: false,
+                    recognitionStatus: 'error',
+                });
+
+                get()._cleanup();
+            };
+
             recognition.onend = () => {
-                logger.info('[SpeechSlice] Recognition ended');
+                enhancedLogger.slice('info', 'Recognition ended');
                 set({
                     isRecording: false,
                     recognitionStatus: 'inactive',
                 });
-
-                // ✅ Cleanup when recognition ends
                 get()._cleanup();
             };
 
@@ -121,35 +130,22 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechSlice> = (s
                 recognitionStatus: 'active',
             });
 
-            // ✅ Start recognition
             recognition.start();
 
-            logger.info('[SpeechSlice] ✅ Speech recognition started successfully');
-
-            logger.info('Speech recognition state updated to active');
+            enhancedLogger.slice('info', 'Speech recognition started successfully');
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Failed to start recording';
-
-            logger.error('[SpeechSlice] ❌ Start recording failed:', error);
+            const enhancedError = errorHandler.handleError(error, context, {
+                rethrow: false,
+                notify: true,
+            });
 
             set({
-                speechError: errorMessage,
+                speechError: enhancedError.message,
                 isRecording: false,
                 recognitionStatus: 'error',
             });
 
-            // ✅ Cleanup on error
             get()._cleanup();
-
-            // ✅ Notify UI about the error
-            const state = get();
-            if (state.addNotification) {
-                state.addNotification({
-                    type: 'error',
-                    message: `Recording failed: ${errorMessage}`,
-                    duration: 5000,
-                });
-            }
         }
     },
 
