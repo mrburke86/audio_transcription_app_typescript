@@ -1,4 +1,4 @@
-// src\stores\slices\callSlice.ts
+// src/stores/slices/callSlice.ts
 import { StateCreator } from 'zustand';
 import { AppState, CallContextSlice } from '@/types/store';
 import { CallContext, validateContext } from '@/types';
@@ -7,38 +7,31 @@ import { logger } from '@/modules';
 /**
  * 📞 Call Slice — Zustand store segment for managing call setup flow
  *
+ * ✅ UPDATED: Removed duplicate modal state, now uses global modal system
  * ✅ Responsibilities:
  * - Stores the call context (target role, company, type of call, etc.)
- * - Controls the modal open/close state and current step in setup flow
- * - Validates user input (required fields)
+ * - Controls the setup flow steps and validation
  * - Handles field updates with error clearing
- * - Sends user notifications on context updates or validation issues
+ * - Integrates with global modal system for setup modal
  */
 
-// ✅ Define available setup steps
-const SETUP_STEPS = [
-    'basic', // Basic call info (type, context)
-    'details', // Detailed configuration
-    'objectives', // Goals and objectives
-    'review', // Final review
-] as const;
+const SETUP_STEPS = ['basic', 'details', 'objectives', 'review'] as const;
+
+// ✅ ADDED: Modal ID for setup modal in global system
+const SETUP_MODAL_ID = 'call-setup-modal';
 
 export const createCallSlice: StateCreator<AppState, [], [], CallContextSlice> = (set, get) => ({
-    // 🧠 Holds the current call context (null if not yet set)
+    // ===== CALL CONTEXT STATE =====
     context: null,
 
-    // 🎛 Controls visibility of the setup modal
-    isModalOpen: false,
+    // ❌ REMOVED: Duplicate modal state - now using global modal system
+    // isModalOpen: false,
 
-    // 🔄 Tracks the current step in modal (default is "basic")
     currentSetupStep: 'basic',
-
-    // ⚠️ Holds field-specific validation errors
     validationErrors: {},
 
     /**
      * 🎯 Sets the call context and clears any existing errors.
-     * Also logs the action and sends a success notification.
      */
     setCallContext: (context: CallContext) => {
         logger.info('🎯 Setting call context:', {
@@ -52,37 +45,48 @@ export const createCallSlice: StateCreator<AppState, [], [], CallContextSlice> =
             validationErrors: {},
         });
 
-        // ✅ Use generalized messaging
         const contextLabel =
             context.target_role && context.target_organization
                 ? `${context.target_role} at ${context.target_organization}`
                 : `${context.call_type} call`;
 
-        // Check if addNotification exists before calling
+        // ✅ IMPROVED: Use consistent notification pattern
         const state = get();
-        if (state.addNotification && typeof state.addNotification === 'function') {
-            state.addNotification({
-                type: 'success',
-                message: `Call context set: ${contextLabel}`,
-                duration: 5000,
-            });
-        }
+        state.addNotification({
+            type: 'success',
+            message: `Call context set: ${contextLabel}`,
+            duration: 5000,
+        });
     },
 
     /**
-     * 📝 Opens the setup modal and resets the current step to 'basic'
+     * 📝 Opens the setup modal using global modal system
      */
     openSetupModal: () => {
-        set({ isModalOpen: true, currentSetupStep: 'basic' });
-        logger.info('📝 Opened call setup modal');
+        const state = get();
+
+        // ✅ MODIFIED: Use global modal system instead of local state
+        state.openGlobalModal(SETUP_MODAL_ID, {
+            currentStep: get().currentSetupStep,
+            context: get().context,
+        });
+
+        // Reset to basic step when opening
+        set({ currentSetupStep: 'basic' });
+
+        logger.info('📝 Opened call setup modal using global modal system');
     },
 
     /**
-     * ❌ Closes the setup modal
+     * ❌ Closes the setup modal using global modal system
      */
     closeSetupModal: () => {
-        set({ isModalOpen: false });
-        logger.info('❌ Closed call setup modal');
+        const state = get();
+
+        // ✅ MODIFIED: Use global modal system instead of local state
+        state.closeGlobalModal(SETUP_MODAL_ID);
+
+        logger.info('❌ Closed call setup modal using global modal system');
     },
 
     /**
@@ -95,6 +99,14 @@ export const createCallSlice: StateCreator<AppState, [], [], CallContextSlice> =
         if (currentIndex < SETUP_STEPS.length - 1) {
             const nextStep = SETUP_STEPS[currentIndex + 1];
             set({ currentSetupStep: nextStep });
+
+            // ✅ IMPROVED: Update modal props to reflect step change
+            const state = get();
+            state.openGlobalModal(SETUP_MODAL_ID, {
+                currentStep: nextStep,
+                context: get().context,
+            });
+
             logger.info(`➡️ Advanced to setup step: ${nextStep}`);
         } else {
             logger.info('➡️ Already at final setup step');
@@ -111,6 +123,14 @@ export const createCallSlice: StateCreator<AppState, [], [], CallContextSlice> =
         if (currentIndex > 0) {
             const prevStep = SETUP_STEPS[currentIndex - 1];
             set({ currentSetupStep: prevStep });
+
+            // ✅ IMPROVED: Update modal props to reflect step change
+            const state = get();
+            state.openGlobalModal(SETUP_MODAL_ID, {
+                currentStep: prevStep,
+                context: get().context,
+            });
+
             logger.info(`⬅️ Went back to setup step: ${prevStep}`);
         } else {
             logger.info('⬅️ Already at first setup step');
@@ -125,12 +145,22 @@ export const createCallSlice: StateCreator<AppState, [], [], CallContextSlice> =
             currentSetupStep: 'basic',
             validationErrors: {},
         });
+
+        // ✅ IMPROVED: Update modal props if modal is open
+        const state = get();
+        const modalState = state.globalModals[SETUP_MODAL_ID];
+        if (modalState?.isOpen) {
+            state.openGlobalModal(SETUP_MODAL_ID, {
+                currentStep: 'basic',
+                context: get().context,
+            });
+        }
+
         logger.info('🔄 Reset setup flow to beginning');
     },
 
     /**
      * ✏️ Updates a single field in the call context.
-     * Clears any existing error for that field.
      */
     updateContextField: <K extends keyof CallContext>(field: K, value: CallContext[K]) => {
         const currentContext = get().context;
@@ -144,9 +174,7 @@ export const createCallSlice: StateCreator<AppState, [], [], CallContextSlice> =
             [field]: value,
         };
 
-        // 🧹 Remove the validation error for the updated field, if any
         const currentErrors = get().validationErrors;
-        // ✅ Fixed: Use underscore prefix for unused variable
         const remainingErrors = { ...currentErrors };
         delete remainingErrors[field as string];
 
@@ -155,20 +183,28 @@ export const createCallSlice: StateCreator<AppState, [], [], CallContextSlice> =
             validationErrors: remainingErrors,
         });
 
+        // ✅ IMPROVED: Update modal props with new context
+        const state = get();
+        const modalState = state.globalModals[SETUP_MODAL_ID];
+        if (modalState?.isOpen) {
+            state.openGlobalModal(SETUP_MODAL_ID, {
+                currentStep: get().currentSetupStep,
+                context: updatedContext,
+            });
+        }
+
         logger.debug(`📝 Updated call context field: ${field}`);
     },
 
     /**
      * ✅ Validates required fields in the context.
-     * Shows an error notification if validation fails.
      */
     validateContext: () => {
         const context = get().context;
-        const errors = validateContext(context || {}); // Use validation helper
+        const errors = validateContext(context || {});
 
         const isValid = errors.length === 0;
 
-        // Convert errors array to object for display
         const errorObject = errors.reduce(
             (acc, error) => ({
                 ...acc,
@@ -180,15 +216,13 @@ export const createCallSlice: StateCreator<AppState, [], [], CallContextSlice> =
         set({ validationErrors: errorObject });
 
         if (!isValid) {
-            // Check if addNotification exists before calling
+            // ✅ IMPROVED: Use consistent notification pattern
             const state = get();
-            if (state.addNotification && typeof state.addNotification === 'function') {
-                state.addNotification({
-                    type: 'error',
-                    message: 'Please complete all required fields',
-                    duration: 5000,
-                });
-            }
+            state.addNotification({
+                type: 'error',
+                message: 'Please complete all required fields',
+                duration: 5000,
+            });
         }
 
         return isValid;

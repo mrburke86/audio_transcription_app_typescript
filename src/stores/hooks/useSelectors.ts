@@ -61,11 +61,6 @@ export const useKnowledge = () => {
 
     return useAppStore(
         useShallow(state => {
-            // hookLogger.trace('Selecting state', {
-            //     hasData: !!state.indexedDocumentsCount,
-            //     isLoading: state.isLoading,
-            // });
-
             return {
                 // State - directly use standardized properties
                 indexedDocumentsCount: state.indexedDocumentsCount || 0,
@@ -185,13 +180,17 @@ export const useCallContext = () => {
         useShallow(state => {
             hookLogger.trace('Selecting state', {
                 hasContext: !!state.context,
-                isModalOpen: state.isModalOpen,
+                currentStep: state.currentSetupStep,
+                validationErrors: Object.keys(state.validationErrors || {}).length,
             });
 
             return {
                 // State
                 context: state.context || null,
-                isModalOpen: state.isModalOpen || false,
+
+                // ✅ REMOVED: Local modal state - now computed from global modals
+                // isModalOpen: state.isModalOpen || false,
+
                 currentSetupStep: state.currentSetupStep || 'basic',
                 validationErrors: state.validationErrors || {},
 
@@ -209,6 +208,133 @@ export const useCallContext = () => {
     );
 };
 
+// ✅ ADDED: Convenience hook to check if setup modal is open
+export const useSetupModalState = () => {
+    const { globalModals } = useUI();
+    return globalModals['call-setup-modal']?.isOpen ?? false;
+};
+
+// ✅ ADDED: Hook to check various loading states with clear boundaries
+export const useLoadingStates = () => {
+    const hookLogger = createHookLogger('useLoadingStates');
+
+    return useAppStore(
+        useShallow(state => {
+            const loadingStates = {
+                // Global loading overlay
+                globalLoading: state.globalLoading?.isActive || false,
+                globalLoadingMessage: state.globalLoading?.message,
+                globalLoadingSource: state.globalLoading?.source,
+
+                // Domain-specific loading states
+                knowledgeLoading: state.isLoading || false, // Knowledge operations
+                llmGenerating: state.isGenerating || false, // Any LLM operation
+                llmGeneratingResponse: state.isGeneratingResponse || false, // Specific response
+                llmGeneratingSuggestions: state.isGeneratingSuggestions || false, // Specific suggestions
+                llmSummarizing: state.isSummarizing || false, // Specific summarization
+                speechProcessing: state.speechIsProcessing || false, // Speech operations
+
+                // Convenience flags
+                anyDomainLoading: state.isAnyDomainLoading(),
+                anyLLMOperation:
+                    state.isGenerating ||
+                    state.isGeneratingResponse ||
+                    state.isGeneratingSuggestions ||
+                    state.isSummarizing,
+            };
+
+            hookLogger.trace('Loading states computed', {
+                globalActive: loadingStates.globalLoading,
+                domainsActive: loadingStates.anyDomainLoading,
+                llmActive: loadingStates.anyLLMOperation,
+            });
+
+            return loadingStates;
+        })
+    );
+};
+
+// ✅ ADDED: Hook to check error states across slices
+export const useErrorStates = () => {
+    const hookLogger = createHookLogger('useErrorStates');
+
+    return useAppStore(
+        useShallow(state => {
+            const errorStates = {
+                // Global errors
+                globalError: state.globalError || null,
+
+                // Domain-specific errors
+                knowledgeError: state.error || null, // Knowledge operations
+                llmError: state.llmError || null, // LLM operations
+                speechError: state.speechError || null, // Speech operations
+
+                // Convenience flags
+                hasAnyError: !!(state.globalError || state.error || state.llmError || state.speechError),
+                errorCount: [state.globalError, state.error, state.llmError, state.speechError].filter(Boolean).length,
+            };
+
+            hookLogger.trace('Error states computed', {
+                hasErrors: errorStates.hasAnyError,
+                errorCount: errorStates.errorCount,
+            });
+
+            return errorStates;
+        })
+    );
+};
+
+// ✅ ADDED: Hook for notification management with better integration
+export const useNotifications = () => {
+    const hookLogger = createHookLogger('useNotifications');
+    const { notifications, addNotification, removeNotification } = useUI();
+
+    // Enhanced notification methods
+    const enhancedMethods = useMemo(
+        () => ({
+            // Quick notification methods
+            success: (message: string, duration = 5000) => {
+                hookLogger.trace('Adding success notification', { message });
+                addNotification({ type: 'success', message, duration });
+            },
+
+            error: (message: string, duration = 8000) => {
+                hookLogger.trace('Adding error notification', { message });
+                addNotification({ type: 'error', message, duration });
+            },
+
+            warning: (message: string, duration = 6000) => {
+                hookLogger.trace('Adding warning notification', { message });
+                addNotification({ type: 'warning', message, duration });
+            },
+
+            info: (message: string, duration = 4000) => {
+                hookLogger.trace('Adding info notification', { message });
+                addNotification({ type: 'info', message, duration });
+            },
+
+            // Clear all notifications
+            clearAll: () => {
+                hookLogger.trace('Clearing all notifications');
+                removeNotification();
+            },
+
+            // Remove specific notification
+            remove: (id: number) => {
+                hookLogger.trace('Removing notification', { id });
+                removeNotification(id);
+            },
+        }),
+        [addNotification, removeNotification, hookLogger]
+    );
+
+    return {
+        notifications,
+        count: notifications.length,
+        ...enhancedMethods,
+    };
+};
+
 /**
  * 🎨 Optimized hook for UI state
  */
@@ -217,23 +343,56 @@ export const useUI = () => {
 
     return useAppStore(
         useShallow(state => {
-            hookLogger.trace('Selecting state');
+            hookLogger.trace('Selecting state', {
+                theme: state.theme,
+                hasGlobalModals: Object.keys(state.globalModals || {}).length > 0,
+                globalLoadingActive: state.globalLoading?.isActive,
+                hasNotifications: (state.notifications || []).length > 0,
+            });
 
             return {
-                // State
-                isLoading: state.isLoading || false,
-                error: state.uiError || null,
-                theme: state.theme || 'dark',
-                modals: state.modals || {},
-                loadingMessage: state.loadingMessage,
+                // ===== UPDATED STATE SELECTORS =====
 
-                // Actions
+                // Theme
+                theme: state.theme || 'dark',
+
+                // ✅ UPDATED: Global modals (renamed from 'modals')
+                globalModals: state.globalModals || {},
+
+                // ✅ UPDATED: Global loading (structured)
+                globalLoading: state.globalLoading || { isActive: false, message: undefined, source: undefined },
+
+                // ✅ UPDATED: Global error (renamed from 'error')
+                globalError: state.globalError || null,
+
+                // Notifications
+                notifications: state.notifications || [],
+
+                // ===== UPDATED ACTION SELECTORS =====
+
+                // Theme actions
                 setTheme: state.setTheme,
+
+                // Notification actions
                 addNotification: state.addNotification,
                 removeNotification: state.removeNotification,
-                openModal: state.openModal,
-                closeModal: state.closeModal,
-                setLoading: state.setLoading,
+
+                // ✅ UPDATED: Global modal actions (renamed)
+                openGlobalModal: state.openGlobalModal,
+                closeGlobalModal: state.closeGlobalModal,
+                closeAllGlobalModals: state.closeAllGlobalModals,
+
+                // ✅ UPDATED: Global loading actions (renamed)
+                setGlobalLoading: state.setGlobalLoading,
+
+                // Error actions
+                clearGlobalError: state.clearGlobalError,
+
+                // Utility actions
+                resetGlobalUIState: state.resetGlobalUIState,
+
+                // ✅ UPDATED: Helper methods
+                isAnyDomainLoading: state.isAnyDomainLoading,
             };
         })
     );
@@ -437,24 +596,6 @@ export const usePerformanceMonitor = (componentName: string) => {
         },
     };
 };
-
-// // ===== UTILITY HOOKS =====
-
-// /**
-//  * 🔧 Helper hook for safely accessing nested store properties
-//  */
-// const useSafeSelector = <T>(selector: (state: any) => T, fallback: T, debugName: string): T => {
-//     return useAppStore(state => {
-//         try {
-//             const result = selector(state);
-//             logger.debug(debugName, 'Selector succeeded', { resultType: typeof result });
-//             return result;
-//         } catch (error) {
-//             logger.error(debugName, 'Selector failed, using fallback', error);
-//             return fallback;
-//         }
-//     });
-// };
 
 // ===== EXPORTS =====
 

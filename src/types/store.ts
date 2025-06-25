@@ -1,5 +1,47 @@
+// src\types\store.ts
 import { CallContext, Message, DocumentChunk, StrategicAnalysis, AnalysisPreview } from '@/types';
 import { Nullable } from './storeHelpers';
+
+/**
+ * UI State Boundaries:
+ *
+ * GLOBAL UI STATE (UI Slice):
+ * - App theme
+ * - Global notifications (toasts)
+ * - App-level modals (error dialogs, app settings, etc.)
+ * - Global loading overlay (for app-level operations)
+ * - Global UI errors
+ *
+ * SLICE-SPECIFIC STATE:
+ * - Domain-specific loading states that other components need
+ * - Domain-specific errors and success states
+ * - Domain-specific modal states (if tightly coupled to domain)
+ *
+ * COMPONENT-LOCAL STATE:
+ * - Temporary UI state (form inputs, local toggles)
+ * - Component-specific loading (that doesn't need to be shared)
+ * - Transient visual states
+ */
+
+export interface NotificationEntry {
+    id: number;
+    type: 'success' | 'error' | 'warning' | 'info';
+    message: string;
+    duration?: number;
+}
+
+// ✅ ADDED: Structured global loading state
+export interface GlobalLoadingState {
+    isActive: boolean;
+    message?: string;
+    source?: string; // Which feature/slice triggered the loading
+}
+
+// ✅ ADDED: Global modal management (app-level only)
+export interface GlobalModalState {
+    isOpen: boolean;
+    props?: Record<string, unknown>;
+}
 
 // Your existing types, reorganized for Zustand
 export interface IndexingProgress {
@@ -32,18 +74,21 @@ export interface AudioSession {
     processedAt: Date;
 }
 
-// Domain-specific state interfaces
+// ✅ CLARIFIED: Domain-specific loading states remain in their slices
 export interface KnowledgeSlice {
-    // State
+    // ===== KNOWLEDGE STATE =====
     indexedDocumentsCount: number;
     knowledgeBaseName: string;
-    isLoading: boolean; // ⚠️ RENAMED: from kbIsLoading
-    error: Nullable<string>; // ⚠️ RENAMED: from kbError, used Nullable<T>
-    lastIndexedAt: Nullable<Date>; // ⚠️ MODIFIED: Used Nullable<T>
+
+    // ✅ CLARIFIED: Knowledge-specific loading (other components need this)
+    isLoading: boolean; // Domain-specific loading that UI needs to show
+    error: Nullable<string>; // Domain-specific errors
+
+    lastIndexedAt: Nullable<Date>;
     indexingProgress: IndexingProgress;
     searchResults: DocumentChunk[];
 
-    // Actions - ✅ FIXED: Added missing initializeKnowledgeBase
+    // ===== KNOWLEDGE ACTIONS =====
     initializeKnowledgeBase: () => Promise<void>;
     triggerIndexing: () => Promise<boolean>;
     searchRelevantKnowledge: (query: string, limit?: number) => Promise<DocumentChunk[]>;
@@ -51,78 +96,84 @@ export interface KnowledgeSlice {
 }
 
 export interface LLMSlice {
-    // State - replaces your useLLMProviderOptimized state
+    // ===== LLM STATE =====
     conversations: Map<string, Conversation>;
     streamingResponses: Map<string, StreamingResponse>;
-    isGenerating: boolean;
-    currentStreamId: Nullable<string>; // ⚠️ MODIFIED
+
+    // ✅ CLARIFIED: LLM-specific loading states (other components need these)
+    isGenerating: boolean; // General LLM operation indicator
+    isGeneratingResponse: boolean; // Specific response generation
+    isGeneratingSuggestions: boolean; // Specific suggestion generation
+    isSummarizing: boolean; // Specific summarization
+
+    currentStreamId: Nullable<string>;
     conversationSummary: string;
     conversationSuggestions: {
         powerUpContent: string;
         lastAnalysis?: StrategicAnalysis;
         analysisHistory?: AnalysisPreview[];
     };
-    // Missing error states
-    llmError: string | null;
-    isGeneratingResponse: boolean;
-    isGeneratingSuggestions: boolean;
-    isSummarizing: boolean;
-    // Missing abort controllers
+
+    // ✅ CLARIFIED: LLM-specific errors
+    llmError: string | null; // Domain-specific errors
     currentAbortController: AbortController | null;
 
-    // Actions - these replace your LLM hook methods
+    // ===== LLM ACTIONS =====
     generateResponse: (userMessage: string) => Promise<void>;
     generateSuggestions: () => Promise<void>;
     summarizeConversation: (messages: Message[]) => Promise<void>;
     stopStreaming: (streamId: string) => void;
     clearConversation: (conversationId: string) => void;
-
     clearLLMError: () => void;
     cancelCurrentRequest: () => void;
 }
 
 // ✅ FIXED: Updated SpeechSlice to match implementation
 export interface SpeechSlice {
-    // State - replaces your speech recognition useState calls
+    // ===== SPEECH STATE =====
     isRecording: boolean;
-    speechIsProcessing: boolean;
+
+    // ✅ CLARIFIED: Speech-specific processing (other components need this)
+    speechIsProcessing: boolean; // Domain-specific loading
+
     recognitionStatus: 'inactive' | 'active' | 'error';
-    speechError: Nullable<string>; // ⚠️ MODIFIED
+    speechError: Nullable<string>; // Domain-specific errors
     audioSessions: Map<string, AudioSession>;
     currentTranscript: string;
     interimTranscripts: Message[];
 
-    // ✅ ADDED: Internal state for managing speech APIs
+    // Internal state for managing speech APIs
     _recognition: SpeechRecognition | null;
     _mediaStream: MediaStream | null;
 
-    // Actions - these replace your speech hook methods
+    // ===== SPEECH ACTIONS =====
     startRecording: () => Promise<void>;
     stopRecording: () => void;
     clearTranscripts: () => void;
     handleRecognitionResult: (finalTranscript: string, interimTranscript: string) => void;
     clearError: () => void;
-
-    // ✅ ADDED: New utility methods
     _cleanup: () => void;
     getMediaStream: () => MediaStream | null;
 }
-
 export interface CallContextSlice {
-    // State - replaces your interview modal state
-    context: Nullable<CallContext>; // ⚠️ MODIFIED
-    isModalOpen: boolean;
-    currentSetupStep: string; // Rename: Clarifies purpose
+    // ===== CALL CONTEXT STATE =====
+    context: Nullable<CallContext>;
+
+    // ✅ REMOVED: isModalOpen - use global modal system instead
+    // ❌ isModalOpen: boolean;
+
+    currentSetupStep: string;
     validationErrors: Record<string, string>;
 
-    // Actions - renamed for broader scope
+    // ===== CALL CONTEXT ACTIONS =====
     setCallContext: (context: CallContext) => void;
-    openSetupModal: () => void;
-    closeSetupModal: () => void;
+
+    // ✅ MODIFIED: Use global modal system
+    openSetupModal: () => void; // Will call openGlobalModal
+    closeSetupModal: () => void; // Will call closeGlobalModal
+
     updateContextField: <K extends keyof CallContext>(field: K, value: CallContext[K]) => void;
     validateContext: () => boolean;
-
-    // ✅ ADD: Enhanced workflow methods
     nextSetupStep: () => void;
     previousSetupStep: () => void;
     resetSetupFlow: () => void;
@@ -136,21 +187,48 @@ export interface NotificationEntry {
 }
 
 export interface UISlice {
-    // Simplified state - removed notifications array
-    theme: 'light' | 'dark';
-    modals: Record<string, { isOpen: boolean; props?: Record<string, unknown> }>;
-    notifications: NotificationEntry[];
-    isLoading: boolean;
-    loadingMessage?: string;
-    uiError: Nullable<string>; // ⚠️ MODIFIED
+    // ===== GLOBAL UI STATE =====
 
-    // Simplified actions using Sonner
+    // ✅ CLARIFIED: App theme
+    theme: 'light' | 'dark';
+
+    // ✅ RENAMED: App-level modals only (not domain-specific modals)
+    globalModals: Record<string, GlobalModalState>; // ⚠️ RENAMED: from 'modals'
+
+    // ✅ CLARIFIED: App-level notifications
+    notifications: NotificationEntry[];
+
+    // ✅ STRUCTURED: Global loading overlay for app-level operations
+    globalLoading: GlobalLoadingState; // ⚠️ MODIFIED: from 'isLoading' and 'loadingMessage'
+
+    // ✅ RENAMED: Global UI errors (not domain-specific)
+    globalError: Nullable<string>; // ⚠️ RENAMED: from 'uiError'
+
+    // ===== GLOBAL UI ACTIONS =====
+
+    // Theme management
     setTheme: (theme: 'light' | 'dark') => void;
+
+    // Notification management
     addNotification: (notification: Omit<NotificationEntry, 'id'>) => void;
-    removeNotification: (id?: number) => void; // Deprecated but kept for compatibility
-    openModal: (modalId: string, props?: Record<string, unknown>) => void;
-    closeModal: (modalId: string) => void;
-    setLoading: (isLoading: boolean, message?: string) => void;
+    removeNotification: (id?: number) => void;
+
+    // Global modal management (app-level only)
+    openGlobalModal: (modalId: string, props?: Record<string, unknown>) => void; // ⚠️ RENAMED: from 'openModal'
+    closeGlobalModal: (modalId: string) => void; // ⚠️ RENAMED: from 'closeModal'
+
+    // Global loading management (app-level only)
+    setGlobalLoading: (isActive: boolean, message?: string, source?: string) => void; // ⚠️ RENAMED: from 'setLoading'
+
+    // Error management
+    clearGlobalError: () => void; // ⚠️ RENAMED: from 'clearUIError'
+
+    // Utility methods
+    closeAllGlobalModals: () => void; // ⚠️ RENAMED: from 'closeAllModals'
+    resetGlobalUIState: () => void; // ⚠️ RENAMED: from 'resetUIState'
+
+    // ✅ ADDED: Helper to check if any domain is loading
+    isAnyDomainLoading: () => boolean;
 }
 
 // Combined application state

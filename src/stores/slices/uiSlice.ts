@@ -7,76 +7,70 @@ import { AppState, UISlice, NotificationEntry } from '@/types/store';
 const SLICE = 'UISlice';
 
 export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get) => ({
-    // 🌑 Initial UI state
+    // ✅ CLARIFIED: Global UI state - affects entire application
     theme: 'light',
-    modals: {},
+
+    // ✅ CLARIFIED: App-level modals only (domain-specific modals stay in their slices)
+    globalModals: {}, // ⚠️ RENAMED: from 'modals' to 'globalModals' for clarity
+
+    // ✅ CLARIFIED: App-level notifications
     notifications: [],
-    isLoading: false,
-    loadingMessage: undefined,
-    uiError: null,
+
+    // ✅ CLARIFIED: Global loading overlay for app-level operations only
+    globalLoading: {
+        // ⚠️ MODIFIED: More specific structure
+        isActive: false,
+        message: undefined,
+        source: undefined, // ✅ ADDED: Track which feature triggered global loading
+    },
+
+    // ✅ CLARIFIED: Global UI errors (not domain-specific errors)
+    globalError: null, // ⚠️ RENAMED: from 'uiError' to 'globalError'
 
     /* ------------------------------------------------------------------ *
-     * 🎨 THEME
+     * 🎨 THEME MANAGEMENT
      * ------------------------------------------------------------------ */
     setTheme: theme => {
         try {
             logger.info(`[${SLICE}] setTheme → ${theme}`);
-            set({ uiError: null });
+            set({ globalError: null }); // ⚠️ MODIFIED: Use new name
 
-            // Validate theme input
             if (!theme || !['light', 'dark'].includes(theme)) {
                 throw new Error(`Invalid theme value: ${theme}. Must be 'light' or 'dark'.`);
             }
 
             set({ theme });
 
-            // DOM manipulation with error handling
             if (typeof document !== 'undefined') {
                 try {
                     document.documentElement.classList.toggle('dark', theme === 'dark');
-
-                    // Optional: Persist theme to localStorage
                     if (typeof localStorage !== 'undefined') {
                         localStorage.setItem('app-theme', theme);
                     }
                 } catch (domError) {
                     logger.warning(`[${SLICE}] DOM/localStorage operation failed during theme change:`, domError);
-                    // Don't throw - theme state was updated successfully
                 }
             }
 
             logger.info(`[${SLICE}] ✅ Theme successfully changed to ${theme}`);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to change theme';
-
             logger.error(`[${SLICE}] ❌ Theme change failed: ${errorMessage}`, error);
-
-            set({ uiError: errorMessage });
-
-            get().addNotification?.({
-                type: 'error',
-                message: `Theme change failed: ${errorMessage}`,
-                duration: 5000,
-            });
+            set({ globalError: errorMessage }); // ⚠️ MODIFIED: Use new name
         }
     },
 
     /* ------------------------------------------------------------------ *
-     * 🔔 NOTIFICATIONS
+     * 🔔 NOTIFICATION SYSTEM (App-level only)
      * ------------------------------------------------------------------ */
     addNotification: ({ type, message, duration = 4_000 }) => {
         try {
-            // Input validation
             if (!message || typeof message !== 'string') {
                 throw new Error('Notification message is required and must be a string');
             }
 
             if (!['success', 'error', 'warning', 'info'].includes(type)) {
                 throw new Error(`Invalid notification type: ${type}`);
-            }
-
-            if (duration && (typeof duration !== 'number' || duration < 0)) {
-                throw new Error('Duration must be a positive number');
             }
 
             logger.debug(
@@ -90,7 +84,6 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
                 info: toast.info,
             } as const;
 
-            // Execute toast with error handling
             try {
                 (toastMap[type] ?? toast.info)(message, { duration });
                 set(state => ({
@@ -101,22 +94,12 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
                 }));
             } catch (toastError) {
                 logger.error(`[${SLICE}] ❌ Toast display failed:`, toastError);
-                // Fallback: try basic console output
                 console.log(`${type.toUpperCase()}: ${message}`);
             }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to add notification';
-
             logger.error(`[${SLICE}] ❌ Notification failed: ${errorMessage}`, error);
-
-            set({ uiError: errorMessage });
-
-            // Fallback notification attempt
-            try {
-                console.error(`UI Notification Error: ${errorMessage}`);
-            } catch {
-                // Silent fail - nothing more we can do
-            }
+            set({ globalError: errorMessage }); // ⚠️ MODIFIED: Use new name
         }
     },
 
@@ -127,98 +110,75 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     },
 
     /* ------------------------------------------------------------------ *
-     * 🪟 MODALS
+     * 🪟 GLOBAL MODAL MANAGEMENT (App-level modals only)
      * ------------------------------------------------------------------ */
-    openModal: (modalId, props) => {
+    openGlobalModal: (modalId, props) => {
+        // ⚠️ RENAMED: from 'openModal'
         try {
-            // Input validation
             if (!modalId || typeof modalId !== 'string') {
                 throw new Error('Modal ID is required and must be a string');
             }
 
-            if (modalId.trim().length === 0) {
-                throw new Error('Modal ID cannot be empty');
-            }
-
-            logger.debug(`[${SLICE}] openModal → ${modalId}`, props);
+            logger.debug(`[${SLICE}] openGlobalModal → ${modalId}`, props);
 
             set(state => ({
-                uiError: null,
-                modals: {
-                    ...state.modals,
+                globalError: null,
+                globalModals: {
+                    // ⚠️ MODIFIED: Use new name
+                    ...state.globalModals,
                     [modalId]: { isOpen: true, props },
                 },
             }));
 
-            logger.debug(`[${SLICE}] ✅ Modal ${modalId} opened successfully`);
+            logger.debug(`[${SLICE}] ✅ Global modal ${modalId} opened successfully`);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to open modal';
-
             logger.error(`[${SLICE}] ❌ Modal open failed: ${errorMessage}`, error);
-
-            set({ uiError: errorMessage });
-
-            get().addNotification?.({
-                type: 'error',
-                message: `Failed to open modal: ${errorMessage}`,
-                duration: 5000,
-            });
+            set({ globalError: errorMessage }); // ⚠️ MODIFIED: Use new name
         }
     },
 
-    closeModal: modalId => {
+    closeGlobalModal: modalId => {
+        // ⚠️ RENAMED: from 'closeModal'
         try {
-            // Input validation
             if (!modalId || typeof modalId !== 'string') {
                 throw new Error('Modal ID is required and must be a string');
             }
 
-            if (modalId.trim().length === 0) {
-                throw new Error('Modal ID cannot be empty');
-            }
+            logger.debug(`[${SLICE}] closeGlobalModal → ${modalId}`);
 
-            logger.debug(`[${SLICE}] closeModal → ${modalId}`);
+            const currentModals = get().globalModals; // ⚠️ MODIFIED: Use new name
 
-            const currentModals = get().modals;
-
-            // Check if modal exists
             if (!currentModals[modalId]) {
                 logger.warning(`[${SLICE}] ⚠️ Attempted to close non-existent modal: ${modalId}`);
-                return; // Graceful handling - not an error
+                return;
             }
 
             set(state => ({
-                uiError: null,
-                modals: {
-                    ...state.modals,
+                globalError: null,
+                globalModals: {
+                    // ⚠️ MODIFIED: Use new name
+                    ...state.globalModals,
                     [modalId]: { isOpen: false },
                 },
             }));
 
-            logger.debug(`[${SLICE}] ✅ Modal ${modalId} closed successfully`);
+            logger.debug(`[${SLICE}] ✅ Global modal ${modalId} closed successfully`);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to close modal';
-
             logger.error(`[${SLICE}] ❌ Modal close failed: ${errorMessage}`, error);
-
-            set({ uiError: errorMessage });
-
-            get().addNotification?.({
-                type: 'error',
-                message: `Failed to close modal: ${errorMessage}`,
-                duration: 5000,
-            });
+            set({ globalError: errorMessage }); // ⚠️ MODIFIED: Use new name
         }
     },
 
     /* ------------------------------------------------------------------ *
-     * ⏳ GLOBAL LOADING
+     * ⏳ GLOBAL LOADING OVERLAY (App-level operations only)
      * ------------------------------------------------------------------ */
-    setLoading: (isLoading, message) => {
+    setGlobalLoading: (isActive, message, source) => {
+        // ⚠️ RENAMED: from 'setLoading'
         try {
-            // Input validation
-            if (typeof isLoading !== 'boolean') {
-                throw new Error('isLoading must be a boolean value');
+            if (typeof isActive !== 'boolean') {
+                throw new Error('isActive must be a boolean value');
             }
 
             if (message !== undefined && (typeof message !== 'string' || message.trim().length === 0)) {
@@ -226,97 +186,80 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
             }
 
             logger.performance(
-                `[${SLICE}] setLoading → ${isLoading ? 'START' : 'STOP'}${message ? ` (${message})` : ''}`
+                `[${SLICE}] setGlobalLoading → ${isActive ? 'START' : 'STOP'}${message ? ` (${message})` : ''}${
+                    source ? ` from ${source}` : ''
+                }`
             );
 
             set({
-                isLoading,
-                loadingMessage: message,
-                uiError: null,
+                globalLoading: {
+                    // ⚠️ MODIFIED: Use new structure
+                    isActive,
+                    message,
+                    source,
+                },
+                globalError: null,
             });
 
-            // Handle toast operations with error handling
             try {
-                if (isLoading && message) {
+                if (isActive && message) {
                     toast.loading(message, { id: 'global-loading-toast', duration: Infinity });
                 } else {
                     toast.dismiss('global-loading-toast');
                 }
             } catch (toastError) {
                 logger.warning(`[${SLICE}] ⚠️ Toast operation failed during loading state change:`, toastError);
-                // Don't throw - loading state was updated successfully
             }
 
-            logger.debug(`[${SLICE}] ✅ Loading state updated successfully`);
+            logger.debug(`[${SLICE}] ✅ Global loading state updated successfully`);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to set loading state';
-
             logger.error(`[${SLICE}] ❌ Loading state change failed: ${errorMessage}`, error);
-
-            set({ uiError: errorMessage });
-
-            // Try to dismiss any existing loading toast
-            try {
-                toast.dismiss('global-loading-toast');
-            } catch {
-                // Silent fail
-            }
-
-            get().addNotification?.({
-                type: 'error',
-                message: `Loading state error: ${errorMessage}`,
-                duration: 5000,
-            });
+            set({ globalError: errorMessage }); // ⚠️ MODIFIED: Use new name
         }
     },
 
     /* ------------------------------------------------------------------ *
      * 🧹 ERROR MANAGEMENT
      * ------------------------------------------------------------------ */
-    clearUIError: () => {
-        logger.debug(`[${SLICE}] 🧹 Clearing UI error`);
-        set({ uiError: null });
+    clearGlobalError: () => {
+        // ⚠️ RENAMED: from 'clearUIError'
+        logger.debug(`[${SLICE}] 🧹 Clearing global error`);
+        set({ globalError: null }); // ⚠️ MODIFIED: Use new name
     },
 
     /* ------------------------------------------------------------------ *
      * 🔄 UTILITY METHODS
      * ------------------------------------------------------------------ */
-    closeAllModals: () => {
+    closeAllGlobalModals: () => {
+        // ⚠️ RENAMED: from 'closeAllModals'
         try {
-            logger.debug(`[${SLICE}] closeAllModals`);
+            logger.debug(`[${SLICE}] closeAllGlobalModals`);
 
-            const currentModals = get().modals;
+            const currentModals = get().globalModals; // ⚠️ MODIFIED: Use new name
             const updatedModals = Object.keys(currentModals).reduce((acc, modalId) => {
                 acc[modalId] = { isOpen: false };
                 return acc;
             }, {} as typeof currentModals);
 
             set({
-                modals: updatedModals,
-                uiError: null,
+                globalModals: updatedModals, // ⚠️ MODIFIED: Use new name
+                globalError: null,
             });
 
-            logger.info(`[${SLICE}] ✅ All modals closed successfully`);
+            logger.info(`[${SLICE}] ✅ All global modals closed successfully`);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to close all modals';
-
             logger.error(`[${SLICE}] ❌ Close all modals failed: ${errorMessage}`, error);
-
-            set({ uiError: errorMessage });
-
-            get().addNotification?.({
-                type: 'error',
-                message: `Failed to close modals: ${errorMessage}`,
-                duration: 5000,
-            });
+            set({ globalError: errorMessage }); // ⚠️ MODIFIED: Use new name
         }
     },
 
-    resetUIState: () => {
+    resetGlobalUIState: () => {
+        // ⚠️ RENAMED: from 'resetUIState'
         try {
-            logger.info(`[${SLICE}] 🔄 Resetting UI state`);
+            logger.info(`[${SLICE}] 🔄 Resetting global UI state`);
 
-            // Dismiss any active toasts
             try {
                 toast.dismiss();
             } catch (toastError) {
@@ -324,20 +267,27 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
             }
 
             set({
-                modals: {},
-                isLoading: false,
-                loadingMessage: undefined,
-                uiError: null,
+                globalModals: {}, // ⚠️ MODIFIED: Use new name
+                globalLoading: { isActive: false, message: undefined, source: undefined }, // ⚠️ MODIFIED: Use new structure
+                globalError: null,
             });
 
-            logger.info(`[${SLICE}] ✅ UI state reset successfully`);
+            logger.info(`[${SLICE}] ✅ Global UI state reset successfully`);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to reset UI state';
-
             logger.error(`[${SLICE}] ❌ UI state reset failed: ${errorMessage}`, error);
-
-            // Set minimal error state
-            set({ uiError: errorMessage });
+            set({ globalError: errorMessage }); // ⚠️ MODIFIED: Use new name
         }
+    },
+
+    // ✅ ADDED: Helper method to check if any domain loading is active
+    isAnyDomainLoading: () => {
+        const state = get();
+        return (
+            state.isLoading || // Knowledge loading
+            state.isGenerating || // LLM loading
+            state.speechIsProcessing || // Speech loading
+            state.globalLoading.isActive // Global loading
+        );
     },
 });

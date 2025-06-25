@@ -2,20 +2,21 @@
 'use client';
 
 import { AIErrorBoundary, InlineErrorBoundary, SpeechErrorBoundary } from '@/components/error-boundary';
+import { SimplifiedCallModal } from '@/components/SimplifiedCallModal';
 import { Button, Card, CardContent, CardHeader, CardTitle, Separator } from '@/components/ui';
 import { logger } from '@/modules';
 import {
-    useConversationMessages,
-    useCallContext, //
+    useCallContext,
+    useConversationMessages, //
     useKnowledge,
     useLLM,
+    useSpeech,
     useStreamingResponse,
     useUI,
-    useSpeech,
 } from '@/stores/hooks/useSelectors';
 import { CallContext } from '@/types/callContext';
 import { ArrowRight, MessageSquare } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
     ConversationContext,
     ConversationInsights,
@@ -26,7 +27,6 @@ import {
     TopNavigationBar,
     VoiceControls,
 } from './_components';
-import { SimplifiedCallModal } from '@/components/SimplifiedCallModal';
 
 export default function ChatPage() {
     /* ------------------------------------------------------------------ *
@@ -54,15 +54,19 @@ export default function ChatPage() {
         cancelCurrentRequest,
     } = useLLM();
 
-    const {
-        context: callContext,
-        isModalOpen: showRoleModal,
-        setCallContext,
-        openSetupModal,
-        closeSetupModal,
-    } = useCallContext(); // ✅ Updated from useInterview
+    const { context: callContext, openSetupModal, closeSetupModal } = useCallContext();
 
-    const { addNotification, isLoading: uiLoading } = useUI();
+    // ✅ UPDATED: Use proper global modal state check
+    const {
+        addNotification,
+        globalLoading,
+        globalModals,
+        setGlobalLoading, // ⚠️ RENAMED: from setLoading
+        isAnyDomainLoading,
+    } = useUI();
+
+    // ✅ ADDED: Check if setup modal is open using global modal system
+    const showRoleModal = globalModals['call-setup-modal']?.isOpen ?? false;
 
     const {
         isRecording,
@@ -81,13 +85,12 @@ export default function ChatPage() {
     const streamedContent = currentStreamingResponse?.content || '';
     const isStreamingComplete = currentStreamingResponse?.isComplete ?? true;
 
-    // ✅ Get conversation messages from store
     const conversationMessages = useConversationMessages('main');
 
     /* ------------------------------------------------------------------ *
      * 🎙️  LOCAL STATE (only for UI-specific things)
      * ------------------------------------------------------------------ */
-    const [isLocalLoading, setIsLocalLoading] = useState(false);
+    // const [isLocalLoading, setIsLocalLoading] = useState(false);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const visualizationStartedRef = useRef(false);
 
@@ -149,15 +152,29 @@ export default function ChatPage() {
     const handleCallStart = useCallback(
         (context: CallContext) => {
             logger.info('[ChatPage] 🚀 Starting call with context:', context);
-            setCallContext(context);
+
+            // ✅ IMPROVED: Set call context (this will handle notifications via the slice)
+            const { setCallContext } = useCallContext.getState?.() || {};
+            if (setCallContext) {
+                setCallContext(context);
+            }
+
             closeSetupModal();
+
+            // ✅ IMPROVED: Use global loading for app-level operation
+            setGlobalLoading(true, 'Initializing knowledge base...', 'ChatPage');
 
             // ✅ Safely initialize knowledge base
             initializeKnowledgeBase()
-                .then(() => logger.info('[ChatPage] ✅ Knowledge base initialized'))
+                .then(() => {
+                    logger.info('[ChatPage] ✅ Knowledge base initialized');
+                    setGlobalLoading(false);
+                })
                 .catch(err => {
                     logger.error('[ChatPage] ❌ KB init failed', err);
-                    // Don't block the call if KB init fails
+                    setGlobalLoading(false);
+
+                    // Notification will be handled by notification middleware
                     addNotification?.({
                         type: 'warning',
                         message: 'Knowledge base initialization failed, but you can still use the app',
@@ -165,7 +182,7 @@ export default function ChatPage() {
                     });
                 });
         },
-        [setCallContext, closeSetupModal, initializeKnowledgeBase, addNotification]
+        [closeSetupModal, initializeKnowledgeBase, addNotification, setGlobalLoading]
     );
 
     const handleModalClose = useCallback(() => {
@@ -173,11 +190,9 @@ export default function ChatPage() {
         closeSetupModal();
     }, [closeSetupModal]);
 
-    // Add error handling effect
     useEffect(() => {
         if (llmError) {
             logger.error('[ChatPage] LLM Error detected:', llmError);
-            // Auto-clear error after showing it
             const timer = setTimeout(() => {
                 clearLLMError();
             }, 10000);
@@ -202,32 +217,32 @@ export default function ChatPage() {
 
         logger.debug('[ChatPage] ▶️ handleMove triggered, tokens', combined.split(' ').length);
 
-        // Clear any existing errors
         if (llmError) {
             clearLLMError();
         }
 
         try {
-            setIsLocalLoading(true);
+            // ❌ REMOVED: Local loading state management
+            // setIsLocalLoading(true);
+
             await generateResponse(combined);
             clearTranscripts();
 
-            addNotification?.({
-                type: 'success',
-                message: 'Response generated successfully',
-                duration: 3_000,
-            });
+            // ✅ IMPROVED: Notification will be handled by slice/middleware
+            // No need for manual success notification here
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             logger.error('[ChatPage] ❌ generateResponse failed', msg);
 
+            // ✅ IMPROVED: Error notification will be handled by middleware
             addNotification?.({
                 type: 'error',
                 message: 'Failed to generate response',
                 duration: 5_000,
             });
         } finally {
-            setIsLocalLoading(false);
+            // ❌ REMOVED: Local loading state cleanup
+            // setIsLocalLoading(false);
         }
     }, [
         interimTranscripts,
@@ -245,31 +260,30 @@ export default function ChatPage() {
     const handleSuggest = useCallback(async () => {
         logger.debug('[ChatPage] 💡 handleSuggest triggered');
 
-        // Clear any existing errors
         if (llmError) {
             clearLLMError();
         }
 
         try {
-            setIsLocalLoading(true);
+            // ❌ REMOVED: Local loading state management
+            // setIsLocalLoading(true);
+
             await generateSuggestions();
 
-            addNotification?.({
-                type: 'success',
-                message: 'Strategic intelligence generated',
-                duration: 3_000,
-            });
+            // ✅ IMPROVED: Success notification will be handled by slice/middleware
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             logger.error('[ChatPage] ❌ generateSuggestions failed', msg);
 
+            // ✅ IMPROVED: Error notification will be handled by middleware
             addNotification?.({
                 type: 'error',
                 message: 'Failed to generate suggestions',
                 duration: 5_000,
             });
         } finally {
-            setIsLocalLoading(false);
+            // ❌ REMOVED: Local loading state cleanup
+            // setIsLocalLoading(false);
         }
     }, [generateSuggestions, addNotification, llmError, clearLLMError]);
 
@@ -313,21 +327,21 @@ export default function ChatPage() {
         };
 
         draw();
-    }, []); // ✅ Empty dependency array since this function is pure
+    }, []);
 
-    // ✅ Now the useEffect has all its dependencies properly listed
-    useEffect(() => {
-        if (isRecording && canvasRef.current && !visualizationStartedRef.current) {
-            const mediaStream = getMediaStream();
-            if (mediaStream) {
-                startAudioVisualization(canvasRef.current, mediaStream);
-                visualizationStartedRef.current = true;
-            }
-        } else if (!isRecording && visualizationStartedRef.current) {
-            logger.info('[ChatPage] 🎨 Stopping audio visualization');
-            visualizationStartedRef.current = false;
-        }
-    }, [isRecording, getMediaStream, startAudioVisualization]); // ✅ All dependencies included
+    // // ✅ Now the useEffect has all its dependencies properly listed
+    // useEffect(() => {
+    //     if (isRecording && canvasRef.current && !visualizationStartedRef.current) {
+    //         const mediaStream = getMediaStream();
+    //         if (mediaStream) {
+    //             startAudioVisualization(canvasRef.current, mediaStream);
+    //             visualizationStartedRef.current = true;
+    //         }
+    //     } else if (!isRecording && visualizationStartedRef.current) {
+    //         logger.info('[ChatPage] 🎨 Stopping audio visualization');
+    //         visualizationStartedRef.current = false;
+    //     }
+    // }, [isRecording, getMediaStream, startAudioVisualization]); // ✅ All dependencies included
 
     // ✅ DRAMATICALLY SIMPLIFIED: Just calls slice action
     const handleStartRecording = useCallback(async () => {
@@ -335,94 +349,15 @@ export default function ChatPage() {
 
         try {
             await startRecording();
-
-            // // 2. Get microphone access for visualization
-            // const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            // mediaStreamRef.current = stream;
-
-            // // 3. Initialize Web Speech API
-            // const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            // if (!SpeechRecognition) {
-            //     throw new Error('Speech recognition not supported');
-            // }
-
-            // const recognition = new SpeechRecognition();
-            // recognition.continuous = true;
-            // recognition.interimResults = true;
-            // recognition.lang = 'en-US';
-
-            // recognition.onresult = event => {
-            //     let finalTranscript = '';
-            //     let interimTranscript = '';
-
-            //     for (let i = event.resultIndex; i < event.results.length; i++) {
-            //         const transcript = event.results[i][0].transcript;
-            //         if (event.results[i].isFinal) {
-            //             finalTranscript += transcript + ' ';
-            //         } else {
-            //             interimTranscript += transcript;
-            //         }
-            //     }
-
-            //     handleRecognitionResult(finalTranscript.trim(), interimTranscript.trim());
-            // };
-
-            // recognition.onerror = event => {
-            //     logger.error('[ChatPage] Recognition error:', event.error);
-            //     // Update store error state
-            //     addNotification?.({
-            //         type: 'error',
-            //         message: `Speech recognition error: ${event.error}`,
-            //         duration: 5000,
-            //     });
-            // };
-
-            // recognition.onend = () => {
-            //     logger.info('[ChatPage] Recognition ended');
-            //     // Update store state
-            //     stopRecording();
-            // };
-
-            // recognitionRef.current = recognition;
-            // recognition.start();
-
-            // // 4. Start audio visualization
-            // if (canvasRef.current && !visualizationStartedRef.current) {
-            //     logger.info('[ChatPage] 🎨 Starting audio visualization');
-            //     startAudioVisualization(canvasRef.current);
-            //     visualizationStartedRef.current = true;
-            // }
+            // ✅ IMPROVED: Notification will be handled by slice/middleware
         } catch (error) {
             logger.error('[ChatPage] ❌ Start recording failed:', error);
-
-            // Make sure to update store error state
-            // addNotification?.({
-            //     type: 'error',
-            //     message: err instanceof Error ? err.message : 'Failed to start recording',
-            //     duration: 5000,
-            // });
+            // ✅ IMPROVED: Error notification will be handled by middleware
         }
     }, [startRecording]);
 
     const handleStopRecording = useCallback(() => {
         logger.info('[ChatPage] ⏹️ Calling slice stopRecording action');
-
-        // // Stop recognition
-        // if (recognitionRef.current) {
-        //     recognitionRef.current.stop();
-        //     recognitionRef.current = null;
-        // }
-
-        // // Stop media stream
-        // if (mediaStreamRef.current) {
-        //     mediaStreamRef.current.getTracks().forEach(track => track.stop());
-        //     mediaStreamRef.current = null;
-        // }
-
-        // // Stop visualization
-        // visualizationStartedRef.current = false;
-
-        // Update store state
         stopRecording();
     }, [stopRecording]);
 
@@ -449,6 +384,13 @@ export default function ChatPage() {
     }
 
     /* ------------------------------------------------------------------ *
+     * 🎯  IMPROVED: Better loading state logic
+     * ------------------------------------------------------------------ */
+    // ✅ IMPROVED: Use consolidated loading state check
+    const isAnyOperationLoading = isAnyDomainLoading();
+    const canPerformActions = (!isAnyOperationLoading && currentTranscript) || interimTranscripts.length > 0;
+
+    /* ------------------------------------------------------------------ *
      * 🖼️  MAIN UI
      * ------------------------------------------------------------------ */
     return (
@@ -466,6 +408,21 @@ export default function ChatPage() {
                 />
             </InlineErrorBoundary>
 
+            {/* ✅ IMPROVED: Global loading overlay */}
+            {globalLoading.isActive && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-xl">
+                        <div className="flex items-center space-x-3">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                            <span className="text-lg font-medium">{globalLoading.message || 'Loading...'}</span>
+                        </div>
+                        {globalLoading.source && (
+                            <p className="text-sm text-gray-500 mt-2">Source: {globalLoading.source}</p>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* ════════════════════════  MAIN GRID ════════════════════════ */}
             <div className="grid min-h-0 flex-1 grid-cols-12 gap-6 overflow-hidden">
                 {/* LEFT: Chat */}
@@ -475,6 +432,10 @@ export default function ChatPage() {
                             <CardTitle className="flex items-center gap-2 text-lg">
                                 <MessageSquare className="h-5 w-5" />
                                 Conversation
+                                {/* ✅ IMPROVED: Show loading indicator in title when needed */}
+                                {(isGeneratingResponse || isGenerating) && (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 ml-2"></div>
+                                )}
                             </CardTitle>
                         </CardHeader>
 
@@ -491,10 +452,7 @@ export default function ChatPage() {
 
                             <Separator className="flex-shrink-0" />
 
-                            <div
-                                id="chat-input"
-                                className="flex max-h-52 flex-col overflow-y-auto rounded-lg border border-gray-800 bg-background p-3 shadow-none md:p-4"
-                            >
+                            <div className="flex max-h-52 flex-col overflow-y-auto rounded-lg border border-gray-800 bg-background p-3 shadow-none md:p-4">
                                 <LiveTranscriptionBox
                                     id="preChat"
                                     interimTranscriptions={interimTranscripts}
@@ -502,7 +460,6 @@ export default function ChatPage() {
                                     className="flex-1"
                                 />
 
-                                {/* Show LLM error if present */}
                                 {llmError && (
                                     <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-xs">
                                         <div className="flex items-center justify-between">
@@ -520,20 +477,14 @@ export default function ChatPage() {
                                 <Button
                                     variant="move"
                                     onClick={handleMove}
-                                    disabled={
-                                        uiLoading ||
-                                        isGenerating ||
-                                        isGeneratingResponse ||
-                                        isLocalLoading ||
-                                        (!currentTranscript && interimTranscripts.length === 0)
-                                    }
+                                    disabled={!canPerformActions} // ✅ IMPROVED: Use consolidated check
                                     className="mt-2 inline-flex h-8 items-center justify-center gap-1.5 self-end whitespace-nowrap rounded-md bg-blue-500 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-600 disabled:pointer-events-none disabled:opacity-50"
                                 >
                                     <ArrowRight className="mr-1 h-4 w-4" />
-                                    {uiLoading || isLocalLoading || isGeneratingResponse ? 'Generating…' : 'Move'}
+                                    {/* ✅ IMPROVED: Better loading state display */}
+                                    {isGeneratingResponse ? 'Generating…' : 'Move'}
                                 </Button>
 
-                                {/* Add cancel button when generating */}
                                 {(isGeneratingResponse || isGeneratingSuggestions) && (
                                     <Button
                                         variant="outline"
@@ -574,7 +525,7 @@ export default function ChatPage() {
                                 <ConversationInsights
                                     suggestions={conversationSuggestions}
                                     onSuggest={handleSuggest}
-                                    isLoading={isGenerating || isLocalLoading}
+                                    isLoading={isGenerating} // ✅ IMPROVED: Use specific loading state
                                 />
                             </AIErrorBoundary>
                         </div>

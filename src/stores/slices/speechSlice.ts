@@ -126,45 +126,6 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechSlice> = (s
 
             logger.info('[SpeechSlice] ✅ Speech recognition started successfully');
 
-            // const mediaRecorder = new MediaRecorder(stream, {
-            //     mimeType: 'audio/webm;codecs=opus',
-            // });
-
-            // const audioChunks: Blob[] = [];
-
-            // mediaRecorder.ondataavailable = event => {
-            //     if (event.data.size > 0) {
-            //         audioChunks.push(event.data);
-            //     }
-            // };
-
-            // mediaRecorder.onstop = () => {
-            //     const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            //     const sessionId = Date.now().toString();
-
-            //     set(state => ({
-            //         audioSessions: new Map(state.audioSessions).set(sessionId, {
-            //             id: sessionId,
-            //             audioBlob,
-            //             processedAt: new Date(),
-            //         }),
-            //         isRecording: false,
-            //     }));
-
-            //     // Automatically process the audio
-            //     get().processAudioSession(sessionId);
-            // };
-
-            // mediaRecorder.start();
-
-            // set({
-            //     isRecording: true,
-            //     recognitionStatus: 'active',
-            // });
-
-            // Store mediaRecorder reference for stopping
-            // In a real implementation, you'd store this in the state
-
             logger.info('Speech recognition state updated to active');
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to start recording';
@@ -245,79 +206,6 @@ export const createSpeechSlice: StateCreator<AppState, [], [], SpeechSlice> = (s
     getMediaStream: () => {
         return get()._mediaStream;
     },
-
-    // /**
-    //  * 📡 Processes an audio blob from a session via API
-    //  * Adds transcription and confidence back to state
-    //  */
-    // processAudioSession: async (sessionId: string) => {
-    //     const audioSession = get().audioSessions.get(sessionId);
-
-    //     if (!audioSession?.audioBlob) {
-    //         get().addNotification({
-    //             type: 'warning',
-    //             message: 'No audio data to process',
-    //             duration: 3000,
-    //         });
-    //         logger.debug('processAudioSession called but not needed with Web Speech Recognition');
-    //         return '';
-    //     }
-
-    //     set({ speechIsProcessing: true });
-
-    //     try {
-    //         // Create form data for audio transcription
-    //         const formData = new FormData();
-    //         formData.append('audio', audioSession.audioBlob, 'recording.webm');
-
-    //         const response = await fetch('/api/transcribe', {
-    //             method: 'POST',
-    //             body: formData,
-    //         });
-
-    //         if (!response.ok) {
-    //             throw new Error(`Transcription failed: ${response.statusText}`);
-    //         }
-
-    //         const { text, confidence } = await response.json();
-
-    //         // Update audio session with transcription result
-    //         set(state => ({
-    //             audioSessions: new Map(state.audioSessions).set(sessionId, {
-    //                 ...audioSession,
-    //                 transcription: text,
-    //                 confidence,
-    //             }),
-    //             speechIsProcessing: false,
-    //         }));
-
-    //         get().addNotification({
-    //             type: 'success',
-    //             message: `Transcription complete: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`,
-    //             duration: 5000,
-    //         });
-
-    //         logger.info(`Audio transcribed: ${text.length} characters, confidence: ${confidence}`);
-
-    //         return text;
-    //     } catch (error) {
-    //         const errorMessage = error instanceof Error ? error.message : 'Transcription failed';
-
-    //         set({
-    //             speechIsProcessing: false,
-    //             speechError: errorMessage,
-    //         });
-
-    //         get().addNotification({
-    //             type: 'error',
-    //             message: `Transcription failed: ${errorMessage}`,
-    //             duration: 8000,
-    //         });
-
-    //         logger.error('Audio processing failed:', error);
-    //         return '';
-    //     }
-    // },
 
     /**
      * 🧹 Clears all audio sessions and transcripts from state
