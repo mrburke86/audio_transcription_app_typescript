@@ -1,4 +1,5 @@
 // src/hooks/useTranscriptions.ts
+"use client";
 import { useCallback, useState, useEffect } from 'react';
 import { Message } from '../types/Message';
 import { logger } from '@/modules/Logger';

@@ -1,8 +1,8 @@
 // src\app\admin\knowledge\page.tsx
 'use client';
 import { useState } from 'react';
-import { useKnowledge } from '@/contexts/KnowledgeProvider'; // Adjust path
-import { Button } from '@/components/ui/button'; // Assuming you use ShadCN
+import { useKnowledge } from '@/contexts/KnowledgeProvider';
+import { Button } from '@/components/ui/button'; 
 
 export default function AdminKnowledgePage() {
     const [isLoading, setIsLoading] = useState(false);
@@ -21,7 +21,7 @@ export default function AdminKnowledgePage() {
                 throw new Error(data.message || `HTTP error! status: ${response.status}`);
             }
             setMessage(data.message || 'Indexing completed successfully!');
-            await refreshIndexedDocumentsCount(); // Refresh count in the provider
+            await refreshIndexedDocumentsCount(); 
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             setMessage(`Error indexing knowledge: ${errorMessage}`);

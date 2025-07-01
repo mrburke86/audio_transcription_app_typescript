@@ -1,4 +1,5 @@
 // src/components/interview-modal/InterviewModalContext.tsx
+"use client";
 import { createContext, useContext } from 'react';
 import { InitialInterviewContext } from '@/types';
 import { useInterviewContextForm } from '@/hooks';

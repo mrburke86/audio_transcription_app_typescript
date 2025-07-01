@@ -1,4 +1,5 @@
 // src/components/interview-modal/InterviewModalFooter.tsx
+"use client";
 import { Button } from '@/components/ui/button';
 import { useInterviewModal } from './InterviewModalContext';
 

@@ -1,4 +1,5 @@
 // src/hooks/useSpeechRecognition.ts
+"use client";
 import { useCallback, useRef } from 'react';
 import { logger } from '@/modules/Logger';
 // import { usePerformance } from "@/contexts/PerformanceContext";

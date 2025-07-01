@@ -1,4 +1,5 @@
 // src/hooks/useDynamicList.ts
+"use client";
 import { useState, useCallback } from 'react';
 
 export function useDynamicList<T = string>(initialItems: T[] = []) {

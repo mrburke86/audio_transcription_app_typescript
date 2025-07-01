@@ -1,4 +1,5 @@
 // src\components\interview-modal\components\InterviewModalTabs.tsx
+"use client";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { InterviewDetailsTab } from './tabs/InterviewDetailsTab';
 import { ResponseSettingsTab } from './tabs/ResponseSettingsTab';

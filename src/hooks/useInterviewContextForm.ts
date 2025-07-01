@@ -1,4 +1,5 @@
 // src\hooks\useInterviewContextForm.ts
+"use client";
 import { useState, useCallback } from 'react';
 import { InitialInterviewContext } from '@/types';
 

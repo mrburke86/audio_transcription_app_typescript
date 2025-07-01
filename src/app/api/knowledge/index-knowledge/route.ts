@@ -5,7 +5,6 @@ import path from 'path';
 import { initQdrantClient, ensureKnowledgeCollection, processAndUpsertDocument } from '@/services/QdrantService';
 import { logger } from '@/modules/Logger';
 
-// Define knowledge file paths - split into categories for better management
 const CORE_KNOWLEDGE_FILES = [
     '/knowledge/My_Career_Summary_Achievements.md',
     '/knowledge/My_Career_Summary_Sales_Achievements.md',
@@ -85,7 +84,7 @@ export async function POST(_request: Request) {
                     errors: result.errors,
                     details: result.processingDetails,
                 },
-                { status: 207 } // Multi-Status
+                { status: 207 }
             );
         }
 
