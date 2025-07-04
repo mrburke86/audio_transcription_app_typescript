@@ -2,7 +2,6 @@
 "use client";
 import { useCallback, useRef } from 'react';
 import { logger } from '@/modules/Logger';
-// import { usePerformance } from "@/contexts/PerformanceContext";
 
 // Define custom error type for non-standard errors
 export interface CustomSpeechError {
@@ -47,19 +46,6 @@ export const useSpeechRecognition = ({ onStart, onEnd, onError, onResult }: Spee
             // onstart - start the recognition
             recognition.current.onstart = () => {
                 onStart();
-                // performance.mark('speechRecognition_onstart');
-                // performance.measure('speechRecognition_setup_time', 'speechRecognition_start', 'speechRecognition_onstart');
-                // const measures = performance.getEntriesByName('speechRecognition_setup_time');
-                // if (measures.length > 0) {
-                //     const measure = measures[0];
-                // addEntry({
-                //     name: "speechRecognition_setup_time",
-                //     duration: measure.duration,
-                //     startTime: measure.startTime,
-                //     endTime: measure.startTime + measure.duration,
-                // });
-                //     logger.performance(`Speech recognition setup time: ${measure.duration.toFixed(2)}ms`);
-                // }
                 isRestartingRef.current = false; // Clear the restarting flag when successfully started
             };
 
@@ -127,8 +113,6 @@ export const useSpeechRecognition = ({ onStart, onEnd, onError, onResult }: Spee
             };
         }
 
-        // performance.mark('speechRecognition_start');
-
         // Ensure we're not trying to start while already starting
         if (!isRestartingRef.current) {
             isRestartingRef.current = true; // Indicate we're starting
@@ -182,50 +166,6 @@ export const useSpeechRecognition = ({ onStart, onEnd, onError, onResult }: Spee
             audioContext.current = null;
         }
     }, []);
-
-    // const startAudioVisualization = useCallback((canvas: HTMLCanvasElement) => {
-    //     const canvasCtx = canvas.getContext('2d');
-    //     if (!canvasCtx) return;
-
-    //     audioContext.current = new (window.AudioContext || window.AudioContext)();
-    //     analyser.current = audioContext.current.createAnalyser();
-    //     analyser.current.fftSize = 256;
-
-    //     navigator.mediaDevices
-    //         .getUserMedia({ audio: true, video: false })
-    //         .then(stream => {
-    //             mediaStream.current = stream;
-    //             microphone.current = audioContext.current!.createMediaStreamSource(stream);
-    //             microphone.current.connect(analyser.current!);
-
-    //             const bufferLength = analyser.current!.frequencyBinCount;
-    //             const dataArray = new Uint8Array(bufferLength);
-
-    //             const draw = () => {
-    //                 animationFrameId.current = requestAnimationFrame(draw);
-    //                 analyser.current!.getByteFrequencyData(dataArray);
-
-    //                 canvasCtx.fillStyle = 'rgb(25, 25, 25)';
-    //                 canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
-
-    //                 const barWidth = (canvas.width / bufferLength) * 2.5;
-    //                 let x = 0;
-
-    //                 for (let i = 0; i < bufferLength; i++) {
-    //                     const barHeight = (dataArray[i] / 255) * (canvas.height * 0.6); // Reduce bar height to 60% of canvas height
-
-    //                     canvasCtx.fillStyle = `rgb(50, ${dataArray[i] + 100}, 50)`;
-    //                     canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-
-    //                     x += barWidth + 1;
-    //                     if (x > canvas.width) break; // Prevent drawing outside the canvas
-    //                 }
-    //             };
-
-    //             draw();
-    //         })
-    //         .catch(err => console.error('Error accessing microphone:', err));
-    // }, []);
 
     const startAudioVisualization = useCallback((canvas: HTMLCanvasElement) => {
         const canvasCtx = canvas.getContext('2d');

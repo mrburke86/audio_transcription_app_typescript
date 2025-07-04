@@ -5,8 +5,8 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Separator } from '@/c
 import { useKnowledge } from '@/contexts';
 import { CustomSpeechError, useLLMProviderOptimized, useSpeechRecognition, useTranscriptions } from '@/hooks';
 import { logger } from '@/modules';
-import { InitialInterviewContext, Message } from '@/types';
-import { ArrowRight, MessageSquare, X } from 'lucide-react';
+import { Message } from '@/types';
+import { ArrowRight, MessageSquare, Settings, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ConversationContext,
@@ -18,12 +18,20 @@ import {
     TopNavigationBar,
     VoiceControls,
 } from './_components';
-import { InterviewModalProvider } from '@/components/interview-modal/InterviewModalContext';
-import { InterviewModalTabs } from '@/components/interview-modal/InterviewModalTabs';
-import { InterviewModalFooter } from '@/components/interview-modal/InterviewModalFooter';
+// import { InterviewModalProvider } from '@/components/interview-modal/InterviewModalContext';
+// import { InterviewModalTabs } from '@/components/interview-modal/InterviewModalTabs';
+// import { InterviewModalFooter } from '@/components/interview-modal/InterviewModalFooter';
 import { AIErrorBoundary, InlineErrorBoundary, SpeechErrorBoundary } from '@/components/error-boundary';
+import { useInterviewContext } from '@/hooks/useInterviewContext'; // ✅ Added
+import { useChatPageProtection } from '@/hooks/useRouteProtection'; // ✅ Added
 
 export default function ChatPage() {
+    // ✅ Add route protection - this ensures users have valid context before accessing chat
+    const { isAllowed, isLoading: protectionLoading } = useChatPageProtection();
+    
+    // ✅ Get context from storage instead of managing it locally
+    const { context: initialInterviewContext, hasValidContext } = useInterviewContext();
+
     // Knowledge context for the optimized system
     const {
         isLoading: knowledgeLoading,
@@ -36,7 +44,7 @@ export default function ChatPage() {
     const [conversationHistory, setConversationHistory] = useState<Message[]>([]);
     const [recognitionStatus, setRecognitionStatus] = useState<'inactive' | 'active' | 'error'>('inactive');
     // State to manage the display of the modal
-    const [showRoleModal, setShowRoleModal] = useState<boolean>(false);
+    // const [showRoleModal, setShowRoleModal] = useState<boolean>(false);
     // State for speech recognition specific errors
     const [speechErrorMessage, setSpeechErrorMessage] = useState<string | null>(null);
 
@@ -44,19 +52,39 @@ export default function ChatPage() {
     const visualizationStartedRef = useRef(false);
 
     // State to manage roleDescription
-    const [initialInterviewContext, setInitialInterviewContext] = useState<InitialInterviewContext | null>(null);
+    // const [initialInterviewContext, setInitialInterviewContext] = useState<InitialInterviewContext | null>(null);
 
-    // ADDED: Handle interview start function
-    const handleInterviewStart = useCallback((context: InitialInterviewContext) => {
-        logger.info('🚀 Starting interview with context:', context);
-        setInitialInterviewContext(context);
-        setShowRoleModal(false);
-    }, []);
+    // // ADDED: Handle interview start function
+    // const handleInterviewStart = useCallback((context: InitialInterviewContext) => {
+    //     logger.info('🚀 Starting interview with context:', context);
+    //     setInitialInterviewContext(context);
+    //     setShowRoleModal(false);
+    // }, []);
 
-    // ADDED: Handle modal close
-    const handleModalClose = useCallback(() => {
-        setShowRoleModal(false);
-    }, []);
+    // // ADDED: Handle modal close
+    // const handleModalClose = useCallback(() => {
+    //     setShowRoleModal(false);
+    // }, []);
+
+    // ✅ Add validation to ensure we have context (belt and suspenders approach)
+    useEffect(() => {
+        if (!protectionLoading && isAllowed && !hasValidContext) {
+            logger.error('❌ Chat page accessed without valid context - this should not happen due to route protection');
+            // Emergency fallback - redirect to context capture
+            window.location.href = '/capture-context';
+        }
+    }, [protectionLoading, isAllowed, hasValidContext]);
+
+    // ✅ Log when context is successfully loaded
+    useEffect(() => {
+        if (initialInterviewContext) {
+            logger.info('✅ Chat page loaded with valid context:', {
+                role: initialInterviewContext.targetRole,
+                company: initialInterviewContext.targetCompany,
+                type: initialInterviewContext.interviewType
+            });
+        }
+    }, [initialInterviewContext]);
 
     // Memoize getUserFriendlyError with useCallback
     const getUserFriendlyError = useCallback((errorCode: string): string => {
@@ -82,14 +110,15 @@ export default function ChatPage() {
         }
     }, []);
 
-    // Show modal on mount if initial interview context is empty
-    useEffect(() => {
-        if (!initialInterviewContext) {
-            setShowRoleModal(true);
-        }
-    }, [initialInterviewContext]);
+    // // Show modal on mount if initial interview context is empty
+    // useEffect(() => {
+    //     if (!initialInterviewContext) {
+    //         setShowRoleModal(true);
+    //     }
+    // }, [initialInterviewContext]);
 
     const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+
     // Use the optimized LLM provider instead of the old one
     const {
         generateResponse,
@@ -205,6 +234,40 @@ export default function ChatPage() {
         }
     }, [generateSuggestions]);
 
+    // ✅ Add context validation button for debugging/support
+    const handleContextInfo = () => {
+        if (initialInterviewContext) {
+            logger.info('📋 Current context:', {
+                role: initialInterviewContext.targetRole,
+                company: initialInterviewContext.targetCompany,
+                type: initialInterviewContext.interviewType,
+                goals: initialInterviewContext.goals.length,
+                experiences: initialInterviewContext.emphasizedExperiences.length
+            });
+        }
+    };
+
+    // ✅ Show protection loading screen if still validating
+    if (protectionLoading) {
+        return (
+            <LoadingState
+                message="Validating Interview Session..."
+                subMessage="Checking your setup and permissions."
+            />
+        );
+    }
+
+    // ✅ This should not happen due to route protection, but safety check
+    if (!isAllowed) {
+        return (
+            <ErrorState
+                title="Access Denied"
+                message="You need to complete interview setup before accessing the chat."
+                onRetry={() => window.location.href = '/capture-context'}
+            />
+        );
+    }
+
     // Show full-screen loading if knowledge is still loading
     if (knowledgeLoading) {
         return (
@@ -231,39 +294,21 @@ export default function ChatPage() {
         return <ErrorState title="AI Provider Error" message={error} onRetry={() => window.location.reload()} />;
     }
 
+    // ✅ Safety check - ensure we have context before proceeding (should be guaranteed by route protection)
+    if (!initialInterviewContext) {
+        logger.error('❌ No interview context available in chat page - redirecting to setup');
+        return (
+            <ErrorState
+                title="Setup Required"
+                message="Interview context is missing. Please complete the setup process."
+                onRetry={() => window.location.href = '/capture-context'}
+            />
+        );
+    }
+
     return (
         <div className="flex flex-col h-full overflow-hidden p-1 gap-4">
-            {/* Enhanced Interview Setup Modal */}
-            {showRoleModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center">
-                    {/* Backdrop */}
-                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleModalClose} />
-
-                    {/* Modal Content */}
-                    <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden mx-4">
-                        {/* Header */}
-                        <div className="flex items-center justify-between p-6 border-b">
-                            <h2 className="text-xl font-semibold">🎯 Interview Setup</h2>
-                            <Button variant="ghost" size="sm" onClick={handleModalClose} className="h-8 w-8 p-0">
-                                <X className="h-4 w-4" />
-                            </Button>
-                        </div>
-
-                        {/* Modal Body */}
-                        <InterviewModalProvider onSubmit={handleInterviewStart}>
-                            <div className="overflow-y-auto max-h-[calc(90vh-140px)]">
-                                <div className="p-6">
-                                    <InterviewModalTabs />
-                                    <div className="mt-6">
-                                        <InterviewModalFooter />
-                                    </div>
-                                </div>
-                            </div>
-                        </InterviewModalProvider>
-                    </div>
-                </div>
-            )}
-
+            
             {/* Top Navigation Bar */}
             <InlineErrorBoundary>
                 <TopNavigationBar
@@ -271,7 +316,19 @@ export default function ChatPage() {
                     errorMessage={speechErrorMessage}
                     knowledgeBaseName={knowledgeBaseName}
                     indexedDocumentsCount={indexedDocumentsCount}
-                />
+                    />
+                    
+                    {/* ✅ Add context indicator */}
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleContextInfo}
+                        className="text-xs text-slate-500 hover:text-slate-700"
+                        title="View current interview context"
+                    >
+                        <Settings className="h-3 w-3 mr-1" />
+                        {initialInterviewContext.targetRole} @ {initialInterviewContext.targetCompany}
+                    </Button>
             </InlineErrorBoundary>
 
             <div className="grid grid-cols-12 gap-6 flex-1 min-h-0 overflow-hidden">
