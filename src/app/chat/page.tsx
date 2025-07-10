@@ -18,9 +18,6 @@ import {
     TopNavigationBar,
     VoiceControls,
 } from './_components';
-// import { InterviewModalProvider } from '@/components/interview-modal/InterviewModalContext';
-// import { InterviewModalTabs } from '@/components/interview-modal/InterviewModalTabs';
-// import { InterviewModalFooter } from '@/components/interview-modal/InterviewModalFooter';
 import { AIErrorBoundary, InlineErrorBoundary, SpeechErrorBoundary } from '@/components/error-boundary';
 import { useInterviewContext } from '@/hooks/useInterviewContext'; // ✅ Added
 import { useChatPageProtection } from '@/hooks/useRouteProtection'; // ✅ Added
@@ -43,28 +40,10 @@ export default function ChatPage() {
     // Unified Conversation History (from userMessages)
     const [conversationHistory, setConversationHistory] = useState<Message[]>([]);
     const [recognitionStatus, setRecognitionStatus] = useState<'inactive' | 'active' | 'error'>('inactive');
-    // State to manage the display of the modal
-    // const [showRoleModal, setShowRoleModal] = useState<boolean>(false);
-    // State for speech recognition specific errors
     const [speechErrorMessage, setSpeechErrorMessage] = useState<string | null>(null);
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const visualizationStartedRef = useRef(false);
-
-    // State to manage roleDescription
-    // const [initialInterviewContext, setInitialInterviewContext] = useState<InitialInterviewContext | null>(null);
-
-    // // ADDED: Handle interview start function
-    // const handleInterviewStart = useCallback((context: InitialInterviewContext) => {
-    //     logger.info('🚀 Starting interview with context:', context);
-    //     setInitialInterviewContext(context);
-    //     setShowRoleModal(false);
-    // }, []);
-
-    // // ADDED: Handle modal close
-    // const handleModalClose = useCallback(() => {
-    //     setShowRoleModal(false);
-    // }, []);
 
     // ✅ Add validation to ensure we have context (belt and suspenders approach)
     useEffect(() => {
@@ -109,13 +88,6 @@ export default function ChatPage() {
                 return 'An unexpected error occurred with speech recognition.';
         }
     }, []);
-
-    // // Show modal on mount if initial interview context is empty
-    // useEffect(() => {
-    //     if (!initialInterviewContext) {
-    //         setShowRoleModal(true);
-    //     }
-    // }, [initialInterviewContext]);
 
     const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
 
