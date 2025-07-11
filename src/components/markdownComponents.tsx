@@ -1,7 +1,6 @@
 // src\components\markdownComponents.tsx
 import { lazy } from 'react';
 import type { Components } from 'react-markdown';
-// import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow as codeStyle } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 const SyntaxHighlighter = lazy(() =>
@@ -37,7 +36,9 @@ export const markdownComponents: Components = {
                 {String(children).replace(/\n$/, '')}
             </SyntaxHighlighter>
         ) : (
-            <code className="bg-gray-200 text-sm rounded px-1 py-0.5 dark:bg-gray-700 dark:text-gray-300">{children}</code>
+            <code className="bg-gray-200 text-sm rounded px-1 py-0.5 dark:bg-gray-700 dark:text-gray-300">
+                {children}
+            </code>
         );
     },
     blockquote: ({ children }) => (

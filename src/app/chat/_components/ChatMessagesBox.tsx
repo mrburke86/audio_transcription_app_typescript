@@ -1,25 +1,27 @@
-// src/components/ChatMessagesBox.tsx
+// src\app\chat\_components\ChatMessagesBox.tsx
 'use client';
-// This component manages saved user and assistant messages with appropriate styling.
-
-import React, { useEffect, useRef } from 'react';
-import { cn } from '@/lib/utils';
-import ReactMarkdown from 'react-markdown';
-// import type { Components } from 'react-markdown';
-import { Message } from '@/types';
-import { ScrollArea } from '@/components/ui';
 import { markdownComponents } from '@/components/markdownComponents';
+import { ScrollArea } from '@/components/ui';
+import { cn } from '@/lib/utils';
+import { Message } from '@/types';
+import React, { memo, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 
 interface ChatMessagesBoxProps {
     id?: string;
-    title?: string;
     messages: Message[];
     streamedContent?: string;
     isStreamingComplete?: boolean;
     className?: string;
 }
 
-export const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({ id, messages, streamedContent, isStreamingComplete, className }) => {
+const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({
+    id,
+    messages,
+    streamedContent,
+    isStreamingComplete,
+    className,
+}) => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -35,7 +37,10 @@ export const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({ id, messages, 
             <ScrollArea className="h-full w-full">
                 <div className="p-4 space-y-4">
                     {messages.map((message, index) => (
-                        <div key={index} className={`flex w-full ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div
+                            key={index}
+                            className={`flex w-full ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                        >
                             <div
                                 className={`max-w-[80%] p-3 rounded-lg break-words ${
                                     message.type === 'user'
@@ -44,7 +49,11 @@ export const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({ id, messages, 
                                 }`}
                             >
                                 {message.type === 'assistant' ? (
-                                    <ReactMarkdown components={markdownComponents} skipHtml={true} unwrapDisallowed={true}>
+                                    <ReactMarkdown
+                                        components={markdownComponents}
+                                        skipHtml={true}
+                                        unwrapDisallowed={true}
+                                    >
                                         {message.content}
                                     </ReactMarkdown>
                                 ) : (
@@ -54,7 +63,7 @@ export const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({ id, messages, 
                         </div>
                     ))}
 
-                    {/* Streaming Content */}
+                    {/* ✅ FIXED: Streaming Content - Back inside ScrollArea */}
                     {streamedContent && !isStreamingComplete && (
                         <div className="flex w-full justify-start">
                             <div className="max-w-[80%] p-3 rounded-lg rounded-bl-sm bg-slate-100 dark:bg-slate-800 text-foreground break-words">
@@ -71,3 +80,6 @@ export const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({ id, messages, 
         </div>
     );
 };
+
+export const MemoizedChatMessagesBox = memo(ChatMessagesBox);
+MemoizedChatMessagesBox.displayName = 'ChatMessagesBox';

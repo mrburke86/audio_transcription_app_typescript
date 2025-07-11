@@ -1,16 +1,16 @@
 // src/contexts/KnowledgeProvider.tsx
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import { logger } from '@/modules';
 import {
-    initQdrantClient,
-    ensureKnowledgeCollection,
-    searchRelevantChunks,
     countKnowledgePoints,
     DocumentChunk,
+    ensureKnowledgeCollection,
+    initQdrantClient,
     KNOWLEDGE_COLLECTION_NAME,
-} from '@/services/QdrantService'; // Adjust path as needed
-import { logger } from '@/modules';
+    searchRelevantChunks,
+} from '@/services/QdrantService';
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 interface IndexingStatus {
     isIndexing: boolean;
@@ -26,7 +26,7 @@ interface KnowledgeContextType {
     searchRelevantKnowledge: (query: string, limit?: number) => Promise<DocumentChunk[]>;
     knowledgeBaseName: string;
     indexedDocumentsCount: number;
-    refreshIndexedDocumentsCount: () => Promise<void>; // To manually refresh count from UI if needed
+    refreshIndexedDocumentsCount: () => Promise<void>;
     triggerIndexing: () => Promise<boolean>;
     indexingStatus: IndexingStatus;
     lastIndexedAt: Date | null;
@@ -51,14 +51,13 @@ export const KnowledgeProvider: React.FC<{ children: ReactNode }> = ({ children 
 
     const knowledgeBaseName = `Qdrant Collection: ${KNOWLEDGE_COLLECTION_NAME}`;
 
-    // const fetchAndIndexFiles = useCallback(async (forceReindex = false) => {
     const initializeKnowledgeBase = useCallback(async () => {
         logger.info('KnowledgeProvider: Initializing status...');
         setIsLoading(true);
         setError(null);
         try {
-            initQdrantClient(); // Initialize client
-            await ensureKnowledgeCollection(); // Ensure collection exists
+            initQdrantClient();
+            await ensureKnowledgeCollection();
 
             const currentPointsCount = await countKnowledgePoints();
             setIndexedDocumentsCount(currentPointsCount);
@@ -138,7 +137,9 @@ export const KnowledgeProvider: React.FC<{ children: ReactNode }> = ({ children 
             await refreshIndexedDocumentsCount();
 
             if (result.errors && result.errors.length > 0) {
-                logger.warning(`🎯 Indexing completed with ${result.errors.length} errors. Files processed: ${result.filesProcessed}`);
+                logger.warning(
+                    `🎯 Indexing completed with ${result.errors.length} errors. Files processed: ${result.filesProcessed}`
+                );
                 logger.warning(`Indexing errors: ${JSON.stringify(result.errors)}`);
                 return false; // Partial success
             } else {
@@ -169,7 +170,11 @@ export const KnowledgeProvider: React.FC<{ children: ReactNode }> = ({ children 
         }
 
         // Enhanced logging for search operations
-        logger.debug(`🔍 KnowledgeProvider: Searching for "${query.substring(0, 50)}${query.length > 50 ? '...' : ''}" (limit: ${limit})`);
+        logger.debug(
+            `🔍 KnowledgeProvider: Searching for "${query.substring(0, 50)}${
+                query.length > 50 ? '...' : ''
+            }" (limit: ${limit})`
+        );
 
         try {
             const startTime = performance.now();
@@ -181,10 +186,14 @@ export const KnowledgeProvider: React.FC<{ children: ReactNode }> = ({ children 
             // Log search result details in debug mode
             if (results.length > 0) {
                 logger.debug(
-                    `Search results preview: ${results.map(r => `"${r.text.substring(0, 100)}..." (from: ${r.source})`).join(' | ')}`
+                    `Search results preview: ${results
+                        .map(r => `"${r.text.substring(0, 100)}..." (from: ${r.source})`)
+                        .join(' | ')}`
                 );
             } else {
-                logger.warning(`🤔 No relevant chunks found for query. Consider checking indexing status or query phrasing.`);
+                logger.warning(
+                    `🤔 No relevant chunks found for query. Consider checking indexing status or query phrasing.`
+                );
             }
 
             return results;

@@ -22,7 +22,6 @@ export interface LogEntry {
     timestamp: string;
     color: string;
     emoji: string;
-    // sessionId?: string; // Optional: if you want to store it with each entry
 }
 
 const APP_NAME = 'InterviewEdgeAI';
@@ -98,9 +97,10 @@ export class Logger {
             }
         }
 
-        const consoleMessage = `%c${logEntry.emoji} [${logEntry.timestamp}] [${APP_NAME}] [${this.sessionId.substring(0, 8)}] [${
-            logConfig.name
-        }] ${message}`;
+        const consoleMessage = `%c${logEntry.emoji} [${logEntry.timestamp}] [${APP_NAME}] [${this.sessionId.substring(
+            0,
+            8
+        )}] [${logConfig.name}] ${message}`;
         if (optionalParams.length > 0) {
             console.log(consoleMessage, `color: ${logEntry.color}`, ...optionalParams);
         } else {

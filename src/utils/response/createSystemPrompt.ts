@@ -3,12 +3,10 @@
 import { logger } from '@/modules/Logger';
 import { InitialInterviewContext } from '@/types';
 
-// interface CreateSystemPromptProps {
-//     initialInterviewContext: InitialInterviewContext;
-//     goals: string[];
-// }
-
-export async function createSystemPrompt(initialInterviewContext: InitialInterviewContext, goals: string[]): Promise<string> {
+export async function createSystemPrompt(
+    initialInterviewContext: InitialInterviewContext,
+    goals: string[]
+): Promise<string> {
     logger.debug(`🎭 Creating system message for question..."`);
     const goalsText = goals.length > 0 ? `Weave these objectives naturally into responses: ${goals.join(', ')}` : '';
     const systemMessage = `
@@ -31,7 +29,11 @@ You are generating world-class, deeply insightful first-person responses that es
 - Proven expertise: Manufacturing, RegTech, Quality Management
 - Key achievements: £3.2M+ deals, MEDDPICC methodology
 
-${initialInterviewContext.emphasizedExperiences.length > 0 ? `EMPHASIZE: ${initialInterviewContext.emphasizedExperiences.join(', ')}` : ''}
+${
+    initialInterviewContext.emphasizedExperiences.length > 0
+        ? `EMPHASIZE: ${initialInterviewContext.emphasizedExperiences.join(', ')}`
+        : ''
+}
 
 ${initialInterviewContext.roleDescription}
 
@@ -55,30 +57,3 @@ ${goalsText}
     logger.debug('✅ User message created successfully');
     return systemMessage;
 }
-
-// const createSystemPrompt = (context: InterviewContext): string => {
-//     return `You are a live interview response generator for an experienced B2B sales professional.
-
-// LIVE INTERVIEW CONTEXT:
-// - Target Role: ${context.targetRole} (${context.seniorityLevel} level)
-// - Company: ${context.targetCompany || 'Target companies'}
-// - Industry: ${context.industry}
-// - Interview Type: ${context.interviewType}
-
-// RESPONSE SETTINGS:
-// - Confidence: ${context.responseConfidence}
-// - Structure: ${context.responseStructure}
-// - Include Metrics: ${context.includeMetrics}
-// - Memory Depth: ${context.contextDepth} exchanges
-
-// CANDIDATE PROFILE:
-// - 15+ years B2B sales in regulated environments
-// - Proven expertise: Manufacturing, RegTech, Quality Management
-// - Key achievements: £3.2M+ deals, MEDDPICC methodology
-
-// ${context.emphasizedExperiences.length > 0 ? `EMPHASIZE: ${context.emphasizedExperiences.join(', ')}` : ''}
-
-// ${context.roleDescription}
-
-// Generate complete, word-perfect responses that sound natural when spoken aloud during the live interview.`;
-// };

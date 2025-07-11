@@ -1,12 +1,12 @@
 // src/app/page.tsx
 'use client';
 
-import { useEffect } from 'react';
-import { ArrowRight, Brain, MessageSquare, Settings, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useInterviewContext } from '@/hooks/useInterviewContext';
 import { logger } from '@/modules';
+import { ArrowRight, BarChart3, Brain, MessageSquare, Settings } from 'lucide-react';
+import { useEffect } from 'react';
 
 export default function HomePage() {
     const { context, hasValidContext, navigateToChat, navigateToContextCapture } = useInterviewContext();
@@ -35,9 +35,7 @@ export default function HomePage() {
             <div className="container mx-auto px-4 py-8">
                 {/* Header Section */}
                 <div className="text-center mb-12">
-                    <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-4">
-                        Interview Edge AI
-                    </h1>
+                    <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-4">Interview Edge AI</h1>
                     <p className="text-xl text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
                         Real-time conversation analysis and strategic intelligence for interview excellence
                     </p>
@@ -69,14 +67,14 @@ export default function HomePage() {
                                     </p>
                                 </div>
                                 <div className="flex gap-3">
-                                    <Button 
+                                    <Button
                                         onClick={navigateToChat}
                                         className="bg-green-600 hover:bg-green-700 text-white"
                                     >
                                         <MessageSquare className="mr-2 h-4 w-4" />
                                         Continue Session
                                     </Button>
-                                    <Button 
+                                    <Button
                                         variant="outline"
                                         onClick={handleNewSession}
                                         className="border-green-300 text-green-700 hover:bg-green-100 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900"
@@ -103,7 +101,8 @@ export default function HomePage() {
                         </CardHeader>
                         <CardContent>
                             <p className="text-sm text-slate-600 dark:text-slate-400">
-                                Advanced analysis of conversation flow with personalized suggestions for demonstrating expertise and industry knowledge.
+                                Advanced analysis of conversation flow with personalized suggestions for demonstrating
+                                expertise and industry knowledge.
                             </p>
                         </CardContent>
                     </Card>
@@ -120,7 +119,8 @@ export default function HomePage() {
                         </CardHeader>
                         <CardContent>
                             <p className="text-sm text-slate-600 dark:text-slate-400">
-                                Seamless voice-to-text conversion with smart conversation tracking and context-aware response generation.
+                                Seamless voice-to-text conversion with smart conversation tracking and context-aware
+                                response generation.
                             </p>
                         </CardContent>
                     </Card>
@@ -131,13 +131,12 @@ export default function HomePage() {
                                 <BarChart3 className="h-5 w-5 text-purple-600" />
                                 Knowledge Integration
                             </CardTitle>
-                            <CardDescription>
-                                Leverage your career history and industry expertise
-                            </CardDescription>
+                            <CardDescription>Leverage your career history and industry expertise</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <p className="text-sm text-slate-600 dark:text-slate-400">
-                                Integration with personal knowledge base including achievements, methodologies, and company-specific intelligence.
+                                Integration with personal knowledge base including achievements, methodologies, and
+                                company-specific intelligence.
                             </p>
                         </CardContent>
                     </Card>
@@ -153,7 +152,7 @@ export default function HomePage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <Button 
+                            <Button
                                 onClick={handleStartChat}
                                 size="lg"
                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white"
@@ -162,7 +161,7 @@ export default function HomePage() {
                                 {hasValidContext ? 'Continue Chat' : 'Start Chat'}
                                 <ArrowRight className="ml-2 h-5 w-5" />
                             </Button>
-                            
+
                             {!hasValidContext && (
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">
                                     You'll be guided through interview setup first
@@ -174,9 +173,7 @@ export default function HomePage() {
 
                 {/* Footer Information */}
                 <div className="mt-12 text-center text-sm text-slate-500 dark:text-slate-400">
-                    <p>
-                        Powered by advanced AI and vector search technology for strategic interview intelligence
-                    </p>
+                    <p>Powered by advanced AI and vector search technology for strategic interview intelligence</p>
                 </div>
             </div>
         </div>

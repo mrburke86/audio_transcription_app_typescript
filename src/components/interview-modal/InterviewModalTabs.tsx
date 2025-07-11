@@ -1,5 +1,5 @@
 // src\components\interview-modal\components\InterviewModalTabs.tsx
-"use client";
+'use client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useInterviewModal } from './InterviewModalContext';
 import { ExperienceFocusTab } from './tabs/ExperienceFocusTab';
@@ -14,7 +14,7 @@ export function InterviewModalTabs() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="interview">Interview Details</TabsTrigger>
-                <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger> {/* NEW TAB */}
+                <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
                 <TabsTrigger value="settings">Response Settings</TabsTrigger>
                 <TabsTrigger value="experience">Experience Focus</TabsTrigger>
             </TabsList>

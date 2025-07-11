@@ -1,13 +1,13 @@
 // src/app/layout.tsx
-import { Inter } from 'next/font/google';
-import { ThemeProvider } from 'next-themes';
+import { GlobalErrorBoundary } from '@/components/error-boundary';
+import { PerformanceProfiler } from '@/components/global/PerformanceProfiler';
+import { TailwindIndicator } from '@/components/global/tailwind-indicator';
 import { CustomToaster } from '@/components/ui/custom-toaster';
+import { KnowledgeProvider } from '@/contexts/KnowledgeProvider';
 import { cn } from '@/lib/utils';
 import '@/styles/globals.css';
-import { TailwindIndicator } from '@/components/global/tailwind-indicator';
-import { ThemeToggle } from '@/components/global/theme-toggle';
-import { KnowledgeProvider } from '@/contexts/KnowledgeProvider';
-import { GlobalErrorBoundary } from '@/components/error-boundary';
+import { ThemeProvider } from 'next-themes';
+import { Inter } from 'next/font/google';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -17,25 +17,24 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-    // const { cookies } = await import('next/headers');
     return (
         <html lang="en" suppressHydrationWarning>
             <body
                 className={cn(
                     `min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 antialiased ${inter.className}`
-                    // inter.className,
                 )}
             >
                 <GlobalErrorBoundary>
                     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
                         <KnowledgeProvider>
-                            <main className="flex flex-1 flex-col transition-all duration-300 ease-in-out rounded-sm p-1 h-screen">
-                                {children}
-                            </main>
+                            <PerformanceProfiler id="MainApp">
+                                <main className="flex flex-1 flex-col transition-all duration-300 ease-in-out rounded-sm p-1 h-screen">
+                                    {children}
+                                </main>
+                            </PerformanceProfiler>
                         </KnowledgeProvider>
                         <CustomToaster />
                         <TailwindIndicator />
-                        <ThemeToggle />
                     </ThemeProvider>
                 </GlobalErrorBoundary>
             </body>

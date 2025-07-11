@@ -1,12 +1,13 @@
 // src\app\chat\_components\ConversationInsights.tsx
 'use client';
 
+import { markdownComponents } from '@/components/markdownComponents';
+import { Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/components/ui';
+import { useRenderCounter } from '@/hooks/usePerformanceTracking';
 import { Brain, Lightbulb, Sparkles, Target, TrendingUp, Zap } from 'lucide-react';
 import type React from 'react';
-import { Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/components/ui';
-import ReactMarkdown from 'react-markdown';
-import { markdownComponents } from '@/components/markdownComponents';
 import { useMemo } from 'react';
+import ReactMarkdown from 'react-markdown';
 
 interface ConversationInsightsProps {
     suggestions: {
@@ -27,6 +28,8 @@ interface ConversationInsightsProps {
 }
 
 export const ConversationInsights: React.FC<ConversationInsightsProps> = ({ suggestions, onSuggest, isLoading }) => {
+    const renderCount = useRenderCounter('ConversationInsights');
+
     const headerInfo = useMemo(() => {
         if (!suggestions.lastAnalysis) {
             return { title: 'Strategic Intelligence', icon: Brain, color: 'indigo' };
@@ -80,7 +83,7 @@ export const ConversationInsights: React.FC<ConversationInsightsProps> = ({ sugg
     const IconComponent = headerInfo.icon;
 
     return (
-        <Card className="h-full flex flex-col overscroll-contain">
+        <Card className="h-full flex flex-col overscroll-contain m-0">
             {/* Strategic Header */}
             <CardHeader className="p-4 pb-2 flex-shrink-0">
                 <div className="flex items-center justify-between">
@@ -111,7 +114,6 @@ export const ConversationInsights: React.FC<ConversationInsightsProps> = ({ sugg
                     </div>
                 )}
             </CardHeader>
-
             {/* Strategic Intelligence Content */}
             <CardContent className="flex-1 overflow-y-auto hide-scrollbar p-4 pt-0">
                 {isLoading ? (

@@ -63,38 +63,3 @@ Create a structured summary of this most recent question-answer pair using the e
 
 Use **bold formatting** for all metrics, achievements, company names, and key strategic points. Keep the summary concise but comprehensive enough to capture the strategic substance of the exchange.`;
 };
-// const buildSummarizationUserPrompt = (
-//     conversationText: string,
-//     goals: string[],
-//     previousSummary?: string
-// ) => {
-//     const goalsContext = goals.length > 0
-//         ? `\n## Current Goals:\n${goals.map((goal, i) => `${i + 1}. ${goal}`).join('\n')}`
-//         : '';
-
-//     const previousContext = previousSummary
-//         ? `\n## Previous Context:\n${previousSummary}\n`
-//         : '';
-
-//     return `Create an intelligent summary of this conversation that will enable seamless, contextually-aware future interactions.
-
-// ${previousContext}${goalsContext}
-
-// ## Conversation to Summarize:
-// ${conversationText}
-
-// ## Instructions:
-// Analyze the conversation above and provide a focused summary that captures:
-
-// 1. **Core Themes**: What are the main topics and their significance?
-// 2. **Progress & Decisions**: What has been accomplished or decided?
-// 3. **User Intent & Sentiment**: What does the user really want to achieve? How do they feel?
-// 4. **Knowledge Gaps**: What questions remain unanswered?
-// 5. **Natural Next Steps**: Where is this conversation naturally heading?
-
-// **Output Format**: 2-3 sentences that synthesize the most important context for continuing this conversation productively.
-
-// **Focus on**: Insights over events, progress over process, context over chronology.
-
-// Summary:`;
-// };

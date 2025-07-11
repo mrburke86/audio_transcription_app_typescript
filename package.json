@@ -11,6 +11,7 @@
         "lint:css": "stylelint **/*.css",
         "test": "jest",
         "check-all": "npm run type-check && npm run lint && npm run test && npm run build"
+
     },
     "dependencies": {
         "@qdrant/qdrant-js": "^1.14.1",

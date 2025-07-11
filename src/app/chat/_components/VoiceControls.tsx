@@ -1,9 +1,10 @@
 // src\app\chat\_components\VoiceControls.tsx
 'use client';
 
-import type React from 'react';
 import { Button, Card } from '@/components/ui';
+import { useRenderCounter } from '@/hooks/usePerformanceTracking';
 import { Mic, Square, Trash } from 'lucide-react';
+import type React from 'react';
 
 interface VoiceControlsProps {
     onStart: () => void;
@@ -13,7 +14,15 @@ interface VoiceControlsProps {
     canvasRef: React.RefObject<HTMLCanvasElement>;
 }
 
-export const VoiceControls: React.FC<VoiceControlsProps> = ({ onStart, onStop, onClear, isRecognitionActive, canvasRef }) => {
+export const VoiceControls: React.FC<VoiceControlsProps> = ({
+    onStart,
+    onStop,
+    onClear,
+    isRecognitionActive,
+    canvasRef,
+}) => {
+    const renderCount = useRenderCounter('VoiceControls');
+
     return (
         <Card className="h-full flex flex-col p-3">
             {/* Header */}
@@ -21,7 +30,6 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({ onStart, onStop, o
                 <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0 ">
                     <Mic className="w-5 h-5 text-gray-600" />
                 </div>
-                {/* <h3 className="text-sm font-medium text-gray-900">Voice Controls</h3> */}
             </div>
 
             {/* Control Buttons */}
@@ -66,7 +74,6 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({ onStart, onStop, o
                         imageRendering: 'pixelated',
                     }}
                 />
-                {/* <div className="absolute inset-0 rounded-lg bg-gradient-to-t from-transparent via-transparent to-white/5 pointer-events-none" /> */}
             </div>
         </Card>
     );

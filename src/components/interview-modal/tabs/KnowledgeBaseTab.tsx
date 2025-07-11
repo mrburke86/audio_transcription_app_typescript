@@ -1,13 +1,13 @@
 // src/components/interview-modal/tabs/KnowledgeBaseTab.tsx
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { useKnowledge } from '@/contexts/KnowledgeProvider';
-import { AlertCircle, CheckCircle, Database, FileText, Clock } from 'lucide-react';
 import { KnowledgeIndexingButton } from '@/components/KnowledgeIndexingButton';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useKnowledge } from '@/contexts/KnowledgeProvider';
 import { logger } from '@/modules';
+import { AlertCircle, CheckCircle, Clock, Database, FileText } from 'lucide-react';
 
 export function KnowledgeBaseTab() {
-    logger.info('🔍 KnowledgeBaseTab component is rendering'); // ADD THIS LINE
+    logger.info('🔍 KnowledgeBaseTab component is rendering');
     const { indexedDocumentsCount, knowledgeBaseName, lastIndexedAt, error } = useKnowledge();
 
     // Knowledge file categories for user visibility
@@ -72,9 +72,7 @@ export function KnowledgeBaseTab() {
                             <div>
                                 <div className="flex items-center gap-2">
                                     <span className="font-medium">Knowledge Base Status</span>
-                                    <Badge variant={statusInfo.badgeVariant}>
-                                        {statusInfo.status}
-                                    </Badge>
+                                    <Badge variant={statusInfo.badgeVariant}>{statusInfo.status}</Badge>
                                 </div>
                                 <p className="text-sm text-gray-600 mt-1">{statusInfo.message}</p>
                                 {lastIndexedAt && (
@@ -103,9 +101,8 @@ export function KnowledgeBaseTab() {
                         <div>
                             <h4 className="font-medium mb-2">Index Knowledge Base</h4>
                             <p className="text-sm text-gray-600 mb-4">
-                                Process your knowledge files to enable AI-powered responses based on
-                                your career history, company information, and interview preparation
-                                materials.
+                                Process your knowledge files to enable AI-powered responses based on your career
+                                history, company information, and interview preparation materials.
                             </p>
                             <KnowledgeIndexingButton
                                 variant="primary"
@@ -152,17 +149,12 @@ export function KnowledgeBaseTab() {
                         <h4 className="font-medium text-blue-900 mb-2">💡 How It Works</h4>
                         <ul className="text-sm text-blue-800 space-y-1">
                             <li>
-                                • <strong>Core files</strong> contain your permanent career history
-                                and methodologies
+                                • <strong>Core files</strong> contain your permanent career history and methodologies
                             </li>
                             <li>
-                                • <strong>Variable files</strong> are updated for each specific
-                                interview opportunity
+                                • <strong>Variable files</strong> are updated for each specific interview opportunity
                             </li>
-                            <li>
-                                • The AI uses this knowledge to provide contextual, personalized
-                                responses
-                            </li>
+                            <li>• The AI uses this knowledge to provide contextual, personalized responses</li>
                             <li>• Re-index whenever you update your knowledge files</li>
                         </ul>
                     </div>

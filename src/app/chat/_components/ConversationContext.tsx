@@ -1,21 +1,18 @@
 //
 'use client';
 
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import { useRenderCounter } from '@/hooks/usePerformanceTracking';
 import { Activity } from 'lucide-react';
 import type React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
-import { useEffect } from 'react';
 
 interface ConversationContextProps {
     summary: string;
-    goals: string[]; // New prop
+    goals: string[];
 }
 
 export const ConversationContext: React.FC<ConversationContextProps> = ({ summary, goals }) => {
-    useEffect(() => {
-        console.log('ConversationContext received summary:', summary);
-        console.log('ConversationContext received goals:', goals);
-    }, [summary, goals]);
+    const renderCount = useRenderCounter('ConversationContext');
 
     const renderSummary = () => {
         if (!summary) return null;
@@ -44,7 +41,10 @@ export const ConversationContext: React.FC<ConversationContextProps> = ({ summar
             </CardHeader>
             <CardContent className="flex-1 overflow-y-auto hide-scrollbar p-4 pt-0">
                 {hasContent ? (
-                    <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4 rounded" role="alert">
+                    <div
+                        className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4 rounded"
+                        role="alert"
+                    >
                         {goals.length > 0 && (
                             <>
                                 <p className="font-bold">Conversation Goals/Milestones</p>

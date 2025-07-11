@@ -1,9 +1,9 @@
 // src/components/error-boundary/index.ts
-"use client";
+'use client';
 // Core exports
-export { ErrorBoundary, withErrorBoundary, useErrorBoundary } from './ErrorBoundary';
-export { ErrorFallback, InlineErrorFallback } from './ErrorFallback';
 export type { ErrorBoundaryProps, ErrorFallbackProps } from '@/types';
+export { ErrorBoundary, useErrorBoundary, withErrorBoundary } from './ErrorBoundary';
+export { ErrorFallback, InlineErrorFallback } from './ErrorFallback';
 
 // Simple presets for your app
 import React from 'react';
@@ -53,34 +53,3 @@ export const GlobalErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ c
         {children}
     </ErrorBoundary>
 );
-
-/*
-🚀 SIMPLE SETUP (3 steps):
-
-1. Wrap your app:
-   <GlobalErrorBoundary>
-     <App />
-   </GlobalErrorBoundary>
-
-2. Protect critical features:
-   <SpeechErrorBoundary>      // Auto-retries network/API errors
-     <VoiceControls />
-   </SpeechErrorBoundary>
-
-   <AIErrorBoundary>          // Handles OpenAI API issues  
-     <ConversationInsights />
-   </AIErrorBoundary>
-
-3. Inline protection for smaller components:
-   <InlineErrorBoundary>      // Compact error display
-     <TopNavigationBar />
-   </InlineErrorBoundary>
-
-✨ Features:
-- Beautiful, professional error UI
-- Auto-retry for network/API errors (up to 2 times)
-- Manual reset functionality
-- Development error details
-- Integrates with your existing logger
-- Zero configuration needed
-*/
