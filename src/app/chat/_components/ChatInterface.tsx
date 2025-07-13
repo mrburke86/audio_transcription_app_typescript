@@ -1,4 +1,4 @@
-// src\app\chat\_components\ChatInterface.tsx
+// src/app/chat/_components/ChatInterface.tsx
 import {
     ConversationContext,
     ConversationInsights,
@@ -9,8 +9,13 @@ import {
 import { MemoizedChatMessagesBox } from '@/app/chat/_components/ChatMessagesBox';
 import { AIErrorBoundary, InlineErrorBoundary, SpeechErrorBoundary } from '@/components/error-boundary';
 import { Button, Card, CardContent, CardHeader, CardTitle, Separator } from '@/components/ui';
+import {
+    useConversationMemoryMetrics,
+    useRenderMetrics,
+    useStateConsistencyTracker,
+} from '@/utils/performance/measurementHooks';
 import { ArrowRight, MessageSquare } from 'lucide-react';
-import React, { memo, useMemo } from 'react';
+import React, { memo, useEffect, useMemo, useRef } from 'react';
 
 const MOVE_BUTTON_STYLES =
     'inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-500 text-white hover:bg-blue-600 h-8 px-2 py-1 mt-2 gap-1.5 self-end';
@@ -30,8 +35,6 @@ interface ChatInterfaceProps {
     userMessages: any[];
     streamedContent: string;
     isStreamingComplete: boolean;
-    // interimTranscriptions: any[];
-    // currentInterimTranscript: string;
     isolatedTranscriptions: {
         interimTranscriptions: any[];
         currentInterimTranscript: string;
@@ -81,15 +84,192 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = memo(
         handleSuggest,
         handleContextInfo,
     }) => {
-        const moveButton = useMemo(
-            () => (
+        // ✅ CORE PERFORMANCE TRACKING
+        const { trackRender } = useRenderMetrics('ChatInterface');
+        const { trackStateUpdate, checkStateConsistency } = useStateConsistencyTracker('ChatInterface');
+        const { trackConversationGrowth, getConversationStats, clearOldMessages } =
+            useConversationMemoryMetrics('ChatInterface');
+
+        // ✅ ENHANCED: Performance tracking refs
+        const lastRenderTime = useRef<number>(0);
+        const renderCount = useRef<number>(0);
+        const lastPropsRef = useRef<any>(null);
+        const performanceWarningsRef = useRef<Set<string>>(new Set());
+
+        // ✅ ENHANCED: Track renders with intelligent change detection
+        useEffect(() => {
+            const renderStart = performance.now();
+            renderCount.current++;
+
+            // Create a snapshot of current props for comparison
+            const currentProps = {
+                recognitionStatus,
+                speechErrorMessage,
+                userMessagesLength: userMessages.length,
+                streamedContentLength: streamedContent.length,
+                isStreamingComplete,
+                interimTranscriptionsLength: isolatedTranscriptions.interimTranscriptions.length,
+                currentInterimTranscriptLength: isolatedTranscriptions.currentInterimTranscript.length,
+                conversationSummaryLength: conversationSummary.length,
+                isLoading,
+                indexedDocumentsCount,
+            };
+
+            // ✅ Check if render was necessary by comparing with previous props
+            const wasNecessary =
+                lastPropsRef.current === null || JSON.stringify(lastPropsRef.current) !== JSON.stringify(currentProps);
+
+            // ✅ Track render with detailed context
+            trackRender({
+                renderCount: renderCount.current,
+                wasNecessary,
+                changedProps: wasNecessary
+                    ? Object.keys(currentProps).filter(
+                          key =>
+                              lastPropsRef.current &&
+                              currentProps[key as keyof typeof currentProps] !== lastPropsRef.current[key]
+                      )
+                    : [],
+                propsSnapshot: currentProps,
+                renderDuration: performance.now() - renderStart,
+            });
+
+            // ✅ Track state updates for consistency monitoring
+            trackStateUpdate('userMessages', userMessages);
+            trackStateUpdate('streamedContent', streamedContent);
+            trackStateUpdate('isStreamingComplete', isStreamingComplete);
+            trackStateUpdate('recognitionStatus', recognitionStatus);
+            trackStateUpdate('isolatedTranscriptions', isolatedTranscriptions);
+
+            // ✅ State consistency checks
+            if (isolatedTranscriptions.interimTranscriptions.length > 0) {
+                checkStateConsistency(
+                    isolatedTranscriptions.interimTranscriptions.length,
+                    isolatedTranscriptions.currentInterimTranscript.length > 0 ? 1 : 0,
+                    'isolatedTranscriptions.interimTranscriptions.length',
+                    'currentInterimTranscript.exists'
+                );
+            }
+
+            // ✅ Performance warnings
+            const renderTime = performance.now() - renderStart;
+            if (renderTime > 50 && !performanceWarningsRef.current.has('slow-render')) {
+                console.warn(
+                    `🐌 ChatInterface slow render: ${renderTime.toFixed(1)}ms (render #${renderCount.current})`
+                );
+                performanceWarningsRef.current.add('slow-render');
+            }
+
+            if (renderCount.current > 100 && !performanceWarningsRef.current.has('high-render-count')) {
+                console.warn(`🔄 ChatInterface high render count: ${renderCount.current} renders in session`);
+                performanceWarningsRef.current.add('high-render-count');
+            }
+
+            // ✅ Update refs for next comparison
+            lastPropsRef.current = currentProps;
+            lastRenderTime.current = renderStart;
+        }, [
+            recognitionStatus,
+            speechErrorMessage,
+            userMessages,
+            streamedContent,
+            isStreamingComplete,
+            isolatedTranscriptions,
+            conversationSummary,
+            isLoading,
+            indexedDocumentsCount,
+            trackRender,
+            trackStateUpdate,
+            checkStateConsistency,
+        ]);
+
+        // ✅ ENHANCED: Track conversation memory growth
+        useEffect(() => {
+            if (userMessages.length > 0) {
+                const latestMessage = userMessages[userMessages.length - 1];
+                trackConversationGrowth(`chat-msg-${userMessages.length}`, {
+                    type: latestMessage.type || 'unknown',
+                    contentLength: latestMessage.content?.length || 0,
+                    totalMessages: userMessages.length,
+                    timestamp: Date.now(),
+                });
+
+                // ✅ Auto-cleanup old messages if conversation gets too large
+                const stats = getConversationStats();
+                if (stats.messageCount > 200) {
+                    console.warn(
+                        `💾 Large conversation detected: ${stats.messageCount} messages, ${stats.totalSizeMB}MB`
+                    );
+                    if (stats.messageCount > 500) {
+                        clearOldMessages(300); // Keep last 300 messages
+                    }
+                }
+            }
+        }, [userMessages, trackConversationGrowth, getConversationStats, clearOldMessages]);
+
+        // ✅ ENHANCED: Track streaming completion performance
+        useEffect(() => {
+            if (isStreamingComplete && streamedContent.length > 0) {
+                trackConversationGrowth(`streamed-response-${Date.now()}`, {
+                    type: 'assistant-streamed',
+                    contentLength: streamedContent.length,
+                    isStreamingComplete,
+                    timestamp: Date.now(),
+                });
+
+                console.log(`✅ Streaming completed: ${streamedContent.length} characters`);
+            }
+        }, [isStreamingComplete, streamedContent, trackConversationGrowth]);
+
+        // ✅ ENHANCED: Monitor interim transcription state
+        useEffect(() => {
+            if (isolatedTranscriptions.interimTranscriptions.length > 10) {
+                if (!performanceWarningsRef.current.has('interim-buildup')) {
+                    console.warn(
+                        `📝 Large interim transcription buildup: ${isolatedTranscriptions.interimTranscriptions.length} items`
+                    );
+                    performanceWarningsRef.current.add('interim-buildup');
+                }
+            } else {
+                performanceWarningsRef.current.delete('interim-buildup');
+            }
+        }, [isolatedTranscriptions.interimTranscriptions.length]);
+
+        // ✅ ENHANCED: Memoized move button with performance tracking
+        const moveButton = useMemo(() => {
+            console.log('🔄 Move button re-rendered (memoization check)');
+            return (
                 <Button variant="move" onClick={handleMove} className={MOVE_BUTTON_STYLES}>
                     <ArrowRight className="mr-1 h-4 w-4" />
                     Move
                 </Button>
-            ),
-            [handleMove]
-        );
+            );
+        }, [handleMove]);
+
+        // ✅ NEW: Performance diagnostics (can be called from console)
+        const getPerformanceDiagnostics = () => {
+            const stats = getConversationStats();
+            return {
+                renderCount: renderCount.current,
+                lastRenderTime: lastRenderTime.current,
+                conversationStats: stats,
+                activeWarnings: Array.from(performanceWarningsRef.current),
+                componentState: {
+                    userMessagesCount: userMessages.length,
+                    streamedContentLength: streamedContent.length,
+                    interimTranscriptionsCount: isolatedTranscriptions.interimTranscriptions.length,
+                    recognitionStatus,
+                    isLoading,
+                },
+            };
+        };
+
+        // ✅ Expose diagnostics to window for debugging (development only)
+        useEffect(() => {
+            if (process.env.NODE_ENV === 'development') {
+                (window as any).chatInterfaceDiagnostics = getPerformanceDiagnostics;
+            }
+        }, []);
 
         return (
             <>
@@ -122,6 +302,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = memo(
                                             <CardTitle className="text-lg flex items-center gap-2">
                                                 <MessageSquare className="h-5 w-5" />
                                                 Conversation
+                                                {/* ✅ NEW: Performance indicator */}
+                                                {renderCount.current > 50 && (
+                                                    <span
+                                                        className="text-xs text-yellow-600"
+                                                        title={`${renderCount.current} renders`}
+                                                    >
+                                                        ⚡
+                                                    </span>
+                                                )}
                                             </CardTitle>
                                         </CardHeader>
                                         <CardContent className="flex-1 flex flex-col gap-4 min-h-0 overflow-hidden">

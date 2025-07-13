@@ -1,9 +1,10 @@
-// src\app\chat\_components\ChatMessagesBox.tsx
+// src/app/chat/_components/ChatMessagesBox.tsx
 'use client';
 import { markdownComponents } from '@/components/markdownComponents';
 import { ScrollArea } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { Message } from '@/types';
+import { useConversationMemoryMetrics } from '@/utils/performance/measurementHooks';
 import React, { memo, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 
@@ -22,6 +23,8 @@ const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({
     isStreamingComplete,
     className,
 }) => {
+    // ✅ SIMPLIFIED: Only track conversation memory growth
+    const { trackConversationGrowth } = useConversationMemoryMetrics('ChatMessagesBox');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -29,8 +32,25 @@ const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({
     };
 
     useEffect(() => {
+        // ✅ SIMPLIFIED: Track conversation memory when messages change
+        if (messages.length > 0) {
+            const latestMessage = messages[messages.length - 1];
+            trackConversationGrowth(`msg-${messages.length}`, {
+                type: latestMessage.type,
+                contentLength: latestMessage.content.length,
+                timestamp: Date.now(),
+            });
+        }
+
         scrollToBottom();
-    }, [messages, streamedContent]);
+    }, [messages, trackConversationGrowth]);
+
+    // ✅ SIMPLIFIED: Track streamed content without complex performance measuring
+    useEffect(() => {
+        if (streamedContent && !isStreamingComplete) {
+            scrollToBottom();
+        }
+    }, [streamedContent, isStreamingComplete]);
 
     return (
         <div id={id} className={cn('relative flex flex-col h-full rounded-lg overflow-hidden', className)}>
@@ -63,7 +83,7 @@ const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({
                         </div>
                     ))}
 
-                    {/* ✅ FIXED: Streaming Content - Back inside ScrollArea */}
+                    {/* Streaming Content */}
                     {streamedContent && !isStreamingComplete && (
                         <div className="flex w-full justify-start">
                             <div className="max-w-[80%] p-3 rounded-lg rounded-bl-sm bg-slate-100 dark:bg-slate-800 text-foreground break-words">

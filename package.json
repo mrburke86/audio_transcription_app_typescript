@@ -10,8 +10,10 @@
         "lint": "next lint",
         "lint:css": "stylelint **/*.css",
         "test": "jest",
-        "check-all": "npm run type-check && npm run lint && npm run test && npm run build"
-
+        "check-all": "npm run type-check && npm run lint && npm run test && npm run build",
+        "measure:setup": "tsx scripts/measurementAutomation.ts setup",
+        "measure:baseline": "tsx scripts/measurementAutomation.ts baseline",
+        "measure:compare": "tsx scripts/measurementAutomation.ts compare"
     },
     "dependencies": {
         "@qdrant/qdrant-js": "^1.14.1",

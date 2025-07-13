@@ -1,17 +1,18 @@
 // src/hooks/useInterviewContext.ts
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { InitialInterviewContext } from '@/types';
-import { 
-    storeInterviewContext, 
-    getStoredInterviewContext, 
+import {
     clearStoredInterviewContext,
-    hasValidStoredContext,
-    validateInterviewContext 
+    getStoredInterviewContext,
+    storeInterviewContext,
+    validateInterviewContext,
 } from '@/lib/contextStorage';
 import { logger } from '@/modules';
+import { InitialInterviewContext } from '@/types';
+// REMOVE THIS LINE:
+// import { useContextStorageMetrics } from '@/utils/performance/measurementHooks';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
 
 interface UseInterviewContextReturn {
     context: InitialInterviewContext | null;
@@ -24,12 +25,10 @@ interface UseInterviewContextReturn {
     navigateToContextCapture: () => void;
 }
 
-/**
- * Custom hook for managing interview context throughout the application
- * Provides a clean interface for storing, retrieving, and managing interview context
- * with automatic navigation and validation
- */
 export const useInterviewContext = (): UseInterviewContextReturn => {
+    // REMOVE THIS LINE:
+    // const { measureStorageOperation } = useContextStorageMetrics();
+
     const router = useRouter();
     const [context, setContextState] = useState<InitialInterviewContext | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -41,32 +40,37 @@ export const useInterviewContext = (): UseInterviewContextReturn => {
             const storedContext = getStoredInterviewContext();
             setContextState(storedContext);
             setIsLoading(false);
-            
+
             if (storedContext) {
-                logger.info(`📋 Loaded existing context: ${storedContext.targetRole} at ${storedContext.targetCompany}`);
+                logger.info(
+                    `📋 Loaded existing context: ${storedContext.targetRole} at ${storedContext.targetCompany}`
+                );
             }
         };
 
         loadStoredContext();
     }, []);
 
-    // Store context and update state
-    const setContext = useCallback((newContext: InitialInterviewContext) => {
-        logger.info('💾 Storing new interview context...');
-        
-        if (!validateInterviewContext(newContext)) {
-            logger.error('❌ Cannot store invalid interview context');
-            throw new Error('Invalid interview context provided');
-        }
+    // Store context and update state - SIMPLIFIED VERSION
+    const setContext = useCallback(
+        (newContext: InitialInterviewContext) => {
+            logger.info('💾 Storing new interview context...');
 
-        const success = storeInterviewContext(newContext);
-        if (success) {
-            setContextState(newContext);
-            logger.info(`✅ Context updated: ${newContext.targetRole} at ${newContext.targetCompany}`);
-        } else {
-            throw new Error('Failed to store interview context');
-        }
-    }, []);
+            if (!validateInterviewContext(newContext)) {
+                logger.error('❌ Cannot store invalid interview context');
+                throw new Error('Invalid interview context provided');
+            }
+
+            const success = storeInterviewContext(newContext);
+            if (success) {
+                setContextState(newContext);
+                logger.info(`✅ Context updated: ${newContext.targetRole} at ${newContext.targetCompany}`);
+            } else {
+                throw new Error('Failed to store interview context');
+            }
+        },
+        [] // REMOVED measureStorageOperation dependency
+    );
 
     // Clear context from storage and state
     const clearContext = useCallback(() => {
@@ -89,7 +93,7 @@ export const useInterviewContext = (): UseInterviewContextReturn => {
             router.push('/capture-context');
             return;
         }
-        
+
         logger.info('🚀 Navigating to chat with valid context');
         router.push('/chat');
     }, [context, router]);

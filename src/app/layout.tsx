@@ -6,6 +6,7 @@ import { CustomToaster } from '@/components/ui/custom-toaster';
 import { KnowledgeProvider } from '@/contexts/KnowledgeProvider';
 import { cn } from '@/lib/utils';
 import '@/styles/globals.css';
+import PerformanceDashboard from '@/utils/performance/PerformanceDashboard';
 import { ThemeProvider } from 'next-themes';
 import { Inter } from 'next/font/google';
 
@@ -30,6 +31,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                             <PerformanceProfiler id="MainApp">
                                 <main className="flex flex-1 flex-col transition-all duration-300 ease-in-out rounded-sm p-1 h-screen">
                                     {children}
+                                    {process.env.NODE_ENV === 'development' && <PerformanceDashboard />}
                                 </main>
                             </PerformanceProfiler>
                         </KnowledgeProvider>

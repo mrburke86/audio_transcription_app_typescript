@@ -38,7 +38,7 @@ export const navigateToRoute = (route: AppRoute, replace = false): void => {
 /**
  * Navigate to home page
  */
-export const goHomeHome = (): void => {
+export const goHome = (): void => {
     navigateToRoute(AppRoutes.HOME);
 };
 

@@ -27,6 +27,7 @@ import {
     createSystemPrompt,
     createUserPrompt,
 } from '@/utils';
+import { measureAPICall, useAPIReliabilityMetrics, useRenderMetrics } from '@/utils/performance/measurementHooks';
 import { Dispatch, MutableRefObject, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -87,6 +88,9 @@ export const useLLMProviderOptimized = (
     initialInterviewContext: InitialInterviewContext | null,
     conversationHistory: Message[]
 ): LLMProviderHook => {
+    const { trackRender } = useRenderMetrics('useLLMProviderOptimized');
+    const { measureAPICall } = useAPIReliabilityMetrics();
+
     const [state, dispatch] = useReducer(reducer, initialState);
 
     // State for the LLM service instance
@@ -249,6 +253,14 @@ export const useLLMProviderOptimized = (
     // Add a ref to track what we've already summarized
     const lastSummarizedLengthRef = useRef<number>(0);
 
+    useEffect(() => {
+        trackRender({
+            apiKey: !!apiKey,
+            hasContext: !!initialInterviewContext,
+            historyLength: conversationHistory.length,
+        });
+    }, [apiKey, initialInterviewContext, conversationHistory, trackRender]);
+
     // Auto-summarization effect
     useEffect(() => {
         const currentLength = conversationHistory.length;
@@ -380,7 +392,12 @@ function useGenerateResponse({
                     logger.info(
                         `[${COMPONENT_ID}][${queryId}] 🎯 Generating complete response via LLMService (non-streaming)`
                     );
-                    const fullResponse = await llmService.generateCompleteResponse(messages, options);
+                    // const fullResponse = await llmService.generateCompleteResponse(messages, options);
+                    const fullResponse = await measureAPICall(
+                        () => llmService.generateCompleteResponse(messages, options),
+                        'LLM-generateResponse'
+                    );
+
                     dispatch({ type: 'APPEND_STREAMED_CONTENT', payload: fullResponse });
                     streamedContentRef.current = fullResponse;
                 }
@@ -481,7 +498,11 @@ function useGenerateSuggestions({
             GenerateSuggestionAnalysisStageLogging(queryId, analysisUserPrompt, previousAnalysisHistory);
 
             const analysisOptions: LLMRequestOptions = { model: 'gpt-4o-mini', temperature: 0.3 };
-            const analysisContent = await llmService.generateCompleteResponse(analysisMessages, analysisOptions);
+            // const analysisContent = await llmService.generateCompleteResponse(analysisMessages, analysisOptions);
+            const analysisContent = await measureAPICall(
+                () => llmService.generateCompleteResponse(analysisMessages, analysisOptions),
+                'LLM-generateSuggestions-analysis'
+            );
 
             // const analysisResponse = await openai.chat.completions.create({
             //     model: 'gpt-4o-mini' as OpenAIModelName,
@@ -600,9 +621,13 @@ function useGenerateSuggestions({
             // });
 
             const generationOptions: LLMRequestOptions = { model: 'gpt-4o-mini', temperature: 0.7 };
-            const strategicIntelligence = await llmService.generateCompleteResponse(
-                generationMessages,
-                generationOptions
+            // const strategicIntelligence = await llmService.generateCompleteResponse(
+            //     generationMessages,
+            //     generationOptions
+            // );
+            const strategicIntelligence = await measureAPICall(
+                () => llmService.generateCompleteResponse(generationMessages, generationOptions),
+                'LLM-generateSuggestions-generation'
             );
 
             // ===== GENERATION OUTPUT LOGGING =====
@@ -751,130 +776,6 @@ function GenerateSuggestionAnalysisStageLogging(
     }
 }
 
-// // Enhanced buildKnowledgeContext with intelligent content selection
-// function BuildKnowledgeContext(
-//     searchRelevantFiles: (
-//         query: string,
-//         topK?: number
-//     ) => import('c:/Users/markrhysburke/Coding/full_stack_apps/archive/audio_transcription_app_typescript/src/contexts/KnowledgeProvider').KnowledgeFile[]
-// ) {
-//     return useCallback(
-//         (userMessage: string): string => {
-//             const startTime = performance.now();
-
-//             // Get relevant files based on user query
-//             const relevantFiles = searchRelevantFiles(userMessage, 8); // Get more candidates
-
-//             if (relevantFiles.length === 0) {
-//                 return 'No specific knowledge context found for this query.';
-//             }
-
-//             logger.debug(`[${COMPONENT_ID}] 🔍 Processing ${relevantFiles.length} relevant files`);
-
-//             // Extract keywords for content prioritization
-//             const keywords = userMessage
-//                 .toLowerCase()
-//                 .replace(/[^\w\s]/g, ' ')
-//                 .split(/\s+/)
-//                 .filter(word => word.length > 2)
-//                 .filter(word => !['the', 'and', 'for', 'are', 'but', 'not', 'you', 'can', 'how', 'what', 'when', 'where'].includes(word));
-
-//             // Smart content extraction function
-//             const extractRelevantContent = (content: string, fileName: string, maxChars: number = 1800): string => {
-//                 const sections = content.split(/\n\s*\n/); // Split by paragraphs
-//                 const scoredSections: Array<{ text: string; score: number; position: number }> = [];
-
-//                 sections.forEach((section, index) => {
-//                     let score = 0;
-//                     const sectionLower = section.toLowerCase();
-
-//                     // Score based on keyword matches
-//                     keywords.forEach(keyword => {
-//                         const matches = (sectionLower.match(new RegExp(`\\b${keyword}\\b`, 'g')) || []).length;
-//                         score += matches * 10;
-
-//                         // Partial matches
-//                         const partialMatches = (sectionLower.match(new RegExp(keyword, 'g')) || []).length - matches;
-//                         score += partialMatches * 2;
-//                     });
-
-//                     // Boost score for headers/titles (often start with # or are shorter)
-//                     if (section.startsWith('#') || section.length < 200) {
-//                         score += 5;
-//                     }
-
-//                     // Position bonus (earlier content often more important)
-//                     score += Math.max(0, 10 - index);
-
-//                     scoredSections.push({
-//                         text: section.trim(),
-//                         score,
-//                         position: index,
-//                     });
-//                 });
-
-//                 // Sort by score and build content within character limit
-//                 const sortedSections = scoredSections
-//                     .filter(s => s.score > 0 || s.position < 3) // Keep high-scoring + early sections
-//                     .sort((a, b) => b.score - a.score);
-
-//                 let selectedContent = '';
-//                 let charCount = 0;
-
-//                 for (const section of sortedSections) {
-//                     const sectionWithNewline = section.text + '\n\n';
-//                     if (charCount + sectionWithNewline.length <= maxChars) {
-//                         selectedContent += sectionWithNewline;
-//                         charCount += sectionWithNewline.length;
-//                     } else {
-//                         // Try to fit partial section if there's room
-//                         const remainingChars = maxChars - charCount - 50; // Leave room for "..."
-//                         if (remainingChars > 100) {
-//                             const partial = section.text.substring(0, remainingChars);
-//                             const lastSpace = partial.lastIndexOf(' ');
-//                             selectedContent += partial.substring(0, lastSpace > 0 ? lastSpace : remainingChars) + '...\n\n';
-//                         }
-//                         break;
-//                     }
-//                 }
-
-//                 return selectedContent.trim() || content.substring(0, maxChars) + '...';
-//             };
-
-//             // Calculate optimal character budget per file
-//             const targetTotalChars = 8000; // More generous budget
-//             const charsPerFile = Math.min(2000, Math.floor(targetTotalChars / Math.min(relevantFiles.length, 5)));
-
-//             // Process top 5 files with intelligent content selection
-//             const processedFiles = relevantFiles.slice(0, 5).map(file => {
-//                 const relevantContent = extractRelevantContent(file.content, file.name, charsPerFile);
-//                 const originalLength = file.content.length;
-//                 const selectedLength = relevantContent.length;
-
-//                 logger.debug(
-//                     `[${COMPONENT_ID}] 📄 ${file.name}: ${selectedLength}/${originalLength} chars (${Math.round(
-//                         (selectedLength / originalLength) * 100
-//                     )}% selected)`
-//                 );
-
-//                 return `**${file.name}**\n${relevantContent}`;
-//             });
-
-//             const context = processedFiles.join('\n\n---\n\n');
-//             const endTime = performance.now();
-
-//             logger.debug(
-//                 `[${COMPONENT_ID}] ✅ Built intelligent context: ${context.length} chars from ${processedFiles.length} files in ${(
-//                     endTime - startTime
-//                 ).toFixed(1)}ms`
-//             );
-
-//             return context;
-//         },
-//         [searchRelevantFiles]
-//     );
-// }
-
 // Detailed Prompt Logging Function
 interface DetailedPromptLoggingProps {
     queryId: string;
@@ -910,8 +811,6 @@ function DetailedPromptLogging({
     logger.info(`[${COMPONENT_ID}][${queryId}] └─────────────────────────────────────────────────────────────────┘`);
     console.log('\n💬 GENERATE RESPONSE USER PROMPT:\n', userPrompt, '\n');
 
-    // Log prompt analytics
-    // loglog.info(`Prompt Analytics: System=${systemPrompt.length}chars, User=${userPrompt.length}chars`, queryId);
     logger.debug(
         `[${COMPONENT_ID}][${queryId}] 📊 Total prompt size: ${systemPrompt.length + userPrompt.length} characters`
     );
