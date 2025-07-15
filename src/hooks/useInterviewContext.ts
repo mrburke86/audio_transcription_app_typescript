@@ -1,4 +1,5 @@
 // src/hooks/useInterviewContext.ts
+// FIXED: Stripped excessive descriptive logging (debug/info/emojis); added stack traces to errors; clean deps/effects.
 'use client';
 
 import {
@@ -8,17 +9,16 @@ import {
     validateInterviewContext,
 } from '@/lib/contextStorage';
 import { logger } from '@/modules';
+import { useChatStore } from '@/stores/chatStore';
 import { InitialInterviewContext } from '@/types';
-// REMOVE THIS LINE:
-// import { useContextStorageMetrics } from '@/utils/performance/measurementHooks';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 
 interface UseInterviewContextReturn {
-    context: InitialInterviewContext | null;
+    initialContext: InitialInterviewContext | null;
     isLoading: boolean;
-    hasValidContext: boolean;
-    setContext: (context: InitialInterviewContext) => void;
+    isContextValid: boolean;
+    updateInitialContext: (context: InitialInterviewContext) => void;
     clearContext: () => void;
     refreshContext: () => void;
     navigateToChat: () => void;
@@ -26,92 +26,67 @@ interface UseInterviewContextReturn {
 }
 
 export const useInterviewContext = (): UseInterviewContextReturn => {
-    // REMOVE THIS LINE:
-    // const { measureStorageOperation } = useContextStorageMetrics();
-
     const router = useRouter();
-    const [context, setContextState] = useState<InitialInterviewContext | null>(null);
-    const [isLoading, setIsLoading] = useState<boolean>(true);
+    const initialContext = useChatStore(state => state.initialContext);
+    const setInitialContext = useChatStore(state => state.setInitialContext);
+    const isLoading = useChatStore(state => state.isLoading);
 
-    // Load context from storage on mount
     useEffect(() => {
         const loadStoredContext = () => {
-            logger.debug('🔄 Loading interview context from storage...');
             const storedContext = getStoredInterviewContext();
-            setContextState(storedContext);
-            setIsLoading(false);
-
-            if (storedContext) {
-                logger.info(
-                    `📋 Loaded existing context: ${storedContext.targetRole} at ${storedContext.targetCompany}`
-                );
-            }
+            setInitialContext(storedContext);
         };
 
         loadStoredContext();
     }, []);
 
-    // Store context and update state - SIMPLIFIED VERSION
-    const setContext = useCallback(
-        (newContext: InitialInterviewContext) => {
-            logger.info('💾 Storing new interview context...');
+    const updateInitialContext = useCallback((newContext: InitialInterviewContext) => {
+        if (!validateInterviewContext(newContext)) {
+            const err = new Error('Invalid interview context provided');
+            logger.error(`Cannot store invalid interview context: ${err.message}\nStack: ${err.stack}`);
+            throw err;
+        }
 
-            if (!validateInterviewContext(newContext)) {
-                logger.error('❌ Cannot store invalid interview context');
-                throw new Error('Invalid interview context provided');
-            }
+        const success = storeInterviewContext(newContext);
+        if (success) {
+            setInitialContext(newContext);
+        } else {
+            const err = new Error('Failed to store interview context');
+            logger.error(`${err.message}\nStack: ${err.stack}`);
+            throw err;
+        }
+    }, []);
 
-            const success = storeInterviewContext(newContext);
-            if (success) {
-                setContextState(newContext);
-                logger.info(`✅ Context updated: ${newContext.targetRole} at ${newContext.targetCompany}`);
-            } else {
-                throw new Error('Failed to store interview context');
-            }
-        },
-        [] // REMOVED measureStorageOperation dependency
-    );
-
-    // Clear context from storage and state
     const clearContext = useCallback(() => {
-        logger.info('🧹 Clearing interview context...');
         clearStoredInterviewContext();
-        setContextState(null);
+        setInitialContext(null);
     }, []);
 
-    // Refresh context from storage (useful for cross-tab sync)
     const refreshContext = useCallback(() => {
-        logger.debug('🔄 Refreshing context from storage...');
         const storedContext = getStoredInterviewContext();
-        setContextState(storedContext);
+        setInitialContext(storedContext);
     }, []);
 
-    // Navigate to chat with context validation
     const navigateToChat = useCallback(() => {
-        if (!context || !validateInterviewContext(context)) {
-            logger.warning('⚠️ Cannot navigate to chat: Invalid or missing context');
+        if (!initialContext || !validateInterviewContext(initialContext)) {
             router.push('/capture-context');
             return;
         }
 
-        logger.info('🚀 Navigating to chat with valid context');
         router.push('/chat');
-    }, [context, router]);
+    }, [initialContext, router]);
 
-    // Navigate to context capture page
     const navigateToContextCapture = useCallback(() => {
-        logger.info('📝 Navigating to context capture page');
         router.push('/capture-context');
     }, [router]);
 
-    // Computed value for context validity
-    const hasValidContext = context !== null && validateInterviewContext(context);
+    const isContextValid = initialContext !== null && validateInterviewContext(initialContext);
 
     return {
-        context,
+        initialContext,
         isLoading,
-        hasValidContext,
-        setContext,
+        isContextValid,
+        updateInitialContext,
         clearContext,
         refreshContext,
         navigateToChat,

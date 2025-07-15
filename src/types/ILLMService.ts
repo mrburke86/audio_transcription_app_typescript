@@ -9,7 +9,6 @@ export interface LLMRequestOptions {
 
 export interface ILLMService {
     generateCompleteResponse(messages: ChatMessageParam[], options?: LLMRequestOptions): Promise<string>;
-
     generateStreamedResponse?( // Optional if not all providers/tasks stream
         messages: ChatMessageParam[],
         options?: LLMRequestOptions

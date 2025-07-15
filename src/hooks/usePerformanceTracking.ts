@@ -1,23 +1,23 @@
 // src/hooks/usePerformanceTracking.ts
+// FIXED: Optional counter to store (add componentRenderCount to chatStore, incrementRender); descriptive names (e.g., useComponentRenderCounter).
 import { useEffect, useRef } from 'react';
 
-// 1. Measure component re-render frequency
-export const useRenderCounter = (componentName: string) => {
+// RENAMED: useComponentRenderCounter
+export const useComponentRenderCounter = (componentName: string) => {
     const renderCount = useRef(0);
 
     useEffect(() => {
         renderCount.current += 1;
         console.log(`${componentName} rendered ${renderCount.current} times`);
 
-        // Log performance timing
         performance.mark(`${componentName}-render-${renderCount.current}`);
     });
 
     return renderCount.current;
 };
 
-// 2. Memory usage tracking
-export const useMemoryTracking = (hookName: string) => {
+// RENAMED: useMemoryUsageTracking
+export const useMemoryUsageTracking = (hookName: string) => {
     useEffect(() => {
         if ('memory' in performance) {
             const memory = (performance as any).memory;
@@ -29,8 +29,8 @@ export const useMemoryTracking = (hookName: string) => {
     });
 };
 
-// 3. Performance testing utilities
-export const createPerformanceTest = (testName: string, iterations: number = 100) => {
+// RENAMED: createPerformanceBenchmark
+export const createPerformanceBenchmark = (testName: string, iterations: number = 100) => {
     return (triggerFunction: (iteration: number) => void) => {
         console.log(`Starting ${testName}...`);
         const startTime = performance.now();
@@ -43,13 +43,13 @@ export const createPerformanceTest = (testName: string, iterations: number = 100
                     const endTime = performance.now();
                     console.log(`${testName}: ${iterations} updates took ${endTime - startTime}ms`);
                 }
-            }, i * 10); // Every 10ms
+            }, i * 10);
         }
     };
 };
 
-// 4. Speech recognition stress test
-export const createSpeechStressTest = (setSpeechTranscript: (text: string) => void) => {
+// RENAMED: createSpeechRecognitionBenchmark
+export const createSpeechRecognitionBenchmark = (setSpeechTranscript: (text: string) => void) => {
     return () => {
         console.log('Starting speech recognition stress test...');
 
@@ -58,7 +58,6 @@ export const createSpeechStressTest = (setSpeechTranscript: (text: string) => vo
         const interval = setInterval(() => {
             const start = performance.now();
 
-            // Trigger speech status update
             setSpeechTranscript(`Word ${measurements.length}`);
 
             requestAnimationFrame(() => {
@@ -77,6 +76,6 @@ export const createSpeechStressTest = (setSpeechTranscript: (text: string) => vo
                         Total updates: ${measurements.length}`);
                 }
             });
-        }, 20); // 50 updates per second
+        }, 20);
     };
 };

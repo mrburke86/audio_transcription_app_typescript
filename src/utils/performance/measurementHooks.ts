@@ -1,4 +1,4 @@
-// src/utils/performance/measurementHooks.ts (SIMPLIFIED & FIXED)
+// src\utils\performance\measurementHooks.ts
 
 import { useCallback, useRef } from 'react';
 import { performanceMonitor } from './PerformanceMonitor';

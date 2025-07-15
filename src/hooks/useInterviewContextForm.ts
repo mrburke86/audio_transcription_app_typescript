@@ -1,7 +1,9 @@
-// src\hooks\useInterviewContextForm.ts
-"use client";
-import { useState, useCallback } from 'react';
+// src/hooks/useInterviewContextForm.ts
+// FIXED: Migrate local to store (use initialContext from chatStore, actions like updateContextField); descriptive names (e.g., updateContextField, addToContextArray).
+'use client';
+import { useChatStore } from '@/stores/chatStore'; // NEW
 import { InitialInterviewContext } from '@/types';
+import { useCallback } from 'react';
 
 const defaultContext: InitialInterviewContext = {
     interviewType: 'sales',
@@ -22,72 +24,56 @@ const defaultContext: InitialInterviewContext = {
 };
 
 export function useInterviewContextForm(initialContext?: InitialInterviewContext) {
-    const [context, setContext] = useState<InitialInterviewContext>(
-        initialContext || defaultContext
-    );
-    const [activeTab, setActiveTab] = useState('interview');
+    const context = useChatStore(state => state.initialContext || defaultContext);
+    const activeTab = useChatStore(state => state.activeTab);
+    const setActiveTab = useChatStore(state => state.setActiveTab);
 
-    // Individual field updaters
-    const updateField = useCallback(
+    const updateContextField = useCallback(
         <K extends keyof InitialInterviewContext>(field: K, value: InitialInterviewContext[K]) => {
-            setContext(prev => ({ ...prev, [field]: value }));
+            useChatStore.getState().setInitialContext({ ...context, [field]: value });
         },
-        []
+        [context]
     );
 
-    // Array operations
-    const addToArray = useCallback(
+    const addToContextArray = useCallback(
         <K extends keyof InitialInterviewContext>(field: K, value: string) => {
-            setContext(prev => {
-                const currentArray = prev[field] as string[];
-                return {
-                    ...prev,
-                    [field]: [...currentArray, value],
-                };
-            });
+            const currentArray = context[field] as string[];
+            useChatStore.getState().setInitialContext({ ...context, [field]: [...currentArray, value] });
         },
-        []
+        [context]
     );
 
-    const removeFromArray = useCallback(
+    const removeFromContextArray = useCallback(
         <K extends keyof InitialInterviewContext>(field: K, index: number) => {
-            setContext(prev => {
-                const currentArray = prev[field] as string[];
-                return {
-                    ...prev,
-                    [field]: currentArray.filter((_, i) => i !== index),
-                };
-            });
+            const currentArray = context[field] as string[];
+            useChatStore
+                .getState()
+                .setInitialContext({ ...context, [field]: currentArray.filter((_, i) => i !== index) });
         },
-        []
+        [context]
     );
 
-    const toggleInArray = useCallback(
+    const toggleInContextArray = useCallback(
         <K extends keyof InitialInterviewContext>(field: K, value: string) => {
-            setContext(prev => {
-                const array = prev[field] as string[];
-                return {
-                    ...prev,
-                    [field]: array.includes(value)
-                        ? array.filter(item => item !== value)
-                        : [...array, value],
-                };
+            const array = context[field] as string[];
+            useChatStore.getState().setInitialContext({
+                ...context,
+                [field]: array.includes(value) ? array.filter(item => item !== value) : [...array, value],
             });
         },
-        []
+        [context]
     );
 
-    // Validation
     const isValid = context.targetRole.trim().length > 0;
 
     return {
         context,
         activeTab,
         setActiveTab,
-        updateField,
-        addToArray,
-        removeFromArray,
-        toggleInArray,
+        updateContextField,
+        addToContextArray,
+        removeFromContextArray,
+        toggleInContextArray,
         isValid,
     };
 }

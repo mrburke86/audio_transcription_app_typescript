@@ -1,10 +1,10 @@
-import { AnalysisPreview, InitialInterviewContext } from '@/types';
+import { AnalysisHistoryEntry, InitialInterviewContext } from '@/types';
 
 export async function createAnalysisUserPrompt(
     conversationSummary: string,
     initialInterviewContext: InitialInterviewContext | null,
     knowledgeContext?: string,
-    previousAnalysisHistory?: AnalysisPreview[]
+    previousAnalysisHistory?: AnalysisHistoryEntry[]
 ): Promise<string> {
     const currentDateTime = new Date().toISOString().split('T')[0];
 
@@ -24,7 +24,9 @@ export async function createAnalysisUserPrompt(
     const knowledgeSection = knowledgeContext
         ? `
 ## Available Knowledge Intelligence:
-${knowledgeContext.substring(0, 2000)}${knowledgeContext.length > 2000 ? '\n[... additional strategic context available ...]' : ''}
+${knowledgeContext.substring(0, 2000)}${
+              knowledgeContext.length > 2000 ? '\n[... additional strategic context available ...]' : ''
+          }
 `
         : '## Knowledge Base: Limited specific intelligence available';
 
@@ -48,8 +50,8 @@ ${previousAnalysisHistory
         (prev, index) => `
 ### Previous Analysis #${index + 1}:
 - **Strategic Opportunity**: ${prev.strategic_opportunity}
-- **Focus Area**: ${prev.focus_area}
-- **Insight Summary**: ${prev.insight_summary}
+- **Focus Area**: ${prev.primaryFocusArea}
+- **Insight Summary**: ${prev.insightPotentialSummary}
 `
     )
     .join('')}
@@ -90,7 +92,9 @@ ${
         ? `- **AVOID REPETITION**: Do not repeat previous strategic opportunities: ${previousAnalysisHistory
               .map(p => p.strategic_opportunity)
               .join(', ')}
-- **EXPLORE NEW ANGLES**: Choose different focus areas from previous: ${previousAnalysisHistory.map(p => p.focus_area).join(', ')}
+- **EXPLORE NEW ANGLES**: Choose different focus areas from previous: ${previousAnalysisHistory
+              .map(p => p.primaryFocusArea)
+              .join(', ')}
 - **FRESH PERSPECTIVE**: Provide genuinely different strategic intelligence direction`
         : '- **FRESH START**: Choose the most impactful strategic opportunity for this situation'
 }

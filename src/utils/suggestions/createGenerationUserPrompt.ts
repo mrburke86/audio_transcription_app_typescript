@@ -1,11 +1,11 @@
 // src/utils/createGenerationUserPrompt.ts
-import { AnalysisPreview, InitialInterviewContext, StrategicAnalysis } from '@/types';
+import { AnalysisHistoryEntry, InitialInterviewContext, StrategicOpportunityAnalysis } from '@/types';
 
 export async function createGenerationUserPrompt(
-    analysis: StrategicAnalysis,
+    analysis: StrategicOpportunityAnalysis,
     initialInterviewContext: InitialInterviewContext | null,
     knowledgeContext?: string,
-    previousAnalysisHistory?: AnalysisPreview[]
+    previousAnalysisHistory?: AnalysisHistoryEntry[]
 ): Promise<string> {
     const contextSection = initialInterviewContext
         ? `
@@ -17,7 +17,9 @@ export async function createGenerationUserPrompt(
 - **Experience Assets**: ${initialInterviewContext.emphasizedExperiences.join(', ') || 'General experience'}
 - **Strategic Challenges**: ${initialInterviewContext.specificChallenges.join(', ') || 'None specified'}
 - **Company Intelligence**: ${initialInterviewContext.companyContext.join(', ') || 'Limited company context'}
-- **Response Style**: ${initialInterviewContext.responseConfidence} confidence, ${initialInterviewContext.responseStructure} structure
+- **Response Style**: ${initialInterviewContext.responseConfidence} confidence, ${
+              initialInterviewContext.responseStructure
+          } structure
 - **Metrics Focus**: ${
               initialInterviewContext.includeMetrics
                   ? 'Include quantified achievements and data points'
@@ -30,7 +32,9 @@ export async function createGenerationUserPrompt(
         ? `
 ## Strategic Knowledge Base:
 ${knowledgeContext.substring(0, 2500)}${
-              knowledgeContext.length > 2500 ? '\n\n[... additional strategic intelligence available for deeper insights ...]' : ''
+              knowledgeContext.length > 2500
+                  ? '\n\n[... additional strategic intelligence available for deeper insights ...]'
+                  : ''
           }
 `
         : '## Knowledge Base: Limited specific intelligence - rely on broader strategic knowledge';
@@ -47,8 +51,8 @@ ${previousAnalysisHistory
         (prev, index) => `
 ### Previous Intelligence #${index + 1}:
 - **Type**: ${prev.strategic_opportunity}
-- **Focus**: ${prev.focus_area}  
-- **Insights Covered**: ${prev.insight_summary}
+- **Focus**: ${prev.primaryFocusArea}  
+- **Insights Covered**: ${prev.insightPotentialSummary}
 `
     )
     .join('')}
@@ -68,11 +72,11 @@ Create genuinely impressive strategic intelligence that will blow the interviewe
 
 ## Strategic Analysis Results:
 - **Primary Opportunity**: ${analysis.strategic_opportunity}
-- **Specific Focus Area**: ${analysis.focus_area}
-- **Insight Potential**: ${analysis.insight_potential}
-- **Knowledge Leverage Strategy**: ${analysis.knowledge_leverage}
-- **Differentiation Angle**: ${analysis.differentiation_angle}
-- **Research Enhancement**: ${analysis.research_suggestions}
+- **Specific Focus Area**: ${analysis.primaryFocusArea}
+- **Insight Potential**: ${analysis.insightPotentialSummary}
+- **Knowledge Leverage Strategy**: ${analysis.knowledgeLeverageStrategy}
+- **Differentiation Angle**: ${analysis.differentiationApproach}
+- **Research Enhancement**: ${analysis.researchRecommendations}
 
 ${contextSection}${knowledgeSection}${previousContextSection}
 
@@ -88,7 +92,7 @@ Create **multiple different types** of genuinely impressive insights that:
 7. **Ensure Freshness** - Deliver completely different insights from any previous intelligence
 
 ## Intelligence Generation Focus:
-**Primary Direction**: ${analysis.strategic_opportunity} with focus on ${analysis.focus_area}
+**Primary Direction**: ${analysis.strategic_opportunity} with focus on ${analysis.primaryFocusArea}
 
 ### Specific Requirements for ${analysis.strategic_opportunity}:
 ${
@@ -106,7 +110,9 @@ ${
 }
 
 ## Quality Requirements:
-- **Multiple Independent Elements** - Provide 3-4 different types of valuable insights within the ${analysis.strategic_opportunity} theme
+- **Multiple Independent Elements** - Provide 3-4 different types of valuable insights within the ${
+        analysis.strategic_opportunity
+    } theme
 - **Research-Backed** - Include specific examples, data, real-world evidence where possible
 - **Strategic Depth** - Go beyond surface-level to reveal deeper patterns
 - **Impressive Factor** - Every element should genuinely impress a sophisticated interviewer
@@ -117,5 +123,7 @@ ${
 
 Focus on delivering genuine strategic intelligence that showcases exceptional thinking within the ${
         analysis.strategic_opportunity
-    } domain, specifically targeting ${analysis.focus_area}, while ensuring complete freshness from previous generations.`;
+    } domain, specifically targeting ${
+        analysis.primaryFocusArea
+    }, while ensuring complete freshness from previous generations.`;
 }

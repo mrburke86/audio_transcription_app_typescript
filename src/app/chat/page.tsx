@@ -1,3 +1,4 @@
+// src/app/chat/page.tsx
 'use client';
 
 import { ErrorState } from '@/components/global/StatusDisplay';
@@ -6,11 +7,10 @@ import { logger } from '@/modules';
 import { useCallback } from 'react';
 import { useAudioVisualization, useChatInitialization, useChatState, useSpeechManager } from './_hooks';
 
-// ✅ Performance tracking (optional - can be disabled in production)
-import { useMemoryTracking, useRenderCounter } from '@/hooks/usePerformanceTracking';
+// FIXED: Updated perf names (useMemoryUsageTracking, useComponentRenderCounter)
+import { useComponentRenderCounter, useMemoryUsageTracking } from '@/hooks/usePerformanceTracking';
 import { ChatInterface } from './_components/ChatInterface';
 import { ChatProtectionWrapper } from './_components/ChatProtectionWrapper';
-import { useIsolatedTranscriptions } from './_hooks/useIsolatedTranscriptions';
 
 export default function ChatPage() {
     return (
@@ -20,27 +20,22 @@ export default function ChatPage() {
     );
 }
 
-// ✅ Separate content component that receives props from wrapper
 const ChatPageContent: React.FC<{
     initialInterviewContext?: any;
     knowledgeBaseName?: string;
     indexedDocumentsCount?: number;
 }> = ({ initialInterviewContext, knowledgeBaseName, indexedDocumentsCount }) => {
-    // ✅ Performance tracking (only in development)
     if (process.env.NODE_ENV === 'development') {
-        useRenderCounter('ChatPage-REFACTORED');
-        useMemoryTracking('ChatPage-REFACTORED');
+        useComponentRenderCounter('ChatPage-REFACTORED');
+        useMemoryUsageTracking('ChatPage-REFACTORED');
     }
 
     const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
 
-    // ✅ Single responsibility hooks - each handles one concern
     useChatInitialization(false, true, true, initialInterviewContext, apiKey || '');
 
-    // ✅ State management - isolated conversation history
     const { conversationHistory } = useChatState([]);
 
-    // ✅ LLM Provider - handles AI responses and streaming
     const {
         generateResponse,
         generateSuggestions,
@@ -49,30 +44,18 @@ const ChatPageContent: React.FC<{
         streamedContent,
         isStreamingComplete,
         conversationSummary,
-        conversationSuggestions,
-    } = useLLMProviderOptimized(apiKey || '', initialInterviewContext || null, conversationHistory);
+        strategicSuggestions,
+    } = useLLMProviderOptimized(apiKey || '', initialInterviewContext || null);
 
-    const isolatedTranscriptions = useIsolatedTranscriptions();
+    const { userMessages, submitTranscripts, resetTranscripts, handleRecognitionResult } = useTranscriptions(); // FIXED: Updated names
 
-    // ✅ Transcriptions - handles user input
-    const { userMessages, handleMove, handleClear, handleRecognitionResult } = useTranscriptions({
-        generateResponse,
-        streamedContent,
-        isStreamingComplete,
-        isolatedTranscriptions,
-    });
-
-    // ✅ Update conversation history from user messages
     useChatState(userMessages);
 
-    // ✅ Speech management - isolated speech recognition logic
     const { recognitionStatus, speechErrorMessage, start, stop, startAudioVisualization } =
         useSpeechManager(handleRecognitionResult);
 
-    // ✅ Audio visualization - isolated canvas management
     const { canvasRef, handleStart } = useAudioVisualization(start, startAudioVisualization);
 
-    // ✅ Event handlers - clean, isolated responsibilities
     const handleSuggest = useCallback(async () => {
         try {
             await generateSuggestions();
@@ -93,7 +76,6 @@ const ChatPageContent: React.FC<{
         }
     }, [initialInterviewContext]);
 
-    // ✅ Handle LLM errors (only error not handled by wrapper)
     if (error) {
         return (
             <ErrorState
@@ -105,7 +87,6 @@ const ChatPageContent: React.FC<{
         );
     }
 
-    // ✅ Render clean interface with isolated concerns
     return (
         <ChatInterface
             initialInterviewContext={initialInterviewContext}
@@ -117,14 +98,13 @@ const ChatPageContent: React.FC<{
             userMessages={userMessages}
             streamedContent={streamedContent}
             isStreamingComplete={isStreamingComplete}
-            isolatedTranscriptions={isolatedTranscriptions}
             conversationSummary={conversationSummary}
-            conversationSuggestions={conversationSuggestions}
+            conversationSuggestions={strategicSuggestions}
             isLoading={isLoading}
             handleStart={handleStart}
             handleStop={stop}
-            handleClear={handleClear}
-            handleMove={handleMove}
+            handleClear={resetTranscripts} // FIXED: Updated
+            handleMove={submitTranscripts} // FIXED: Updated
             handleSuggest={handleSuggest}
             handleContextInfo={handleContextInfo}
         />
