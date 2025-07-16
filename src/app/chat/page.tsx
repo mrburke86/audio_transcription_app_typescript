@@ -2,13 +2,17 @@
 'use client';
 
 import { ErrorState } from '@/components/global/StatusDisplay';
-import { useLLMProviderOptimized, useTranscriptions } from '@/hooks';
-import { logger } from '@/modules';
+import {
+    useAudioVisualization,
+    useChatInitialization,
+    useChatState,
+    useSpeechManager,
+    useTranscriptions,
+} from '@/hooks';
+import { logger } from '@/lib/Logger';
+import { useChatStore } from '@/stores/chatStore'; // FIXED: Use store for state/actions
 import { useCallback } from 'react';
-import { useAudioVisualization, useChatInitialization, useChatState, useSpeechManager } from './_hooks';
 
-// FIXED: Updated perf names (useMemoryUsageTracking, useComponentRenderCounter)
-import { useComponentRenderCounter, useMemoryUsageTracking } from '@/hooks/usePerformanceTracking';
 import { ChatInterface } from './_components/ChatInterface';
 import { ChatProtectionWrapper } from './_components/ChatProtectionWrapper';
 
@@ -26,16 +30,15 @@ const ChatPageContent: React.FC<{
     indexedDocumentsCount?: number;
 }> = ({ initialInterviewContext, knowledgeBaseName, indexedDocumentsCount }) => {
     if (process.env.NODE_ENV === 'development') {
-        useComponentRenderCounter('ChatPage-REFACTORED');
-        useMemoryUsageTracking('ChatPage-REFACTORED');
+        // useComponentRenderCounter('ChatPage-REFACTORED');
+        // useMemoryUsageTracking('ChatPage-REFACTORED');
     }
 
     const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
 
     useChatInitialization(false, true, true, initialInterviewContext, apiKey || '');
 
-    const { conversationHistory } = useChatState([]);
-
+    // FIXED: Use chat store for LLM-related state and actions
     const {
         generateResponse,
         generateSuggestions,
@@ -45,7 +48,18 @@ const ChatPageContent: React.FC<{
         isStreamingComplete,
         conversationSummary,
         strategicSuggestions,
-    } = useLLMProviderOptimized(apiKey || '', initialInterviewContext || null);
+    } = useChatStore(state => ({
+        generateResponse: state.generateResponse,
+        generateSuggestions: state.generateSuggestions,
+        isLoading: state.isLoading,
+        error: state.error,
+        streamedContent: state.streamedContent,
+        isStreamingComplete: state.isStreamingComplete,
+        conversationSummary: state.conversationSummary,
+        strategicSuggestions: state.strategicSuggestions,
+    }));
+
+    const { conversationHistory } = useChatState([]);
 
     const { userMessages, submitTranscripts, resetTranscripts, handleRecognitionResult } = useTranscriptions(); // FIXED: Updated names
 
@@ -56,6 +70,7 @@ const ChatPageContent: React.FC<{
 
     const { canvasRef, handleStart } = useAudioVisualization(start, startAudioVisualization);
 
+    // Handle Suggest Generation
     const handleSuggest = useCallback(async () => {
         try {
             await generateSuggestions();

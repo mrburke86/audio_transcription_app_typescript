@@ -1,5 +1,5 @@
 // src\utils\createUserPrompt.ts
-import { logger } from '@/modules/Logger';
+import { logger } from '@/lib/Logger';
 
 /**
  * Constructs the user message for the Completions API with intelligent section handling.
@@ -9,7 +9,11 @@ import { logger } from '@/modules/Logger';
  * @param knowledgeContext - Knowledge from the uploaded Markdown files (intelligently selected)
  * @returns A formatted string that consolidates all the input into a coherent message.
  */
-export async function createUserPrompt(userMessage: string, conversationSummary: string, knowledgeContext: string): Promise<string> {
+export async function createUserPrompt(
+    userMessage: string,
+    conversationSummary: string,
+    knowledgeContext: string
+): Promise<string> {
     logger.debug(`🎭 Creating user message for question: "${userMessage}"`);
 
     const sections: string[] = [];
@@ -37,7 +41,9 @@ export async function createUserPrompt(userMessage: string, conversationSummary:
 
     // Enhanced logging
     logger.debug(`✅ User message created: ${result.length} chars across ${sections.length} sections`);
-    logger.debug(`📊 Content breakdown: Knowledge=${knowledgeContext.length}chars, Summary=${conversationSummary.length}chars`);
+    logger.debug(
+        `📊 Content breakdown: Knowledge=${knowledgeContext.length}chars, Summary=${conversationSummary.length}chars`
+    );
 
     return result;
 }

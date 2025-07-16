@@ -1,6 +1,6 @@
 // src\utils\createSystemPrompt.ts
 
-import { logger } from '@/modules/Logger';
+import { logger } from '@/lib/Logger';
 import { InitialInterviewContext } from '@/types';
 
 export async function createSystemPrompt(

@@ -3,7 +3,7 @@ import { ErrorState, LoadingState } from '@/components/global/StatusDisplay';
 import { useKnowledge } from '@/contexts';
 import { logger } from '@/modules';
 import React from 'react';
-import { useChatProtection } from '../_hooks/useChatProtection';
+import { useChatProtection } from '../../../hooks/useChatProtection';
 
 interface ChatProtectionWrapperProps {
     children: React.ReactNode;

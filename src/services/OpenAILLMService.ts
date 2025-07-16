@@ -1,5 +1,5 @@
 // src/services/OpenAILLMService.ts
-// FIXED: Stripped perf (measureAPICall, stats, timings, warnings); added stack traces in errors; descriptive names (e.g., generateStreamedResponseChunks).
+
 import { logger } from '@/modules';
 import { ChatMessageParam, ILLMService, isOpenAIModel, LLMRequestOptions, OpenAIModelName } from '@/types';
 import OpenAI from 'openai';

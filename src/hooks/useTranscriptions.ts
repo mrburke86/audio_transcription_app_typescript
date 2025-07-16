@@ -2,12 +2,12 @@
 // FIXED: Stripped perf (measureAPICall, trackConversationGrowth, getConversationStats, statsInterval, console.log stats); removed streamedContent/isStreamingComplete (unused—discomfort noted); enhanced error logging with stack traces; clean deps/effects. Descriptive names unchanged.
 'use client';
 
-import { logger } from '@/modules/Logger';
+import { logger } from '@/lib/Logger';
 import { useChatStore } from '@/stores/chatStore';
+import { Message } from '@/types';
 import { formatTimestamp } from '@/utils/helpers';
 import { debounce } from 'lodash';
 import React, { useCallback } from 'react';
-import { Message } from '../types/Message';
 
 export const useTranscriptions = () => {
     // Store selectors/actions
@@ -47,7 +47,7 @@ export const useTranscriptions = () => {
             300,
             { leading: false, trailing: true }
         ),
-        []
+        [addInterimTranscriptMessage, updateCurrentInterimTranscript]
     );
 
     // Submit Transcripts
@@ -73,13 +73,13 @@ export const useTranscriptions = () => {
         }
 
         clearInterimTranscripts();
-    }, [interimTranscriptMessages, currentInterimTranscript, generateResponse]);
+    }, [interimTranscriptMessages, currentInterimTranscript, addMessage, generateResponse, clearInterimTranscripts]);
 
     // Clear transcripts
     const resetTranscripts = useCallback(() => {
         clearAllTranscripts();
         logger.clearSessionLogs();
-    }, []);
+    }, [clearAllTranscripts]);
 
     return {
         interimTranscriptMessages,

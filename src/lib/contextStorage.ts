@@ -1,8 +1,8 @@
 // src/lib/contextStorage.ts (Simplified Debug Version)
 'use client';
 
+import { logger } from '@/lib/Logger';
 import { InitialInterviewContext } from '@/types';
-import { logger } from '@/modules';
 
 const CONTEXT_STORAGE_KEY = 'interview_context';
 
@@ -22,12 +22,12 @@ export const storeInterviewContext = (context: InitialInterviewContext): boolean
             targetCompany: context.targetCompany,
             interviewType: context.interviewType,
             hasGoals: Array.isArray(context.goals),
-            goalsLength: context.goals?.length || 0
+            goalsLength: context.goals?.length || 0,
         });
 
         const serializedContext = JSON.stringify(context);
         sessionStorage.setItem(CONTEXT_STORAGE_KEY, serializedContext);
-        
+
         // ✅ Immediate verification that storage worked
         const verification = sessionStorage.getItem(CONTEXT_STORAGE_KEY);
         if (verification) {
@@ -43,38 +43,38 @@ export const storeInterviewContext = (context: InitialInterviewContext): boolean
     }
 };
 
-export const getStoredInterviewContext = (): InitialInterviewContext | null => {
+export const getStoredInterviewContext = (): InitialInterviewContext => {
     try {
         if (typeof window === 'undefined') {
             logger.warning('getStoredInterviewContext: Window not available (SSR)');
-            return null;
+            throw new Error('Window not available in SSR environment');
         }
 
         const storedData = sessionStorage.getItem(CONTEXT_STORAGE_KEY);
         if (!storedData) {
             logger.debug('No stored interview context found');
-            return null;
+            throw new Error('No stored interview context found');
         }
 
         logger.info(`🔍 Found stored context data (${storedData.length} chars)`);
 
         const context = JSON.parse(storedData) as InitialInterviewContext;
-        
+
         // ✅ More detailed validation logging
         logger.info('🔍 Parsed context:', {
             targetRole: context.targetRole,
             targetCompany: context.targetCompany,
             interviewType: context.interviewType,
-            hasRequiredFields: !!(context.targetRole && context.targetCompany)
+            hasRequiredFields: !!(context.targetRole && context.targetCompany),
         });
 
         // Simple validation - just check the most essential fields
         if (!context.targetRole || !context.targetCompany) {
             logger.warning('⚠️ Context missing essential fields:', {
                 hasTargetRole: !!context.targetRole,
-                hasTargetCompany: !!context.targetCompany
+                hasTargetCompany: !!context.targetCompany,
             });
-            return null;
+            throw new Error('Context missing essential fields');
         }
 
         logger.info(`✅ Valid context retrieved: ${context.targetRole} at ${context.targetCompany}`);
@@ -82,7 +82,7 @@ export const getStoredInterviewContext = (): InitialInterviewContext | null => {
     } catch (error) {
         logger.error('❌ Failed to retrieve interview context:', error);
         clearStoredInterviewContext();
-        return null;
+        throw error;
     }
 };
 
@@ -121,7 +121,7 @@ export const validateInterviewContext = (context: Partial<InitialInterviewContex
     logger.info('🔍 Context validation:', {
         hasRole,
         hasCompany,
-        valid: hasRole && hasCompany
+        valid: hasRole && hasCompany,
     });
 
     if (!hasRole) {

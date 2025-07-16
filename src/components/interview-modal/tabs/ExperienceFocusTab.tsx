@@ -1,15 +1,14 @@
 // src/components/interview-modal/tabs/ExperienceFocusTab.tsx
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { FormField } from '../components/FormField';
-import { useInterviewModal } from '../InterviewModalContext';
+import { Textarea } from '@/components/ui/textarea';
+import { useInterviewContext } from '@/hooks';
+import { PREDEFINED_CHALLENGES, PREDEFINED_EXPERIENCES, PREDEFINED_INTERVIEW_GOALS } from '@/lib/predefinedFields';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
-import { PREDEFINED_CHALLENGES, PREDEFINED_EXPERIENCES } from '@/lib/predefinedFields';
-import { PREDEFINED_INTERVIEW_GOALS } from '@/lib/predefinedFields';
+import { FormField } from '../components/FormField';
 
 interface CheckboxWithCustomInputProps {
     title: string;
@@ -131,18 +130,28 @@ function CheckboxWithCustomInput({
 }
 
 export function ExperienceFocusTab() {
-    const { context, toggleInArray, updateField } = useInterviewModal();
+    const { initialContext, isInitialized, updateContextField, toggleInContextArray } = useInterviewContext();
+
+    // ✅ SIMPLE CHECK: Just verify initialization
+    if (!isInitialized) {
+        return (
+            <div className="flex items-center justify-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-sm text-gray-600">Loading interview setup...</p>
+            </div>
+        );
+    }
 
     const handleAddCustomGoal = (goal: string) => {
-        toggleInArray('goals', goal);
+        toggleInContextArray('goals', goal);
     };
 
     const handleAddCustomExperience = (experience: string) => {
-        toggleInArray('emphasizedExperiences', experience);
+        toggleInContextArray('emphasizedExperiences', experience);
     };
 
     const handleAddCustomChallenge = (challenge: string) => {
-        toggleInArray('specificChallenges', challenge);
+        toggleInContextArray('specificChallenges', challenge);
     };
 
     return (
@@ -153,8 +162,8 @@ export function ExperienceFocusTab() {
                 description="What do you want to achieve or learn from this interview?"
                 icon="🎯"
                 predefinedOptions={PREDEFINED_INTERVIEW_GOALS}
-                selectedItems={context.goals}
-                onToggleItem={item => toggleInArray('goals', item)}
+                selectedItems={initialContext.goals}
+                onToggleItem={item => toggleInContextArray('goals', item)}
                 onAddCustomItem={handleAddCustomGoal}
                 customPlaceholder="Add a specific interview goal..."
             />
@@ -165,8 +174,8 @@ export function ExperienceFocusTab() {
                 description="Which experiences should be highlighted in your responses?"
                 icon="💼"
                 predefinedOptions={PREDEFINED_EXPERIENCES}
-                selectedItems={context.emphasizedExperiences}
-                onToggleItem={item => toggleInArray('emphasizedExperiences', item)}
+                selectedItems={initialContext.emphasizedExperiences}
+                onToggleItem={item => toggleInContextArray('emphasizedExperiences', item)}
                 onAddCustomItem={handleAddCustomExperience}
                 customPlaceholder="Add a specific experience to highlight..."
             />
@@ -177,8 +186,8 @@ export function ExperienceFocusTab() {
                 description="What types of challenges can you speak to confidently?"
                 icon="⚡"
                 predefinedOptions={PREDEFINED_CHALLENGES}
-                selectedItems={context.specificChallenges}
-                onToggleItem={item => toggleInArray('specificChallenges', item)}
+                selectedItems={initialContext.specificChallenges}
+                onToggleItem={item => toggleInContextArray('specificChallenges', item)}
                 onAddCustomItem={handleAddCustomChallenge}
                 customPlaceholder="Add a specific challenge you've overcome..."
             />
@@ -191,8 +200,8 @@ export function ExperienceFocusTab() {
                 <CardContent>
                     <FormField label="Additional Context">
                         <Textarea
-                            value={context.industry}
-                            onChange={e => updateField('industry', e.target.value)}
+                            value={initialContext.industry}
+                            onChange={e => updateContextField('industry', e.target.value)}
                             placeholder="Any additional context about the role, company, or industry..."
                             rows={3}
                         />

@@ -1,7 +1,7 @@
 // src/contexts/KnowledgeProvider.tsx
 'use client';
 
-import { logger } from '@/modules';
+import { logger } from '@/lib/Logger';
 import {
     countKnowledgePoints,
     DocumentChunk,
@@ -10,27 +10,8 @@ import {
     KNOWLEDGE_COLLECTION_NAME,
     searchRelevantChunks,
 } from '@/services/QdrantService';
+import { IndexingStatus, KnowledgeContextType } from '@/types';
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
-
-interface IndexingStatus {
-    isIndexing: boolean;
-    progress: string;
-    filesProcessed: number;
-    totalFiles: number;
-    errors: string[];
-}
-
-interface KnowledgeContextType {
-    isLoading: boolean;
-    error: string | null;
-    searchRelevantKnowledge: (query: string, limit?: number) => Promise<DocumentChunk[]>;
-    knowledgeBaseName: string;
-    indexedDocumentsCount: number;
-    refreshIndexedDocumentsCount: () => Promise<void>;
-    triggerIndexing: () => Promise<boolean>;
-    indexingStatus: IndexingStatus;
-    lastIndexedAt: Date | null;
-}
 
 const KnowledgeContext = createContext<KnowledgeContextType | undefined>(undefined);
 

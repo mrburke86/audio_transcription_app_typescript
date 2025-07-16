@@ -1,31 +1,19 @@
-// src/hooks/useRouteProtection.ts
+// src/hooks/useRouteProtection.tsx
 'use client';
 
-import { logger } from '@/modules';
+import { logger } from '@/lib/Logger';
 import { useChatStore } from '@/stores/chatStore'; // NEW
+import { UseRouteProtectionOptions, UseRouteProtectionReturn } from '@/types';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react'; // Removed useState
 import { useInterviewContext } from './useInterviewContext';
-
-interface UseRouteProtectionOptions {
-    guardedRoutePath: string;
-    redirectPath: string;
-    showLoading?: boolean;
-    customValidation?: () => boolean;
-}
-
-interface UseRouteProtectionReturn {
-    isAccessAllowed: boolean;
-    isLoading: boolean;
-    isRedirecting: boolean;
-}
 
 export const useRouteProtection = (options: UseRouteProtectionOptions): UseRouteProtectionReturn => {
     const { guardedRoutePath, redirectPath, showLoading = true, customValidation } = options;
 
     const router = useRouter();
     const pathname = usePathname();
-    const { initialContext, isContextValid, isLoading: contextLoading } = useInterviewContext(); // FIXED: Renamed use
+    const { context: initialContext, isContextValid, isLoading: contextLoading } = useInterviewContext(); // FIXED: Renamed use
 
     const protectionState = useChatStore(state => state.protectionState);
     const setProtectionState = useChatStore(state => state.setProtectionState);
@@ -75,6 +63,7 @@ export const useRouteProtection = (options: UseRouteProtectionOptions): UseRoute
         customValidation,
         redirectPath,
         router,
+        setProtectionState,
     ]);
 
     const isLoading =

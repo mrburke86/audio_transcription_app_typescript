@@ -1,9 +1,9 @@
 // src\components\KnowledgeIndexingButton.tsx
 'use client';
 
-import React, { useState } from 'react';
 import { useKnowledge } from '@/contexts/KnowledgeProvider';
-import { logger } from '@/modules/Logger';
+import { logger } from '@/lib/Logger';
+import React, { useState } from 'react';
 
 interface KnowledgeIndexingButtonProps {
     variant?: 'primary' | 'secondary';
@@ -18,8 +18,7 @@ export const KnowledgeIndexingButton: React.FC<KnowledgeIndexingButtonProps> = (
     showProgress = true,
     className = '',
 }) => {
-    const { triggerIndexing, indexingStatus, indexedDocumentsCount, lastIndexedAt } =
-        useKnowledge();
+    const { triggerIndexing, indexingStatus, indexedDocumentsCount, lastIndexedAt } = useKnowledge();
     const [showDetails, setShowDetails] = useState(false);
 
     const handleIndexing = async () => {
@@ -60,19 +59,8 @@ export const KnowledgeIndexingButton: React.FC<KnowledgeIndexingButtonProps> = (
         if (indexingStatus.isIndexing) {
             return (
                 <>
-                    <svg
-                        className="animate-spin -ml-1 mr-2 h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                    >
-                        <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                        />
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path
                             className="opacity-75"
                             fill="currentColor"
@@ -87,12 +75,7 @@ export const KnowledgeIndexingButton: React.FC<KnowledgeIndexingButtonProps> = (
         if (indexedDocumentsCount === 0) {
             return (
                 <>
-                    <svg
-                        className="mr-2 h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
+                    <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -127,11 +110,7 @@ export const KnowledgeIndexingButton: React.FC<KnowledgeIndexingButtonProps> = (
                 onClick={handleIndexing}
                 disabled={indexingStatus.isIndexing}
                 className={buttonClasses}
-                title={
-                    indexingStatus.isIndexing
-                        ? 'Indexing in progress...'
-                        : 'Index knowledge base files'
-                }
+                title={indexingStatus.isIndexing ? 'Indexing in progress...' : 'Index knowledge base files'}
             >
                 {getButtonContent()}
             </button>
@@ -141,13 +120,9 @@ export const KnowledgeIndexingButton: React.FC<KnowledgeIndexingButtonProps> = (
                 <div className="space-y-2">
                     {/* Status Display */}
                     <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">
-                            📊 {indexedDocumentsCount} items indexed
-                        </span>
+                        <span className="text-gray-600">📊 {indexedDocumentsCount} items indexed</span>
                         {lastIndexedAt && (
-                            <span className="text-gray-500">
-                                Last: {lastIndexedAt.toLocaleTimeString()}
-                            </span>
+                            <span className="text-gray-500">Last: {lastIndexedAt.toLocaleTimeString()}</span>
                         )}
                     </div>
 
@@ -169,8 +144,7 @@ export const KnowledgeIndexingButton: React.FC<KnowledgeIndexingButtonProps> = (
                     {/* Processing Details */}
                     {indexingStatus.isIndexing && indexingStatus.filesProcessed > 0 && (
                         <div className="text-xs text-gray-500">
-                            Processed: {indexingStatus.filesProcessed}/{indexingStatus.totalFiles}{' '}
-                            files
+                            Processed: {indexingStatus.filesProcessed}/{indexingStatus.totalFiles} files
                         </div>
                     )}
 
@@ -181,8 +155,7 @@ export const KnowledgeIndexingButton: React.FC<KnowledgeIndexingButtonProps> = (
                                 onClick={() => setShowDetails(!showDetails)}
                                 className="text-xs text-red-600 hover:text-red-800 underline"
                             >
-                                {indexingStatus.errors.length} error(s) -{' '}
-                                {showDetails ? 'Hide' : 'Show'} details
+                                {indexingStatus.errors.length} error(s) - {showDetails ? 'Hide' : 'Show'} details
                             </button>
 
                             {showDetails && (

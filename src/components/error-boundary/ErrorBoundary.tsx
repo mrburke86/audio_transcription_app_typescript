@@ -1,9 +1,9 @@
 // src/components/error-boundary/ErrorBoundary.tsx
 'use client';
 
-import React from 'react';
-import { logger } from '@/modules/Logger';
+import { logger } from '@/lib/Logger';
 import { ErrorBoundaryProps } from '@/types';
+import React from 'react';
 import { ErrorFallback } from './ErrorFallback';
 
 interface ErrorBoundaryState {

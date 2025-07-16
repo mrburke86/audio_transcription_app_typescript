@@ -3,7 +3,7 @@ import { KnowledgeIndexingButton } from '@/components/KnowledgeIndexingButton';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useKnowledge } from '@/contexts/KnowledgeProvider';
-import { logger } from '@/modules';
+import { logger } from '@/lib/Logger';
 import { AlertCircle, CheckCircle, Clock, Database, FileText } from 'lucide-react';
 
 export function KnowledgeBaseTab() {

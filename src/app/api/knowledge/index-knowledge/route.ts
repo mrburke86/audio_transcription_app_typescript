@@ -1,9 +1,9 @@
 // src\app\api\knowledge\index-knowledge\route.ts
-import { NextResponse } from 'next/server';
+import { logger } from '@/lib/Logger';
+import { ensureKnowledgeCollection, initQdrantClient, processAndUpsertDocument } from '@/services/QdrantService';
 import fs from 'fs';
+import { NextResponse } from 'next/server';
 import path from 'path';
-import { initQdrantClient, ensureKnowledgeCollection, processAndUpsertDocument } from '@/services/QdrantService';
-import { logger } from '@/modules/Logger';
 
 const CORE_KNOWLEDGE_FILES = [
     '/knowledge/My_Career_Summary_Achievements.md',
@@ -106,7 +106,8 @@ export async function POST(_request: Request) {
         );
     } catch (error: unknown) {
         const processingTime = Math.round(performance.now() - startTime);
-        const errorMessage = error instanceof Error ? error.message : 'An unknown server error occurred during indexing API call';
+        const errorMessage =
+            error instanceof Error ? error.message : 'An unknown server error occurred during indexing API call';
 
         logger.error(`💥 API Route: Critical error during indexing after ${processingTime}ms: ${errorMessage}`, error);
 
@@ -155,7 +156,9 @@ async function processFileCategory(
             }
 
             logger.debug(
-                `📊 API Route: [${category}] File ${fileName} - ${fileStats.size} bytes, modified ${fileStats.mtime.toISOString()}`
+                `📊 API Route: [${category}] File ${fileName} - ${
+                    fileStats.size
+                } bytes, modified ${fileStats.mtime.toISOString()}`
             );
 
             // Read and validate content
@@ -197,5 +200,7 @@ async function processFileCategory(
     }
 
     const categoryTime = Math.round(performance.now() - categoryStartTime);
-    logger.info(`📋 API Route: [${category}] Category completed - ${categoryProcessed}/${filePaths.length} files in ${categoryTime}ms`);
+    logger.info(
+        `📋 API Route: [${category}] Category completed - ${categoryProcessed}/${filePaths.length} files in ${categoryTime}ms`
+    );
 }

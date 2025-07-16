@@ -1,14 +1,15 @@
-// src\components\interview-modal\components\InterviewModalTabs.tsx
+// src\components\interview-modal\InterviewModalTabs.tsx
 'use client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useInterviewModal } from './InterviewModalContext';
+// import { useInterviewModal } from './InterviewModalContext';
+import { useInterviewContext } from '@/hooks';
 import { ExperienceFocusTab } from './tabs/ExperienceFocusTab';
 import { InterviewDetailsTab } from './tabs/InterviewDetailsTab';
 import { KnowledgeBaseTab } from './tabs/KnowledgeBaseTab';
 import { ResponseSettingsTab } from './tabs/ResponseSettingsTab';
 
 export function InterviewModalTabs() {
-    const { activeTab, setActiveTab } = useInterviewModal();
+    const { activeTab, setActiveTab } = useInterviewContext();
 
     return (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

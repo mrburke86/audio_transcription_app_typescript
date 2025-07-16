@@ -1,13 +1,26 @@
-// src/components/interview-modal/tabs/InterviewDetailsTab.tsx (FIXED)
+// src/components/interview-modal/tabs/InterviewDetailsTab.tsx
+'use client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FormField } from '../components/FormField';
-import { useInterviewModal } from '../InterviewModalContext';
+import { useInterviewContext } from '@/hooks';
 import { InitialInterviewContext } from '@/types';
+import { useEffect } from 'react';
+import { FormField } from '../components/FormField';
 
 export function InterviewDetailsTab() {
-    const { context, updateField } = useInterviewModal();
+    const { initialContext, updateContextField, initializeWithDefaults } = useInterviewContext();
+
+    // ✅ Initialize with defaults if needed
+    useEffect(() => {
+        if (!initialContext) {
+            initializeWithDefaults();
+        }
+    }, [initialContext, initializeWithDefaults]);
+
+    if (!initialContext) {
+        return <div>Initializing...</div>;
+    }
 
     return (
         <div className="space-y-4">
@@ -19,9 +32,12 @@ export function InterviewDetailsTab() {
                     <div className="grid grid-cols-2 gap-4">
                         <FormField label="Interview Type">
                             <Select
-                                value={context.interviewType}
+                                value={initialContext.interviewType}
                                 onValueChange={value =>
-                                    updateField('interviewType', value as InitialInterviewContext['interviewType'])
+                                    updateContextField(
+                                        'interviewType',
+                                        value as InitialInterviewContext['interviewType']
+                                    )
                                 }
                             >
                                 <SelectTrigger>
@@ -40,9 +56,12 @@ export function InterviewDetailsTab() {
 
                         <FormField label="Seniority Level">
                             <Select
-                                value={context.seniorityLevel}
+                                value={initialContext.seniorityLevel}
                                 onValueChange={value =>
-                                    updateField('seniorityLevel', value as InitialInterviewContext['seniorityLevel'])
+                                    updateContextField(
+                                        'seniorityLevel',
+                                        value as InitialInterviewContext['seniorityLevel']
+                                    )
                                 }
                             >
                                 <SelectTrigger>
@@ -62,26 +81,27 @@ export function InterviewDetailsTab() {
 
                     <FormField label="Target Role" required>
                         <Input
-                            value={context.targetRole}
-                            onChange={e => updateField('targetRole', e.target.value)}
-                            placeholder="e.g., VP of Sales - Enterprise, Senior Sales Director"
+                            value={initialContext.targetRole}
+                            onChange={e => updateContextField('targetRole', e.target.value)}
                         />
                     </FormField>
 
                     <div className="grid grid-cols-2 gap-4">
                         <FormField label="Target Company">
                             <Input
-                                value={context.targetCompany}
-                                onChange={e => updateField('targetCompany', e.target.value)}
-                                placeholder="e.g., Salesforce, Microsoft, Siemens"
+                                value={initialContext.targetCompany}
+                                onChange={e => updateContextField('targetCompany', e.target.value)}
                             />
                         </FormField>
 
                         <FormField label="Company Size">
                             <Select
-                                value={context.companySizeType}
+                                value={initialContext.companySizeType}
                                 onValueChange={value =>
-                                    updateField('companySizeType', value as InitialInterviewContext['companySizeType'])
+                                    updateContextField(
+                                        'companySizeType',
+                                        value as InitialInterviewContext['companySizeType']
+                                    )
                                 }
                             >
                                 <SelectTrigger>

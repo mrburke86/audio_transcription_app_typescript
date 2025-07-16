@@ -2,35 +2,16 @@
 // FIXED: Stripped perf (measureAPICall, register/unregisterInstance, trackRender, speechMetrics, getSpeechMetrics, FPS warnings, timings, console.log instance/media/FPS); removed emojis/excessive descriptive logs (keep error with stack); clean deps/effects. Descriptive names unchanged.
 'use client';
 
-import { logger } from '@/modules/Logger';
+import { logger } from '@/lib/Logger';
+import { SpeechRecognitionProps, UseSpeechRecognitionReturn } from '@/types';
 import { useCallback, useRef } from 'react';
-
-// RENAMED: CustomSpeechRecognitionError
-export interface CustomSpeechRecognitionError {
-    code: SpeechRecognitionErrorCode;
-    message: string;
-}
-
-// RENAMED: SpeechRecognitionReturnType
-interface SpeechRecognitionReturnType {
-    startSpeechRecognition: () => Promise<void>;
-    stopSpeechRecognition: () => void;
-    startAudioVisualization: (canvas: HTMLCanvasElement) => void;
-}
-
-interface SpeechRecognitionProps {
-    onStart: () => void;
-    onEnd: () => void;
-    onError: (error: SpeechRecognitionErrorEvent | CustomSpeechRecognitionError) => void;
-    onResult: (finalTranscript: string, interimTranscript: string) => void;
-}
 
 export const useSpeechRecognition = ({
     onStart,
     onEnd,
     onError,
     onResult,
-}: SpeechRecognitionProps): SpeechRecognitionReturnType => {
+}: SpeechRecognitionProps): UseSpeechRecognitionReturn => {
     const recognition = useRef<SpeechRecognition | null>(null);
     const audioContext = useRef<AudioContext | null>(null);
     const analyser = useRef<AnalyserNode | null>(null);
