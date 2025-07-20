@@ -1,6 +1,6 @@
 // src/services/OpenAIEmbeddingService.ts
 // FIXED: Stripped perf (measureAPICall, timings, warnings, stats); added stack traces in errors; descriptive names (e.g., generateEmbeddingVector).
-import { logger } from '@/modules';
+import { logger } from '@/lib/Logger';
 import OpenAI from 'openai';
 
 export class OpenAIEmbeddingService {

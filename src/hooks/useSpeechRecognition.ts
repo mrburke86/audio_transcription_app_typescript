@@ -1,5 +1,4 @@
-// src/hooks/useSpeechRecognition.ts
-// FIXED: Stripped perf (measureAPICall, register/unregisterInstance, trackRender, speechMetrics, getSpeechMetrics, FPS warnings, timings, console.log instance/media/FPS); removed emojis/excessive descriptive logs (keep error with stack); clean deps/effects. Descriptive names unchanged.
+// src/hooks/useSpeechRecognition.ts - No changes: Kept separate as effect-heavy (browser APIs, refs); complements speechSlice without duplication.
 'use client';
 
 import { logger } from '@/lib/Logger';

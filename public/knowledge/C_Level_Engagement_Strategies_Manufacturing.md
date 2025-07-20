@@ -96,9 +96,9 @@
 
 **Conversation Starters**:
 
-- *"What's keeping you up at night regarding your competitive position?"*
-- *"How are you planning to differentiate your company in the next 3-5 years?"*
-- *"What would achieving operational excellence mean for your market share?"*
+- _"What's keeping you up at night regarding your competitive position?"_
+- _"How are you planning to differentiate your company in the next 3-5 years?"_
+- _"What would achieving operational excellence mean for your market share?"_
 
 ### **CEO-Specific Pain Points**
 
@@ -172,10 +172,10 @@
 
 **Sample CFO Questions**:
 
-- *"What's your current cost of quality as a percentage of revenue?"*
-- *"How much are you spending annually on regulatory compliance activities?"*
-- *"What would a 15% reduction in quality-related costs mean to your bottom line?"*
-- *"How do you currently measure the ROI of operational improvements?"*
+- _"What's your current cost of quality as a percentage of revenue?"_
+- _"How much are you spending annually on regulatory compliance activities?"_
+- _"What would a 15% reduction in quality-related costs mean to your bottom line?"_
+- _"How do you currently measure the ROI of operational improvements?"_
 
 ---
 
@@ -307,4 +307,4 @@
 
 ### **Meeting Structure and Agenda**
 
-### *Executive Meeting Template (30
+### \*Executive Meeting Template (30

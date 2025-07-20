@@ -2,146 +2,142 @@
 'use client';
 
 import { logger } from '@/lib/Logger';
-import { ErrorBoundaryProps } from '@/types';
+import type { ErrorBoundaryProps, ErrorFallbackProps } from '@/types';
 import React from 'react';
 import { ErrorFallback } from './ErrorFallback';
 
+/* -------------------------------------------------
+   Local state type
+-------------------------------------------------- */
 interface ErrorBoundaryState {
     hasError: boolean;
     error: Error | null;
     retryCount: number;
 }
 
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+/* -------------------------------------------------
+   Component
+-------------------------------------------------- */
+export class ErrorBoundary extends React.Component<
+    ErrorBoundaryProps,
+    ErrorBoundaryState // 🛠 correct generic (was “ErrorBoundary”)
+> {
     private retryTimeoutId: NodeJS.Timeout | null = null;
 
     constructor(props: ErrorBoundaryProps) {
         super(props);
-        this.state = {
-            hasError: false,
-            error: null,
-            retryCount: 0,
-        };
+        this.state = { hasError: false, error: null, retryCount: 0 };
     }
 
+    /* ---------- lifecycle ---------- */
+
     static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
-        return {
-            hasError: true,
-            error,
-        };
+        return { hasError: true, error };
     }
 
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-        // Log the error
         logger.error(`💥 Error Boundary: ${error.message}`, {
             error: error.message,
             stack: error.stack,
             component: errorInfo.componentStack,
         });
 
-        // Call custom error handler if provided
-        if (this.props.onError) {
-            this.props.onError(error, errorInfo);
-        }
+        this.props.onError?.(error, errorInfo);
 
-        // Auto-retry for network/API errors (max 2 times)
+        /* auto‑retry (max 2) */
         if (this.shouldAutoRetry(error) && this.state.retryCount < 2) {
             this.scheduleRetry();
         }
     }
 
-    private shouldAutoRetry(error: Error): boolean {
-        const message = error.message.toLowerCase();
-        return (
-            message.includes('fetch') ||
-            message.includes('network') ||
-            message.includes('api') ||
-            message.includes('timeout')
-        );
+    componentWillUnmount() {
+        if (this.retryTimeoutId) clearTimeout(this.retryTimeoutId);
+    }
+
+    /* ---------- helpers ---------- */
+
+    private shouldAutoRetry(err: Error) {
+        const msg = err.message.toLowerCase();
+        return msg.includes('fetch') || msg.includes('network') || msg.includes('api') || msg.includes('timeout');
     }
 
     private scheduleRetry() {
-        this.retryTimeoutId = setTimeout(() => {
-            this.retry();
-        }, 1000 * (this.state.retryCount + 1)); // 1s, 2s delay
+        this.retryTimeoutId = setTimeout(
+            this.retry,
+            1_000 * (this.state.retryCount + 1) // 1 s, 2 s
+        );
     }
 
     private retry = () => {
-        logger.info(`🔄 Error Boundary: Retry attempt ${this.state.retryCount + 1}`);
-
-        this.setState({
+        logger.info(`🔄 Error Boundary: Retry #${this.state.retryCount + 1}`);
+        this.setState(s => ({
             hasError: false,
             error: null,
-            retryCount: this.state.retryCount + 1,
-        });
+            retryCount: s.retryCount + 1,
+        }));
     };
 
     private reset = () => {
         logger.info('🔄 Error Boundary: Manual reset');
-
-        this.setState({
-            hasError: false,
-            error: null,
-            retryCount: 0,
-        });
+        this.setState({ hasError: false, error: null, retryCount: 0 });
     };
 
-    componentWillUnmount() {
-        if (this.retryTimeoutId) {
-            clearTimeout(this.retryTimeoutId);
-        }
-    }
+    /* ---------- render ---------- */
 
     render() {
-        if (this.state.hasError && this.state.error) {
-            // Use custom fallback if provided
-            if (this.props.fallback) {
-                const FallbackComponent = this.props.fallback;
-                return (
-                    <FallbackComponent
-                        error={this.state.error}
-                        resetErrorBoundary={this.reset}
-                        retry={this.state.retryCount < 2 ? this.retry : undefined}
-                    />
-                );
-            }
-
-            // Use default fallback
-            return (
-                <ErrorFallback
-                    error={this.state.error}
-                    resetErrorBoundary={this.reset}
-                    retry={this.state.retryCount < 2 ? this.retry : undefined}
-                />
-            );
+        if (!this.state.hasError || !this.state.error) {
+            return this.props.children;
         }
 
-        return this.props.children;
+        const retryFn = this.state.retryCount < 2 ? this.retry : undefined;
+
+        /* custom fallback supplied? */
+        if (this.props.fallback) {
+            const Fallback = this.props.fallback;
+            const props: ErrorFallbackProps = {
+                error: this.state.error,
+                resetErrorBoundary: this.reset,
+                ...(retryFn && { retry: retryFn }), // 🛠 omit “retry” when undefined
+            };
+            return <Fallback {...props} />;
+        }
+
+        /* default fallback */
+        return (
+            <ErrorFallback
+                error={this.state.error}
+                resetErrorBoundary={this.reset}
+                {...(retryFn && { retry: retryFn })} /* 🛠 same conditional spread */
+            />
+        );
     }
 }
 
-// Simple HOC wrapper
+/* -------------------------------------------------
+   HOC wrapper
+-------------------------------------------------- */
 export const withErrorBoundary = <P extends object>(
     Component: React.ComponentType<P>,
-    fallback?: React.ComponentType<any>
+    fallback?: React.ComponentType<ErrorFallbackProps>
 ) => {
-    const WrappedComponent = (props: P) => (
-        <ErrorBoundary fallback={fallback}>
+    const Wrapped = (props: P) => (
+        <ErrorBoundary {...(fallback && { fallback })}>
             <Component {...props} />
         </ErrorBoundary>
     );
 
-    WrappedComponent.displayName = `withErrorBoundary(${Component.displayName || Component.name})`;
-    return WrappedComponent;
+    Wrapped.displayName = `withErrorBoundary(${Component.displayName || Component.name})`;
+    return Wrapped;
 };
 
-// Hook to manually trigger errors
+/* -------------------------------------------------
+   Hook
+-------------------------------------------------- */
 export const useErrorBoundary = () => {
-    const [, setState] = React.useState();
-
-    return React.useCallback((error: Error) => {
+    const [, setState] = React.useState<never>();
+    return React.useCallback((err: Error) => {
         setState(() => {
-            throw error;
+            throw err;
         });
     }, []);
 };

@@ -3,7 +3,7 @@
 'use client';
 
 import { logger } from '@/lib/Logger';
-import { useChatStore } from '@/stores/chatStore';
+import { useBoundStore } from '@/stores/chatStore';
 import { Message } from '@/types';
 import { formatTimestamp } from '@/utils/helpers';
 import { debounce } from 'lodash';
@@ -11,15 +11,15 @@ import React, { useCallback } from 'react';
 
 export const useTranscriptions = () => {
     // Store selectors/actions
-    const interimTranscriptMessages = useChatStore(state => state.interimTranscriptMessages);
-    const currentInterimTranscript = useChatStore(state => state.currentInterimTranscript);
-    const userMessages = useChatStore(state => state.conversationHistory.filter(msg => msg.type === 'user'));
-    const addInterimTranscriptMessage = useChatStore(state => state.addInterimTranscriptMessage);
-    const updateCurrentInterimTranscript = useChatStore(state => state.updateCurrentInterimTranscript);
-    const addMessage = useChatStore(state => state.addMessage);
-    const clearInterimTranscripts = useChatStore(state => state.clearInterimTranscripts);
-    const clearAllTranscripts = useChatStore(state => state.clearAllTranscripts);
-    const generateResponse = useChatStore(state => state.generateResponse);
+    const interimTranscriptMessages = useBoundStore(state => state.interimTranscriptMessages);
+    const currentInterimTranscript = useBoundStore(state => state.currentInterimTranscript);
+    const userMessages = useBoundStore(state => state.conversationHistory.filter(msg => msg.type === 'user'));
+    const addInterimTranscriptMessage = useBoundStore(state => state.addInterimTranscriptMessage);
+    const updateCurrentInterimTranscript = useBoundStore(state => state.updateCurrentInterimTranscript);
+    const addMessage = useBoundStore(state => state.addMessage);
+    const clearInterimTranscripts = useBoundStore(state => state.clearInterimTranscripts);
+    const clearAllTranscripts = useBoundStore(state => state.clearAllTranscripts);
+    const generateResponse = useBoundStore(state => state.generateResponse);
 
     // Handle recognition results
     const handleRecognitionResult = useCallback(

@@ -2,19 +2,13 @@
 'use client';
 
 import { ErrorState } from '@/components/global/StatusDisplay';
-import {
-    useAudioVisualization,
-    useChatInitialization,
-    useChatState,
-    useSpeechManager,
-    useTranscriptions,
-} from '@/hooks';
+import { useAudioVisualization, useSpeechManager, useTranscriptions } from '@/hooks';
 import { logger } from '@/lib/Logger';
-import { useChatStore } from '@/stores/chatStore'; // FIXED: Use store for state/actions
-import { useCallback } from 'react';
+import { StoreState, useBoundStore } from '@/stores/chatStore';
+import { useCallback, useEffect } from 'react';
 
-import { ChatInterface } from './_components/ChatInterface';
-import { ChatProtectionWrapper } from './_components/ChatProtectionWrapper';
+import { ChatProtectionWrapper } from '@/components/ChatProtectionWrapper';
+import { ChatInterface } from '../../components/chat/ChatInterface';
 
 export default function ChatPage() {
     return (
@@ -30,15 +24,16 @@ const ChatPageContent: React.FC<{
     indexedDocumentsCount?: number;
 }> = ({ initialInterviewContext, knowledgeBaseName, indexedDocumentsCount }) => {
     if (process.env.NODE_ENV === 'development') {
-        // useComponentRenderCounter('ChatPage-REFACTORED');
-        // useMemoryUsageTracking('ChatPage-REFACTORED');
     }
 
-    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || '';
+    const { initializeLLMService } = useBoundStore();
 
-    useChatInitialization(false, true, true, initialInterviewContext, apiKey || '');
+    useEffect(() => {
+        initializeLLMService(apiKey);
+    }, [apiKey, initializeLLMService]);
 
-    // FIXED: Use chat store for LLM-related state and actions
+    // FIXED: Use chat store for LLM-related state and actions (typed selector to resolve 'any')
     const {
         generateResponse,
         generateSuggestions,
@@ -48,22 +43,24 @@ const ChatPageContent: React.FC<{
         isStreamingComplete,
         conversationSummary,
         strategicSuggestions,
-    } = useChatStore(state => ({
+    } = useBoundStore((state: StoreState) => ({
+        // FIXED: Typed state as State for explicit typing
         generateResponse: state.generateResponse,
         generateSuggestions: state.generateSuggestions,
-        isLoading: state.isLoading,
-        error: state.error,
+        isLoading: state.llmLoading,
+        error: state.llmError,
         streamedContent: state.streamedContent,
         isStreamingComplete: state.isStreamingComplete,
         conversationSummary: state.conversationSummary,
         strategicSuggestions: state.strategicSuggestions,
     }));
 
-    const { conversationHistory } = useChatState([]);
+    // FIXED: Replaced useChatState with direct store access for conversationHistory
+    const conversationHistory = useBoundStore(state => state.conversationHistory);
 
     const { userMessages, submitTranscripts, resetTranscripts, handleRecognitionResult } = useTranscriptions(); // FIXED: Updated names
 
-    useChatState(userMessages);
+    // FIXED: Removed useChatState call - unnecessary; if state consistency needed, implement in store
 
     const { recognitionStatus, speechErrorMessage, start, stop, startAudioVisualization } =
         useSpeechManager(handleRecognitionResult);
@@ -101,6 +98,10 @@ const ChatPageContent: React.FC<{
             />
         );
     }
+    useEffect(() => {
+        logger.info('[PAGE] 👋 Chat page mounted');
+        return () => logger.info('[PAGE] 👋 Chat page unmounted');
+    }, []);
 
     return (
         <ChatInterface

@@ -42,16 +42,10 @@ function SunIcon({ className, ...props }: IconProps) {
 export const Icons = {
     Moon: MoonIcon,
     Sun: SunIcon,
-    Library: ({ className, ...props }: IconProps) => (
-        <svg className={cn('size-4', className)} {...props}></svg>
-    ),
+    Library: ({ className, ...props }: IconProps) => <svg className={cn('size-4', className)} {...props}></svg>,
     LoaderCircle: ({ className, ...props }: IconProps) => (
         <svg className={cn('size-4 animate-spin', className)} {...props}></svg>
     ),
-    AlertTriangle: ({ className, ...props }: IconProps) => (
-        <svg className={cn('size-4', className)} {...props}></svg>
-    ),
-    CheckCircle: ({ className, ...props }: IconProps) => (
-        <svg className={cn('size-4', className)} {...props}></svg>
-    ),
+    AlertTriangle: ({ className, ...props }: IconProps) => <svg className={cn('size-4', className)} {...props}></svg>,
+    CheckCircle: ({ className, ...props }: IconProps) => <svg className={cn('size-4', className)} {...props}></svg>,
 };

@@ -1,8 +1,9 @@
 // src\app\chat\_components\KnowledgeStatus.tsx
 
 import { Icons } from '@/components/icons/icons';
-import { useKnowledge } from '@/contexts/KnowledgeProvider';
+// import { useKnowledge } from '@/contexts/KnowledgeProvider';
 import { cn } from '@/lib/utils';
+import { useBoundStore } from '@/stores/chatStore';
 
 export interface KnowledgeStatusProps {
     knowledgeBaseName: string;
@@ -13,17 +14,18 @@ export const KnowledgeStatus: React.FC<KnowledgeStatusProps> = ({
     knowledgeBaseName,
     indexedDocumentsCount: countFromProps,
 }) => {
-    const { isLoading: contextIsLoading, error: contextError, refreshIndexedDocumentsCount } = useKnowledge();
+    // const { isLoading: contextIsLoading, error: contextError, refreshIndexedDocumentsCount } = useKnowledge();
+    const { knowledgeLoading, knowledgeError, refreshIndexedDocumentsCount } = useBoundStore(); // FIXED: Use Zustand store for context state
 
     let statusText = knowledgeBaseName || 'Knowledge Base';
     let statusColor = 'text-gray-500';
     let icon = <Icons.Library className="h-4 w-4" />;
 
-    if (contextError) {
-        statusText = `KB Error: ${contextError.substring(0, 20)}...`;
+    if (knowledgeError) {
+        statusText = `KB Error: ${knowledgeError.substring(0, 20)}...`;
         statusColor = 'text-red-500';
         icon = <Icons.AlertTriangle className="h-4 w-4" />;
-    } else if (contextIsLoading) {
+    } else if (knowledgeLoading) {
         statusText = 'KB Syncing...';
         statusColor = 'text-yellow-500 animate-pulse';
         icon = <Icons.LoaderCircle className="h-4 w-4 animate-spin" />;
@@ -43,7 +45,7 @@ export const KnowledgeStatus: React.FC<KnowledgeStatusProps> = ({
                 'flex items-center space-x-2 px-3 py-1.5 text-sm font-medium rounded-md bg-background border cursor-pointer',
                 statusColor
             )}
-            title={contextError || `${knowledgeBaseName} - ${countFromProps} indexed items. Click to refresh count.`}
+            title={knowledgeError || `${knowledgeBaseName} - ${countFromProps} indexed items. Click to refresh count.`}
             onClick={refreshIndexedDocumentsCount}
         >
             {icon}

@@ -2,12 +2,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { FormField } from '../components/FormField';
-import { useInterviewModal } from '../InterviewModalContext';
+import { useBoundStore } from '@/stores/chatStore'; // FIXED: Use composed store for slice access (replaces old context/hook)
 import { InitialInterviewContext } from '@/types';
+import { FormField } from '../components/FormField';
 
 export function ResponseSettingsTab() {
-    const { context, updateField } = useInterviewModal();
+    const { initialContext, updateContextWithDefaults } = useBoundStore(); // FIXED: Destructure from store (initialContext from contextSlice, updateContextWithDefaults for field updates); removed useInterviewModal import
 
     return (
         <div className="space-y-4">
@@ -19,9 +19,12 @@ export function ResponseSettingsTab() {
                     <div className="grid grid-cols-2 gap-4">
                         <FormField label="Response Confidence">
                             <Select
-                                value={context.responseConfidence}
-                                onValueChange={value =>
-                                    updateField('responseConfidence', value as InitialInterviewContext['responseConfidence'])
+                                value={initialContext.responseConfidence}
+                                onValueChange={
+                                    value =>
+                                        updateContextWithDefaults({
+                                            responseConfidence: value as InitialInterviewContext['responseConfidence'],
+                                        }) // FIXED: Use updateContextWithDefaults for partial update (replaces updateField)
                                 }
                             >
                                 <SelectTrigger>
@@ -37,9 +40,11 @@ export function ResponseSettingsTab() {
 
                         <FormField label="Response Structure">
                             <Select
-                                value={context.responseStructure}
+                                value={initialContext.responseStructure}
                                 onValueChange={value =>
-                                    updateField('responseStructure', value as InitialInterviewContext['responseStructure'])
+                                    updateContextWithDefaults({
+                                        responseStructure: value as InitialInterviewContext['responseStructure'],
+                                    })
                                 }
                             >
                                 <SelectTrigger>
@@ -59,7 +64,10 @@ export function ResponseSettingsTab() {
                             <label className="text-sm font-medium">Include Metrics</label>
                             <p className="text-xs text-gray-500">Add quantified achievements to responses</p>
                         </div>
-                        <Switch checked={context.includeMetrics} onCheckedChange={checked => updateField('includeMetrics', checked)} />
+                        <Switch
+                            checked={initialContext.includeMetrics}
+                            onCheckedChange={checked => updateContextWithDefaults({ includeMetrics: checked })}
+                        />
                     </div>
                 </CardContent>
             </Card>

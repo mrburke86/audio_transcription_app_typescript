@@ -1,10 +1,10 @@
 // src/components/error-boundary/ErrorFallback.tsx
 'use client';
 
-import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { ErrorFallbackProps } from '@/types';
-import { RefreshCw, RotateCcw, AlertTriangle } from 'lucide-react';
+import { AlertTriangle, RefreshCw, RotateCcw } from 'lucide-react';
+import React, { useState } from 'react';
 
 export const ErrorFallback: React.FC<ErrorFallbackProps> = ({ error, resetErrorBoundary, retry }) => {
     const [isRetrying, setIsRetrying] = useState(false);
@@ -41,8 +41,8 @@ export const ErrorFallback: React.FC<ErrorFallbackProps> = ({ error, resetErrorB
                                     {isNetworkError
                                         ? 'Connection issue detected'
                                         : isAPIError
-                                        ? 'Service temporarily unavailable'
-                                        : 'An unexpected error occurred'}
+                                          ? 'Service temporarily unavailable'
+                                          : 'An unexpected error occurred'}
                                 </p>
                             </div>
                         </div>
@@ -54,8 +54,8 @@ export const ErrorFallback: React.FC<ErrorFallbackProps> = ({ error, resetErrorB
                             {isNetworkError
                                 ? 'Please check your internet connection and try again.'
                                 : isAPIError
-                                ? 'Our services are experiencing high demand. Please try again in a moment.'
-                                : 'This usually resolves quickly. Try refreshing or resetting the component.'}
+                                  ? 'Our services are experiencing high demand. Please try again in a moment.'
+                                  : 'This usually resolves quickly. Try refreshing or resetting the component.'}
                         </p>
 
                         {/* Actions */}

@@ -1,8 +1,8 @@
-// src\components\KnowledgeIndexingButton.tsx
+// src/components/KnowledgeIndexingButton.tsx
 'use client';
 
-import { useKnowledge } from '@/contexts/KnowledgeProvider';
 import { logger } from '@/lib/Logger';
+import { useBoundStore } from '@/stores/chatStore'; // FIXED: Replaced old useKnowledge with Zustand store (knowledgeSlice)
 import React, { useState } from 'react';
 
 interface KnowledgeIndexingButtonProps {
@@ -18,7 +18,7 @@ export const KnowledgeIndexingButton: React.FC<KnowledgeIndexingButtonProps> = (
     showProgress = true,
     className = '',
 }) => {
-    const { triggerIndexing, indexingStatus, indexedDocumentsCount, lastIndexedAt } = useKnowledge();
+    const { triggerIndexing, indexingStatus, indexedDocumentsCount, lastIndexedAt } = useBoundStore(); // FIXED: Destructure from store (knowledgeSlice fields)
     const [showDetails, setShowDetails] = useState(false);
 
     const handleIndexing = async () => {
@@ -133,8 +133,8 @@ export const KnowledgeIndexingButton: React.FC<KnowledgeIndexingButtonProps> = (
                                 indexingStatus.isIndexing
                                     ? 'bg-blue-50 text-blue-700'
                                     : indexingStatus.errors.length > 0
-                                    ? 'bg-yellow-50 text-yellow-700'
-                                    : 'bg-green-50 text-green-700'
+                                      ? 'bg-yellow-50 text-yellow-700'
+                                      : 'bg-green-50 text-green-700'
                             }`}
                         >
                             {indexingStatus.progress}
@@ -160,11 +160,16 @@ export const KnowledgeIndexingButton: React.FC<KnowledgeIndexingButtonProps> = (
 
                             {showDetails && (
                                 <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700 max-h-32 overflow-y-auto">
-                                    {indexingStatus.errors.map((error, index) => (
-                                        <div key={index} className="mb-1">
-                                            • {error}
-                                        </div>
-                                    ))}
+                                    {indexingStatus.errors.map(
+                                        (
+                                            error: string,
+                                            index: number // FIXED: Typed error as string, index as number to resolve implicit 'any'
+                                        ) => (
+                                            <div key={index} className="mb-1">
+                                                • {error}
+                                            </div>
+                                        )
+                                    )}
                                 </div>
                             )}
                         </div>

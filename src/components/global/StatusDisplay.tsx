@@ -18,41 +18,37 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({
     subMessage,
     icon: Icon,
     onRetry,
-    showTroubleshooting = false
+    showTroubleshooting = false,
 }) => {
     const isError = type === 'error';
-    
+
     return (
         <div className="flex flex-col items-center justify-center h-full p-8 bg-background text-foreground">
-            <div className={`text-center max-w-md w-full p-6 rounded-lg shadow-lg bg-card ${
-                isError ? 'border border-destructive/50' : ''
-            }`}>
+            <div
+                className={`text-center max-w-md w-full p-6 rounded-lg shadow-lg bg-card ${
+                    isError ? 'border border-destructive/50' : ''
+                }`}
+            >
                 {/* Icon */}
                 {isError ? (
                     <AlertTriangle className="h-16 w-16 text-destructive mx-auto mb-6" />
                 ) : (
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-6" />
                 )}
-                
+
                 {/* Title */}
-                <h2 className={`text-xl font-semibold mb-3 ${
-                    isError ? 'text-destructive' : 'text-card-foreground'
-                }`}>
+                <h2 className={`text-xl font-semibold mb-3 ${isError ? 'text-destructive' : 'text-card-foreground'}`}>
                     {title}
                 </h2>
-                
+
                 {/* Message */}
-                <p className={`mb-6 ${
-                    isError ? 'text-destructive-foreground/80' : 'text-muted-foreground'
-                }`}>
+                <p className={`mb-6 ${isError ? 'text-destructive-foreground/80' : 'text-muted-foreground'}`}>
                     {message}
                 </p>
-                
+
                 {/* Sub-message for loading */}
-                {!isError && subMessage && (
-                    <p className="text-muted-foreground">{subMessage}</p>
-                )}
-                
+                {!isError && subMessage && <p className="text-muted-foreground">{subMessage}</p>}
+
                 {/* Troubleshooting for errors */}
                 {isError && showTroubleshooting && (
                     <div className="bg-muted/50 border border-border rounded-lg p-4 text-left text-sm mb-6">
@@ -64,7 +60,7 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({
                         </ul>
                     </div>
                 )}
-                
+
                 {/* Retry button for errors */}
                 {isError && onRetry && (
                     <button
@@ -85,6 +81,6 @@ export const LoadingState = (props: Pick<StatusDisplayProps, 'message' | 'subMes
     <StatusDisplay type="loading" title="Loading..." {...props} />
 );
 
-export const ErrorState = (props: Pick<StatusDisplayProps, 'title' | 'message' | 'onRetry' | 'showTroubleshooting'>) => (
-    <StatusDisplay type="error" {...props} />
-);
+export const ErrorState = (
+    props: Pick<StatusDisplayProps, 'title' | 'message' | 'onRetry' | 'showTroubleshooting'>
+) => <StatusDisplay type="error" {...props} />;

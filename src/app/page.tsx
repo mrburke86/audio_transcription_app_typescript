@@ -4,19 +4,20 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useInterviewContext } from '@/hooks/useInterviewContext';
-import { logger } from '@/modules';
+import { logger } from '@/lib/Logger';
 import { ArrowRight, BarChart3, Brain, MessageSquare, Settings } from 'lucide-react';
 import { useEffect } from 'react';
 
 export default function HomePage() {
-    const { context, hasValidContext, navigateToChat, navigateToContextCapture } = useInterviewContext();
+    const { context, isContextValid, navigateToChat, navigateToContextCapture } = useInterviewContext();
+    const contextIsValid = isContextValid();
 
     useEffect(() => {
         logger.info('🏠 Home page loaded');
     }, []);
 
     const handleStartChat = () => {
-        if (hasValidContext) {
+        if (contextIsValid) {
             logger.info('✅ Valid context found, navigating directly to chat');
             navigateToChat();
         } else {
@@ -42,7 +43,7 @@ export default function HomePage() {
                 </div>
 
                 {/* Current Session Card (if context exists) */}
-                {hasValidContext && context && (
+                {contextIsValid && context && (
                     <div className="mb-8">
                         <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30">
                             <CardHeader>
@@ -158,11 +159,11 @@ export default function HomePage() {
                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                             >
                                 <MessageSquare className="mr-2 h-5 w-5" />
-                                {hasValidContext ? 'Continue Chat' : 'Start Chat'}
+                                {contextIsValid ? 'Continue Chat' : 'Start Chat'}
                                 <ArrowRight className="ml-2 h-5 w-5" />
                             </Button>
 
-                            {!hasValidContext && (
+                            {!isContextValid && (
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">
                                     You'll be guided through interview setup first
                                 </p>

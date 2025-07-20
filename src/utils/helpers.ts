@@ -1,7 +1,7 @@
 // src/utils/helpers.ts
 export function debounce<T extends (...args: unknown[]) => unknown>(
     func: T,
-    wait: number,
+    wait: number
 ): (...args: Parameters<T>) => void {
     let timeout: NodeJS.Timeout | null = null;
 
@@ -19,12 +19,12 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
 }
 
 export function formatTimestamp(date: Date): string {
-    return date.toLocaleString("en-US", { hour12: false });
+    return date.toLocaleString('en-US', { hour12: false });
 }
 
 export function getFormDataValue(formData: FormData, key: string): string {
     const value = formData.get(key);
-    if (typeof value === "string") {
+    if (typeof value === 'string') {
         return value;
     }
     throw new Error(`Key '${key}' not found in FormData`);

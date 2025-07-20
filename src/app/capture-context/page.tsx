@@ -1,58 +1,33 @@
 // src/app/capture-context/page.tsx
 'use client';
 
-import { InterviewModalProvider, useInterviewModal } from '@/components/interview-modal/InterviewModalContext'; // ✅ Fixed import
 import { InterviewModalTabs } from '@/components/interview-modal/InterviewModalTabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useInterviewContext } from '@/hooks/useInterviewContext';
 import { logger } from '@/lib/Logger';
-import { InitialInterviewContext } from '@/types';
+import { useBoundStore } from '@/stores/chatStore'; // FIXED: Use composed store for context/ui slices (replaces hooks/context)
 import { ArrowLeft, CheckCircle } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function CaptureContextPage() {
-    const { context, hasValidContext, setContext } = useInterviewContext(); // ✅ Removed navigateToChat from here
+    const initialContext = useBoundStore(s => s.initialContext);
+    const isContextValidFn = useBoundStore(s => s.isContextValid);
+    const setInitialContext = useBoundStore(s => s.setInitialContext);
+    const contextIsValid = isContextValidFn(); // ← boolean
+
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         logger.info('📝 Context capture page loaded');
 
-        if (hasValidContext && context) {
-            logger.info(`🔄 Existing context loaded: ${context.targetRole} at ${context.targetCompany}`);
+        if (contextIsValid && initialContext) {
+            logger.info(`🔄 Existing context loaded: ${initialContext.targetRole} at ${initialContext.targetCompany}`);
         }
-    }, [hasValidContext, context]);
-
-    const handleInterviewStart = useCallback(
-        async (newContext: InitialInterviewContext) => {
-            setIsSubmitting(true);
-            logger.info('🚀 Starting interview with captured context:', {
-                role: newContext.targetRole,
-                company: newContext.targetCompany,
-                type: newContext.interviewType,
-            });
-
-            try {
-                // Store the context using our hook
-                setContext(newContext);
-
-                // ✅ Wait a bit longer for context to be properly stored
-                await new Promise(resolve => setTimeout(resolve, 1000));
-
-                // ✅ Navigate directly using window.location instead of the hook to avoid validation race condition
-                logger.info('✅ Context saved, navigating to chat');
-                window.location.href = '/chat';
-            } catch (error) {
-                logger.error('❌ Failed to save context:', error);
-                setIsSubmitting(false);
-            }
-        },
-        [setContext]
-    );
+    }, [contextIsValid, initialContext]);
 
     const handleBackToHome = () => {
         logger.info('🏠 Navigating back to home');
-        goHome();
+        window.location.href = '/'; // FIXED: Replaced undefined goHome() with direct navigation
     };
 
     return (
@@ -72,7 +47,7 @@ export default function CaptureContextPage() {
                         </Button>
                     </div>
 
-                    {hasValidContext && !isSubmitting && (
+                    {contextIsValid && !isSubmitting && (
                         <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
                             <CheckCircle className="h-5 w-5" />
                             <span className="text-sm font-medium">Context Ready</span>
@@ -94,29 +69,27 @@ export default function CaptureContextPage() {
                         <CardTitle className="flex items-center gap-2">🎯 Interview Configuration</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {/* Interview Modal Provider - Reusing existing components */}
-                        <InterviewModalProvider onSubmit={handleInterviewStart}>
-                            <div className="space-y-6">
-                                {/* Tab Interface for Configuration */}
-                                <InterviewModalTabs />
+                        {/* Removed InterviewModalProvider (old context); tabs now use store directly */}
+                        <div className="space-y-6">
+                            {/* Tab Interface for Configuration */}
+                            <InterviewModalTabs />
 
-                                {/* Action Buttons */}
-                                <div className="flex justify-between items-center pt-6 border-t">
-                                    <div className="text-sm text-slate-500 dark:text-slate-400">
-                                        All fields with asterisks (*) are required
-                                    </div>
+                            {/* Action Buttons */}
+                            <div className="flex justify-between items-center pt-6 border-t">
+                                <div className="text-sm text-slate-500 dark:text-slate-400">
+                                    All fields with asterisks (*) are required
+                                </div>
 
-                                    <div className="flex gap-3">
-                                        <Button variant="outline" onClick={handleBackToHome} disabled={isSubmitting}>
-                                            Cancel
-                                        </Button>
+                                <div className="flex gap-3">
+                                    <Button variant="outline" onClick={handleBackToHome} disabled={isSubmitting}>
+                                        Cancel
+                                    </Button>
 
-                                        {/* ✅ Fixed footer component */}
-                                        <CustomInterviewFooter isSubmitting={isSubmitting} />
-                                    </div>
+                                    {/* ✅ Fixed footer component */}
+                                    <StartSessionButton isSubmitting={isSubmitting} />
                                 </div>
                             </div>
-                        </InterviewModalProvider>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -147,14 +120,21 @@ export default function CaptureContextPage() {
     );
 }
 
-// ✅ Properly fixed footer component that uses the hook correctly
-const CustomInterviewFooter = ({ isSubmitting }: { isSubmitting: boolean }) => {
-    const { isValid, handleSubmit } = useInterviewModal(); // ✅ Proper hook usage inside provider
+// ✅ Properly fixed footer component that uses the store correctly (removed old hook)
+const StartSessionButton = ({ isSubmitting }: { isSubmitting: boolean }) => {
+    const isContextValidFn = useBoundStore(s => s.isContextValid);
+    const contextIsValid = isContextValidFn();
+
+    // // Local submit handler using store (replaces old handleSubmit)
+    const handleSubmit = () => {
+        if (!isContextValidFn) return;
+        window.location.href = '/chat';
+    };
 
     return (
         <Button
             onClick={handleSubmit}
-            disabled={!isValid || isSubmitting}
+            disabled={!contextIsValid || isSubmitting}
             className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
         >
             {isSubmitting ? (

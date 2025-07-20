@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useInterviewContext } from '@/hooks';
 import { PREDEFINED_CHALLENGES, PREDEFINED_EXPERIENCES, PREDEFINED_INTERVIEW_GOALS } from '@/lib/predefinedFields';
+import { useBoundStore } from '@/stores/chatStore'; // FIXED: Changed to useBoundStore (composed export from chatStore.ts)
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { FormField } from '../components/FormField';
@@ -130,10 +130,11 @@ function CheckboxWithCustomInput({
 }
 
 export function ExperienceFocusTab() {
-    const { initialContext, isInitialized, updateContextField, toggleInContextArray } = useInterviewContext();
+    const { initialContext, isContextValid, updateContextWithDefaults } = useBoundStore(); // FIXED: Use useBoundStore; destructured isContextValid (replaces isInitialized), updateContextWithDefaults (replaces updateContextField); removed toggleInContextArray (implemented locally)
 
     // ✅ SIMPLE CHECK: Just verify initialization
-    if (!isInitialized) {
+    if (!isContextValid) {
+        // FIXED: Replaced isInitialized with isContextValid from store
         return (
             <div className="flex items-center justify-center p-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -142,16 +143,23 @@ export function ExperienceFocusTab() {
         );
     }
 
+    // Local toggle function using updateContextWithDefaults (replaces toggleInContextArray)
+    const toggleInArray = (field: 'goals' | 'emphasizedExperiences' | 'specificChallenges', item: string) => {
+        const array = initialContext[field];
+        const newArray = array.includes(item) ? array.filter(i => i !== item) : [...array, item];
+        updateContextWithDefaults({ [field]: newArray });
+    };
+
     const handleAddCustomGoal = (goal: string) => {
-        toggleInContextArray('goals', goal);
+        toggleInArray('goals', goal);
     };
 
     const handleAddCustomExperience = (experience: string) => {
-        toggleInContextArray('emphasizedExperiences', experience);
+        toggleInArray('emphasizedExperiences', experience);
     };
 
     const handleAddCustomChallenge = (challenge: string) => {
-        toggleInContextArray('specificChallenges', challenge);
+        toggleInArray('specificChallenges', challenge);
     };
 
     return (
@@ -163,7 +171,7 @@ export function ExperienceFocusTab() {
                 icon="🎯"
                 predefinedOptions={PREDEFINED_INTERVIEW_GOALS}
                 selectedItems={initialContext.goals}
-                onToggleItem={item => toggleInContextArray('goals', item)}
+                onToggleItem={item => toggleInArray('goals', item)}
                 onAddCustomItem={handleAddCustomGoal}
                 customPlaceholder="Add a specific interview goal..."
             />
@@ -175,7 +183,7 @@ export function ExperienceFocusTab() {
                 icon="💼"
                 predefinedOptions={PREDEFINED_EXPERIENCES}
                 selectedItems={initialContext.emphasizedExperiences}
-                onToggleItem={item => toggleInContextArray('emphasizedExperiences', item)}
+                onToggleItem={item => toggleInArray('emphasizedExperiences', item)}
                 onAddCustomItem={handleAddCustomExperience}
                 customPlaceholder="Add a specific experience to highlight..."
             />
@@ -187,7 +195,7 @@ export function ExperienceFocusTab() {
                 icon="⚡"
                 predefinedOptions={PREDEFINED_CHALLENGES}
                 selectedItems={initialContext.specificChallenges}
-                onToggleItem={item => toggleInContextArray('specificChallenges', item)}
+                onToggleItem={item => toggleInArray('specificChallenges', item)}
                 onAddCustomItem={handleAddCustomChallenge}
                 customPlaceholder="Add a specific challenge you've overcome..."
             />
@@ -201,7 +209,7 @@ export function ExperienceFocusTab() {
                     <FormField label="Additional Context">
                         <Textarea
                             value={initialContext.industry}
-                            onChange={e => updateContextField('industry', e.target.value)}
+                            onChange={e => updateContextWithDefaults({ industry: e.target.value })} // FIXED: Use updateContextWithDefaults for field update (replaces updateContextField)
                             placeholder="Any additional context about the role, company, or industry..."
                             rows={3}
                         />

@@ -1,15 +1,14 @@
-// src\components\interview-modal\InterviewModalTabs.tsx
+// src/components/interview-modal/InterviewModalTabs.tsx
 'use client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-// import { useInterviewModal } from './InterviewModalContext';
-import { useInterviewContext } from '@/hooks';
+import { useBoundStore } from '@/stores/chatStore'; // FIXED: Added - Use composed store for uiSlice access (activeTab/setActiveTab)
 import { ExperienceFocusTab } from './tabs/ExperienceFocusTab';
 import { InterviewDetailsTab } from './tabs/InterviewDetailsTab';
 import { KnowledgeBaseTab } from './tabs/KnowledgeBaseTab';
 import { ResponseSettingsTab } from './tabs/ResponseSettingsTab';
 
 export function InterviewModalTabs() {
-    const { activeTab, setActiveTab } = useInterviewContext();
+    const { activeTab, setActiveTab } = useBoundStore(); // FIXED: Destructure from store (uiSlice) to replace hook
 
     return (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

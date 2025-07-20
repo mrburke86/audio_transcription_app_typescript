@@ -1,14 +1,18 @@
 // src/components/interview-modal/tabs/KnowledgeBaseTab.tsx
 import { KnowledgeIndexingButton } from '@/components/KnowledgeIndexingButton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; // shadcn: For error display
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useKnowledge } from '@/contexts/KnowledgeProvider';
 import { logger } from '@/lib/Logger';
+import { KNOWLEDGE_COLLECTION_NAME } from '@/services/QdrantService'; // For knowledgeBaseName
+import { useBoundStore } from '@/stores/chatStore'; // Migrated: Use Zustand store instead of KnowledgeProvider
 import { AlertCircle, CheckCircle, Clock, Database, FileText } from 'lucide-react';
 
 export function KnowledgeBaseTab() {
     logger.info('🔍 KnowledgeBaseTab component is rendering');
-    const { indexedDocumentsCount, knowledgeBaseName, lastIndexedAt, error } = useKnowledge();
+    const { indexedDocumentsCount, lastIndexedAt, knowledgeError } = useBoundStore(); // FIXED: Destructure from knowledgeSlice via composed store
+
+    const knowledgeBaseName = `Qdrant Collection: ${KNOWLEDGE_COLLECTION_NAME}`; // FIXED: Defined locally (was in provider)
 
     // Knowledge file categories for user visibility
     const coreKnowledgeFiles = [
@@ -27,7 +31,7 @@ export function KnowledgeBaseTab() {
     ];
 
     const getStatusInfo = () => {
-        if (error) {
+        if (knowledgeError) {
             return {
                 icon: <AlertCircle className="h-5 w-5 text-red-500" />,
                 status: 'Error',
@@ -85,15 +89,13 @@ export function KnowledgeBaseTab() {
                         </div>
                     </div>
 
-                    {/* Error Display */}
-                    {error && (
-                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                            <div className="flex items-center gap-2 text-red-700">
-                                <AlertCircle className="h-4 w-4" />
-                                <span className="font-medium">Error Details</span>
-                            </div>
-                            <p className="text-sm text-red-600 mt-1">{error}</p>
-                        </div>
+                    {/* Error Display - Using shadcn Alert for better UI consistency */}
+                    {knowledgeError && (
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>Error Details</AlertTitle>
+                            <AlertDescription>{knowledgeError}</AlertDescription>
+                        </Alert>
                     )}
 
                     {/* Indexing Action */}
