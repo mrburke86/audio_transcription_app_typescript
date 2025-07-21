@@ -1,4 +1,4 @@
-// src/app/chat/_components/ChatInterface.tsx
+// src/components/chat/ChatInterface.tsx - FIXED VERSION
 import {
     ConversationContext,
     ConversationInsights,
@@ -10,20 +10,21 @@ import { MemoizedChatMessagesBox } from '@/components/chat/ChatMessagesBox';
 import { AIErrorBoundary, InlineErrorBoundary, SpeechErrorBoundary } from '@/components/error-boundary';
 import { Button, Card, CardContent, CardHeader, CardTitle, Separator } from '@/components/ui';
 import { useBoundStore } from '@/stores/chatStore';
+import { InitialInterviewContext } from '@/types';
 import { ArrowRight, MessageSquare } from 'lucide-react';
-import React, { memo, useMemo } from 'react';
+import React, { memo, useEffect, useMemo } from 'react';
 
 const MOVE_BUTTON_STYLES =
     'inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-500 text-white hover:bg-blue-600 h-8 px-2 py-1 mt-2 gap-1.5 self-end';
 
 interface ChatInterfaceProps {
-    initialInterviewContext: any;
-    knowledgeBaseName: string;
-    indexedDocumentsCount: number;
+    initialInterviewContext?: InitialInterviewContext; // ✅ FIXED: Made optional
+    knowledgeBaseName?: string; // ✅ FIXED: Made optional
+    indexedDocumentsCount?: number; // ✅ FIXED: Made optional
 
     recognitionStatus: 'inactive' | 'active' | 'error';
     speechErrorMessage: string | null;
-    canvasRef: React.RefObject<HTMLCanvasElement>;
+    canvasRef: React.RefObject<HTMLCanvasElement | null>;
 
     userMessages: any[];
     streamedContent: string;
@@ -67,9 +68,53 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = memo(
         handleSuggest,
         handleContextInfo,
     }) => {
-        // ENHANCED: Memoized move button
+        // ✅ SAFETY CHECK: Provide defaults for undefined props
+        const safeContext = useMemo(() => {
+            return (
+                initialInterviewContext || {
+                    targetRole: 'Account Executive',
+                    targetCompany: 'Demo Company',
+                    interviewType: 'sales' as const,
+                    goals: ['Demonstrate expertise'],
+                    // Add other required defaults...
+                }
+            );
+        }, [initialInterviewContext]);
+
+        const safeKnowledgeBaseName = knowledgeBaseName || 'Knowledge Base';
+        const safeIndexedDocumentsCount = indexedDocumentsCount || 0;
+
+        // ✅ DEBUG: Log props on client side only
+        useEffect(() => {
+            if (typeof window !== 'undefined') {
+                console.group('🎬 CHAT INTERFACE PROPS');
+                console.log('📦 Props received:', {
+                    hasInitialContext: !!initialInterviewContext,
+                    contextRole: initialInterviewContext?.targetRole,
+                    contextCompany: initialInterviewContext?.targetCompany,
+                    knowledgeBaseName: safeKnowledgeBaseName,
+                    indexedDocumentsCount: safeIndexedDocumentsCount,
+                    recognitionStatus,
+                    messageCount: userMessages?.length || 0,
+                });
+
+                if (!initialInterviewContext) {
+                    console.warn('⚠️ No initialInterviewContext provided to ChatInterface');
+                    console.trace('📚 Missing context call stack');
+                }
+
+                console.groupEnd();
+            }
+        }, [
+            initialInterviewContext,
+            safeKnowledgeBaseName,
+            safeIndexedDocumentsCount,
+            recognitionStatus,
+            userMessages,
+        ]);
+
+        // Enhanced move button with error handling
         const moveButton = useMemo(() => {
-            console.log('🔄 Move button re-rendered (memoization check)');
             return (
                 <Button variant="move" onClick={handleMove} className={MOVE_BUTTON_STYLES}>
                     <ArrowRight className="mr-1 h-4 w-4" />
@@ -78,9 +123,29 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = memo(
             );
         }, [handleMove]);
 
-        // NEW: Store for interim/current
-        const interimTranscriptMessages = useBoundStore((state: any) => state.interimTranscriptMessages); // FIXED: Typed state as 'any' temporarily if full State import issue; ideally import State and type as State
-        const currentInterimTranscript = useBoundStore((state: any) => state.currentInterimTranscript); // FIXED: Same as above
+        // Store selectors with safety checks
+        const interimTranscriptMessages = useBoundStore((state: any) => state.interimTranscriptMessages || []);
+        const currentInterimTranscript = useBoundStore((state: any) => state.currentInterimTranscript || '');
+
+        // ✅ SAFE CONTEXT BUTTON: Handle missing context gracefully
+        const contextButton = useMemo(() => {
+            if (!safeContext.targetRole || !safeContext.targetCompany) {
+                return {
+                    targetRole: 'Setup Required',
+                    targetCompany: 'No Company',
+                    onClick: () => {
+                        console.warn('Context not properly configured');
+                        handleContextInfo();
+                    },
+                };
+            }
+
+            return {
+                targetRole: safeContext.targetRole,
+                targetCompany: safeContext.targetCompany,
+                onClick: handleContextInfo,
+            };
+        }, [safeContext.targetRole, safeContext.targetCompany, handleContextInfo]);
 
         return (
             <>
@@ -91,13 +156,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = memo(
                                 <MemoizedTopNavigationBar
                                     status={recognitionStatus}
                                     errorMessage={speechErrorMessage}
-                                    knowledgeBaseName={knowledgeBaseName}
-                                    indexedDocumentsCount={indexedDocumentsCount}
-                                    contextButton={{
-                                        targetRole: initialInterviewContext.targetRole,
-                                        targetCompany: initialInterviewContext.targetCompany,
-                                        onClick: handleContextInfo,
-                                    }}
+                                    knowledgeBaseName={safeKnowledgeBaseName}
+                                    indexedDocumentsCount={safeIndexedDocumentsCount}
+                                    contextButton={contextButton}
                                 />
                             </div>
                         </InlineErrorBoundary>
@@ -118,7 +179,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = memo(
                                             <div className="flex-1 min-h-0 overflow-hidden">
                                                 <MemoizedChatMessagesBox
                                                     id="postChat"
-                                                    messages={userMessages}
+                                                    messages={userMessages || []}
                                                     streamedContent={streamedContent}
                                                     isStreamingComplete={isStreamingComplete}
                                                     className="flex-1"
@@ -133,8 +194,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = memo(
                                             >
                                                 <LiveTranscriptionBox
                                                     id="preChat"
-                                                    interimTranscriptions={interimTranscriptMessages} // FIXED: From store
-                                                    currentInterimTranscript={currentInterimTranscript} // FIXED: From store
+                                                    interimTranscriptions={interimTranscriptMessages}
+                                                    currentInterimTranscript={currentInterimTranscript}
                                                     className="flex-1"
                                                 />
 
@@ -161,7 +222,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = memo(
                                         <div className="overflow-hidden scroll-smooth">
                                             <MemoizedConversationContext
                                                 summary={conversationSummary}
-                                                goals={initialInterviewContext?.goals || []}
+                                                goals={safeContext?.goals || []}
                                             />
                                         </div>
 

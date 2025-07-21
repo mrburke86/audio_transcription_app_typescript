@@ -10,7 +10,7 @@ interface VoiceControlsProps {
     onStop: () => void;
     onClear: () => void;
     isRecognitionActive: boolean;
-    canvasRef: React.RefObject<HTMLCanvasElement>;
+    canvasRef: React.RefObject<HTMLCanvasElement | null>;
 }
 
 export const VoiceControls: React.FC<VoiceControlsProps> = ({

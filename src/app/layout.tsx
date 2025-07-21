@@ -18,6 +18,18 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+    // ✅ SAFE: Only log on client-side
+    if (typeof window !== 'undefined') {
+        console.group('🏠 ROOT LAYOUT RENDER');
+        console.log('📍 Root layout rendering (client-side)');
+        console.log('🌍 Client environment:', {
+            NODE_ENV: process.env.NODE_ENV,
+            timestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent.substring(0, 50),
+        });
+        console.groupEnd();
+    }
+
     return (
         <html lang="en" suppressHydrationWarning>
             <body

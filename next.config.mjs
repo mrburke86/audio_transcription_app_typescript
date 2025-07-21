@@ -1,61 +1,70 @@
-// next.config.mjs - Clean Minimal Configuration
+// next.config.mjs - SIMPLIFIED VERSION
 /** @type {import('next').NextConfig} */
 
 const nextConfig = {
-    // ✅ Only strict mode in production (reduces dev double-initialization)
-    reactStrictMode: process.env.NODE_ENV === 'production',
+    // ✅ FIXED: Always enable strict mode for consistency
+    reactStrictMode: true,
 
-    // ✅ Experimental optimizations for faster builds
-    experimental: {
-        optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    // ✅ FIXED: Enable type checking in development
+    typescript: {
+        ignoreBuildErrors: false, // Always check types
     },
 
-    // ✅ Development vs Production webpack config
+    eslint: {
+        ignoreDuringBuilds: false, // Always check linting
+    },
+
+    // ✅ FIXED: Enable image optimization
+    images: {
+        unoptimized: false,
+    },
+
+    // ✅ FIXED: Simplified webpack config
     webpack: (config, { dev, isServer }) => {
         if (dev) {
-            // Development optimizations - faster builds
+            // Minimal dev optimizations
             config.watchOptions = {
                 poll: 1000,
                 aggregateTimeout: 300,
             };
-
-            config.optimization = {
-                ...config.optimization,
-                removeAvailableModules: false,
-                removeEmptyChunks: false,
-                splitChunks: false,
-            };
-        } else if (!isServer) {
-            // Production optimizations
-            config.optimization = {
-                ...config.optimization,
-                usedExports: true,
-                sideEffects: false,
-            };
         }
-
         return config;
     },
 
-    // ✅ Faster development (skip type checking and linting in dev)
-    typescript: {
-        ignoreBuildErrors: process.env.NODE_ENV === 'development',
-    },
-
-    eslint: {
-        ignoreDuringBuilds: process.env.NODE_ENV === 'development',
-    },
-
-    // ✅ Image optimization
-    images: {
-        unoptimized: process.env.NODE_ENV === 'development',
-    },
-
-    // ✅ Docker optimization
+    // ✅ Keep these for Docker
     output: 'standalone',
-
-    // ✅ Remove Next.js branding
     poweredByHeader: false,
+
+    // ✅ FIXED: Add experimental features that help with development
+    experimental: {
+        optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+        turbo: {
+            rules: {
+                '*.svg': {
+                    loaders: ['@svgr/webpack'],
+                    as: '*.js',
+                },
+            },
+        },
+    },
+
+    // ✅ FIXED: Add proper redirects for development
+    async redirects() {
+        return [
+            {
+                source: '/chat',
+                has: [
+                    {
+                        type: 'query',
+                        key: 'debug',
+                        value: 'true',
+                    },
+                ],
+                destination: '/capture-context',
+                permanent: false,
+            },
+        ];
+    },
 };
 
 export default nextConfig;

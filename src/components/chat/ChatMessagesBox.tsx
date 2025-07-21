@@ -1,10 +1,11 @@
-// src/app/chat/_components/ChatMessagesBox.tsx
+// src/components/chat/ChatMessagesBox.tsx - MANUAL SCROLL ONLY
+
 'use client';
 import { markdownComponents } from '@/components/markdownComponents';
-import { ScrollArea } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { Message } from '@/types';
-import React, { memo, useEffect, useRef } from 'react';
+import { ChevronDown } from 'lucide-react';
+import React, { memo, useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 
 interface ChatMessagesBoxProps {
@@ -22,26 +23,62 @@ const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({
     isStreamingComplete,
     className,
 }) => {
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [showScrollButton, setShowScrollButton] = useState(false);
 
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTo({
+                top: scrollContainerRef.current.scrollHeight,
+                behavior: 'smooth',
+            });
+        }
     };
 
-    // ✅ SIMPLIFIED: Track streamed content without complex performance measuring
-    useEffect(() => {
-        if (streamedContent && !isStreamingComplete) {
-            scrollToBottom();
+    // Check if user has scrolled up and show/hide scroll button
+    const handleScroll = () => {
+        if (scrollContainerRef.current) {
+            const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+            const isNearBottom = scrollHeight - scrollTop - clientHeight < 100; // 100px threshold
+            setShowScrollButton(!isNearBottom && messages.length > 0);
         }
-    }, [streamedContent, isStreamingComplete]);
+    };
+
+    // ✅ REMOVED: Auto-scroll on message changes
+    // Only show/hide scroll button based on scroll position
+    useEffect(() => {
+        handleScroll(); // Check initial scroll position
+    }, [messages.length]);
 
     return (
-        <div id={id} className={cn('relative flex flex-col h-full rounded-lg overflow-hidden', className)}>
-            <ScrollArea className="h-full w-full">
-                <div className="p-4 space-y-4">
+        <div id={id} className={cn('relative flex flex-col h-full rounded-lg overflow-hidden bg-white', className)}>
+            {/* ✅ FIXED: Scroll container with absolute height */}
+            <div
+                ref={scrollContainerRef}
+                onScroll={handleScroll}
+                className="absolute inset-0 overflow-y-auto overscroll-contain"
+                style={{
+                    scrollBehavior: 'smooth',
+                    WebkitOverflowScrolling: 'touch',
+                }}
+            >
+                <div className="p-4 space-y-4 min-h-full">
+                    {/* Empty state */}
+                    {messages.length === 0 && !streamedContent && (
+                        <div className="flex items-center justify-center h-full text-gray-500">
+                            <div className="text-center">
+                                <p className="text-lg mb-2">💬</p>
+                                <p>No messages yet.</p>
+                                <p className="text-sm">Start a conversation!</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Messages */}
                     {messages.map((message, index) => (
                         <div
-                            key={index}
+                            key={message.id || index}
                             className={`flex w-full ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
                         >
                             <div
@@ -77,9 +114,29 @@ const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({
                         </div>
                     )}
 
-                    <div ref={messagesEndRef} />
+                    {/* Bottom anchor (for manual scroll target) */}
+                    <div ref={messagesEndRef} className="h-4" />
                 </div>
-            </ScrollArea>
+            </div>
+
+            {/* ✅ IMPROVED: Scroll to bottom button - only shows when scrolled up */}
+            {showScrollButton && (
+                <button
+                    onClick={scrollToBottom}
+                    className="absolute bottom-4 right-4 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-lg transition-all duration-200 hover:scale-105"
+                    title="Scroll to bottom"
+                    aria-label="Scroll to bottom of chat"
+                >
+                    <ChevronDown className="h-4 w-4" />
+                </button>
+            )}
+
+            {/* Message count indicator */}
+            {messages.length > 0 && (
+                <div className="absolute top-2 right-2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-60">
+                    {messages.length} messages
+                </div>
+            )}
         </div>
     );
 };

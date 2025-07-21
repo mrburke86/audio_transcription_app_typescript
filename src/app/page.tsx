@@ -3,13 +3,14 @@
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useInterviewContext } from '@/hooks/useInterviewContext';
+// import { useInterviewContext } from '@/hooks/useInterviewContext';
 import { logger } from '@/lib/Logger';
+import { useBoundStore } from '@/stores/chatStore';
 import { ArrowRight, BarChart3, Brain, MessageSquare, Settings } from 'lucide-react';
 import { useEffect } from 'react';
 
 export default function HomePage() {
-    const { context, isContextValid, navigateToChat, navigateToContextCapture } = useInterviewContext();
+    const { initialContext: context, isContextValid, navigateToChat, navigateToContextCapture } = useBoundStore();
     const contextIsValid = isContextValid();
 
     useEffect(() => {

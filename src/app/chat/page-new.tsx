@@ -1,7 +1,4 @@
 // src/app/chat/page.tsx - FIXED: Layout and transcription display issues
-// ISSUE 1: Message overflow below ChatMessagesBox container
-// ISSUE 2: Transcription text not visible on screen
-// SOLUTION: Fixed height constraints and proper transcription display
 
 'use client';
 
@@ -35,7 +32,7 @@ export default function ChatPage() {
     const [manualInput, setManualInput] = useState('');
     const [apiStatus, setApiStatus] = useState<'checking' | 'connected' | 'error' | 'unconfigured'>('checking');
 
-    // ✅ CONSOLIDATED ZUSTAND STATE - Single source of truth
+    // CONSOLIDATED ZUSTAND STATE - Single source of truth
     const {
         // Chat state
         conversationHistory,
@@ -59,7 +56,7 @@ export default function ChatPage() {
         isContextValid,
     } = useBoundStore();
 
-    // ✅ CONSOLIDATED SPEECH HOOK - Replaces 3 previous hooks
+    // CONSOLIDATED SPEECH HOOK - Replaces 3 previous hooks
     const {
         // State
         recognitionStatus,
@@ -80,7 +77,7 @@ export default function ChatPage() {
         canvasRef,
     } = useConsolidatedSpeech();
 
-    // ✅ Initialize LLM Service on mount
+    // Initialize LLM Service on mount
     useEffect(() => {
         const initializeLLM = async () => {
             const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
@@ -339,7 +336,6 @@ export default function ChatPage() {
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="flex-1 overflow-hidden p-4">
-                                    {/* ✅ FIXED: ChatMessagesBox with explicit height and overflow */}
                                     <div className="h-full overflow-hidden">
                                         <MemoizedChatMessagesBox
                                             id="consolidatedChatTest"

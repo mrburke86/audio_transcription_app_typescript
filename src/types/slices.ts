@@ -2,7 +2,7 @@
 
 import { InitialInterviewContext, Message } from './core';
 import { UseRouteProtectionOptions, UseRouteProtectionReturn } from './hooks';
-import { ILLMService } from './services';
+import { ILLMService, RecognitionStatus } from './services';
 import { StrategicSuggestions } from './state';
 
 /* ------------- Chat Slice ------------- */
@@ -10,8 +10,31 @@ import { StrategicSuggestions } from './state';
 // This slice focuses on persistent chat data (e.g., user/assistant messages), separating it
 export interface ChatSlice {
     conversationHistory: Message[];
-    addMessage: (message: Message) => void;
+
+    // ✅ TYPED MESSAGE CREATORS (eliminates duplication)
+    addUserMessage: (content: string) => void;
+    addAssistantMessage: (content: string) => void;
+    addInterimMessage: (content: string) => void;
+    addSystemMessage: (content: string) => void;
+
+    // ✅ GENERIC MESSAGE CREATOR (fallback)
+    addMessage: (message: Omit<Message, 'id'>) => void;
+
+    // ✅ BATCH OPERATIONS
+    addMessages: (messages: Omit<Message, 'id'>[]) => void;
+
+    // ✅ MESSAGE MANAGEMENT
+    removeMessage: (messageId: string) => void;
+    updateMessage: (messageId: string, updates: Partial<Pick<Message, 'content' | 'type'>>) => void;
     clearHistory: () => void;
+
+    // ✅ COMPUTED SELECTORS
+    getUserMessages: () => Message[];
+    getAssistantMessages: () => Message[];
+    getLastMessage: () => Message | null;
+    getMessageCount: () => number;
+
+    // ✅ DEV UTILITIES
     __dev_logSliceState: () => void;
 }
 
@@ -52,6 +75,17 @@ export interface ContextSlice {
     contextLoading: boolean;
     /** Action: Sets loading state (e.g., true on init, false post-set). */
     setContextLoading: (loading: boolean) => void;
+    /** Action: Updates only the targetRole field; rejects invalid context. */
+    updateTargetRole: (role: string) => void;
+
+    /** Action: Updates only the targetCompany field; rejects invalid context. */
+    updateTargetCompany: (company: string) => void;
+
+    /** Action: Adds a goal to the goals array (deduplicated & validated). */
+    addGoal: (goal: string) => void;
+
+    /** Action: Removes a goal from the goals array (if present). */
+    removeGoal: (goal: string) => void;
 }
 
 /* ----------- Knowledge Slice ---------- */
@@ -111,13 +145,52 @@ export interface LLMSlice {
 // Speech Slice: Manages speech recognition and transcript state, including interim/final transcripts and clearing actions.
 // This slice groups audio/transcription logic to isolate it from chat history or LLM, supporting independent updates during recognition without affecting broader conversation state.
 export interface SpeechSlice {
+    // ✅ TRANSCRIPT STATE (existing)
     interimTranscriptMessages: Message[];
     currentInterimTranscript: string;
-    addInterimTranscriptMessage: (message: Message) => void;
+
+    // ✅ RECOGNITION STATE (moved from useSpeechManager)
+    recognitionStatus: RecognitionStatus;
+    speechErrorMessage: string | null;
+
+    // ✅ VISUALIZATION STATE (moved from useAudioVisualization)
+    isVisualizationActive: boolean;
+
+    // ✅ CONSOLIDATED ACTIONS
+    // Transcript actions
+    addInterimTranscriptMessage: (messageWithoutId: Omit<Message, 'id'>) => void;
     updateCurrentInterimTranscript: (transcript: string) => void;
     clearInterimTranscripts: () => void;
     clearAllTranscripts: () => void;
+
+    // Recognition actions
+    setRecognitionStatus: (status: RecognitionStatus) => void;
+    setSpeechError: (error: string | null) => void;
+
+    // Visualization actions
+    setVisualizationActive: (active: boolean) => void;
+
+    // ✅ HIGH-LEVEL COMBINED ACTIONS
+    startSpeechSession: () => void;
+    stopSpeechSession: () => void;
+    resetSpeechState: () => void;
+
+    // ✅ COMPUTED STATE
+    isRecording: () => boolean;
+    hasTranscriptions: () => boolean;
+    getAllTranscriptionText: () => string;
 }
+
+export const SPEECH_ERROR_MESSAGES = {
+    network: 'Network error. Please check your internet connection.',
+    'not-allowed': 'Microphone access denied. Please allow microphone access in your browser settings.',
+    'service-not-allowed': 'Speech recognition service not allowed. Please check your browser settings.',
+    'no-speech': '',
+    'audio-capture': 'Audio capture failed. Please check your microphone.',
+    aborted: 'Speech recognition was aborted.',
+    'language-not-supported': 'Language not supported. Please try a different language.',
+    'bad-grammar': 'Grammar configuration issue. Please contact support.',
+} as const;
 
 /* -------------- UI Slice -------------- */
 // UI Slice: Manages UI state, including active tabs and protection states.
