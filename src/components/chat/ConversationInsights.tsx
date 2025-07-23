@@ -1,11 +1,11 @@
-// src\app\chat\_components\ConversationInsights.tsx
+// src\components\chat\ConversationInsights.tsx
 'use client';
 
 import { markdownComponents } from '@/components/markdownComponents';
 import { Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/components/ui';
 import { Brain, Lightbulb, Sparkles, Target, TrendingUp, Zap } from 'lucide-react';
 import type React from 'react';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 
 interface ConversationInsightsProps {
@@ -27,6 +27,11 @@ interface ConversationInsightsProps {
 }
 
 export const ConversationInsights: React.FC<ConversationInsightsProps> = ({ suggestions, onSuggest, isLoading }) => {
+    // Render Counter for diagnostics
+    const renderCount = useRef(0);
+    renderCount.current++;
+    console.log(`🧮 [DIAG] ConversationInsights Component rendered ${renderCount.current} times`);
+
     const headerInfo = useMemo(() => {
         if (!suggestions.lastAnalysis) {
             return { title: 'Strategic Intelligence', icon: Brain, color: 'indigo' };

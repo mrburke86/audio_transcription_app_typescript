@@ -106,6 +106,15 @@ export interface DocumentChunk {
     score?: number;
 }
 
+export interface QdrantPayload {
+    text: string;
+    source: string;
+    chunk_index: number;
+    chunk_length: number;
+    total_chunks: number;
+    processed_at: string;
+}
+
 export interface KnowledgeSlice {
     knowledgeLoading: boolean;
     knowledgeError: string | null;

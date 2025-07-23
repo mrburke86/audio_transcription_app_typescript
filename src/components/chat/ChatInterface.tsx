@@ -12,15 +12,16 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Separator } from '@/c
 import { useBoundStore } from '@/stores/chatStore';
 import { InitialInterviewContext } from '@/types';
 import { ArrowRight, MessageSquare } from 'lucide-react';
-import React, { memo, useEffect, useMemo } from 'react';
+import React, { memo, useEffect, useMemo, useRef } from 'react';
+import { KnowledgeIndicatorMini } from './KnowledgeIndicator';
 
 const MOVE_BUTTON_STYLES =
     'inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-500 text-white hover:bg-blue-600 h-8 px-2 py-1 mt-2 gap-1.5 self-end';
 
 interface ChatInterfaceProps {
-    initialInterviewContext?: InitialInterviewContext; // ✅ FIXED: Made optional
-    knowledgeBaseName?: string; // ✅ FIXED: Made optional
-    indexedDocumentsCount?: number; // ✅ FIXED: Made optional
+    initialInterviewContext?: InitialInterviewContext;
+    knowledgeBaseName?: string;
+    indexedDocumentsCount?: number;
 
     recognitionStatus: 'inactive' | 'active' | 'error';
     speechErrorMessage: string | null;
@@ -68,6 +69,35 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = memo(
         handleSuggest,
         handleContextInfo,
     }) => {
+        // Render Counter for diagnostics
+        const renderCount = useRef(0);
+        renderCount.current++;
+        console.log(`🧮 [DIAG] ChatInterface rendered ${renderCount.current} times`);
+
+        // Hydration Flag to defer store access
+        const isHydrated = useRef(false);
+        useEffect(() => {
+            const rehydratePromise = useBoundStore.persist.rehydrate();
+            if (rehydratePromise instanceof Promise) {
+                rehydratePromise.then(() => {
+                    isHydrated.current = true;
+                    console.log('[DIAG-Hydrate] ChatInterface rehydrated');
+                });
+            } else {
+                isHydrated.current = true;
+                console.log('[DIAG-Hydrate] ChatInterface rehydrated (non-promise)');
+            }
+        }, []);
+
+        // Get knowledge state from store
+        const { knowledgeLoading, indexedDocumentsCount: storeDocCount } = useBoundStore(state => ({
+            knowledgeLoading: state.knowledgeLoading,
+            indexedDocumentsCount: state.indexedDocumentsCount,
+        }));
+
+        // Use store count if prop not provided
+        const effectiveDocCount = indexedDocumentsCount ?? storeDocCount;
+
         // ✅ SAFETY CHECK: Provide defaults for undefined props
         const safeContext = useMemo(() => {
             return (
@@ -76,31 +106,40 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = memo(
                     targetCompany: 'Demo Company',
                     interviewType: 'sales' as const,
                     goals: ['Demonstrate expertise'],
-                    // Add other required defaults...
+                    companySizeType: 'enterprise' as const,
+                    industry: 'Technology',
+                    seniorityLevel: 'manager' as const,
+                    responseConfidence: 'balanced' as const,
+                    responseStructure: 'story-driven' as const,
+                    contextDepth: 7,
+                    includeMetrics: true,
+                    emphasizedExperiences: ['Sales achievements'],
+                    specificChallenges: ['Complex negotiations'],
+                    companyContext: ['Industry knowledge'],
                 }
             );
         }, [initialInterviewContext]);
 
         const safeKnowledgeBaseName = knowledgeBaseName || 'Knowledge Base';
-        const safeIndexedDocumentsCount = indexedDocumentsCount || 0;
+        // const safeIndexedDocumentsCount = indexedDocumentsCount || 0;
 
         // ✅ DEBUG: Log props on client side only
         useEffect(() => {
-            if (typeof window !== 'undefined') {
+            if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
                 console.group('🎬 CHAT INTERFACE PROPS');
                 console.log('📦 Props received:', {
                     hasInitialContext: !!initialInterviewContext,
                     contextRole: initialInterviewContext?.targetRole,
                     contextCompany: initialInterviewContext?.targetCompany,
                     knowledgeBaseName: safeKnowledgeBaseName,
-                    indexedDocumentsCount: safeIndexedDocumentsCount,
+                    indexedDocumentsCount: effectiveDocCount,
+                    knowledgeLoading,
                     recognitionStatus,
                     messageCount: userMessages?.length || 0,
                 });
 
                 if (!initialInterviewContext) {
                     console.warn('⚠️ No initialInterviewContext provided to ChatInterface');
-                    console.trace('📚 Missing context call stack');
                 }
 
                 console.groupEnd();
@@ -108,7 +147,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = memo(
         }, [
             initialInterviewContext,
             safeKnowledgeBaseName,
-            safeIndexedDocumentsCount,
+            effectiveDocCount,
+            knowledgeLoading,
             recognitionStatus,
             userMessages,
         ]);
@@ -157,7 +197,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = memo(
                                     status={recognitionStatus}
                                     errorMessage={speechErrorMessage}
                                     knowledgeBaseName={safeKnowledgeBaseName}
-                                    indexedDocumentsCount={safeIndexedDocumentsCount}
+                                    indexedDocumentsCount={effectiveDocCount}
                                     contextButton={contextButton}
                                 />
                             </div>
@@ -173,6 +213,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = memo(
                                             <CardTitle className="text-lg flex items-center gap-2">
                                                 <MessageSquare className="h-5 w-5" />
                                                 Conversation
+                                                {effectiveDocCount > 0 && !knowledgeLoading && (
+                                                    <KnowledgeIndicatorMini active={true} />
+                                                )}
                                             </CardTitle>
                                         </CardHeader>
                                         <CardContent className="flex-1 flex flex-col gap-4 min-h-0 overflow-hidden">

@@ -1,4 +1,4 @@
-// src/components/chat/ChatMessagesBox.tsx - MANUAL SCROLL ONLY
+// src\components\chat\ChatMessagesBox.tsx
 
 'use client';
 import { markdownComponents } from '@/components/markdownComponents';
@@ -23,6 +23,11 @@ const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({
     isStreamingComplete,
     className,
 }) => {
+    // Render Counter for diagnostics
+    const renderCount = useRef(0);
+    renderCount.current++;
+    console.log(`🧮 [DIAG] ChatMessagesBox Component rendered ${renderCount.current} times`);
+
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [showScrollButton, setShowScrollButton] = useState(false);

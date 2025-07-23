@@ -1,7 +1,7 @@
 // src/stores/chatStore.ts - UPDATED ROOT STORE
 // Updated to use consolidated slices and new interfaces
 // Maintains same public API but eliminates internal duplication
-
+'use client';
 import { ChatSlice, ContextSlice, KnowledgeSlice, LLMSlice, SpeechSlice, UISlice } from '@/types';
 import { create } from 'zustand';
 import { createJSONStorage, devtools, persist } from 'zustand/middleware';
@@ -38,6 +38,8 @@ export const useBoundStore = create<ConsolidatedBoundStore>()(
                     initialContext: state.initialContext,
                     conversationHistory: state.conversationHistory,
                 }),
+
+                skipHydration: true, // ✅ Add here: Returns stable state for SSR
             }
         ),
         {

@@ -1,9 +1,10 @@
-// src\app\chat\_components\VoiceControls.tsx
+// src\components\chat\VoiceControls.tsx
 'use client';
 
 import { Button, Card } from '@/components/ui';
 import { Mic, Square, Trash } from 'lucide-react';
 import type React from 'react';
+import { useRef } from 'react';
 
 interface VoiceControlsProps {
     onStart: () => void;
@@ -20,6 +21,11 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
     isRecognitionActive,
     canvasRef,
 }) => {
+    // Render Counter for diagnostics
+    const renderCount = useRef(0);
+    renderCount.current++;
+    console.log(`🧮 [DIAG] VoiceControls Component rendered ${renderCount.current} times`);
+
     return (
         <Card className="h-full flex flex-col p-3">
             {/* Header */}

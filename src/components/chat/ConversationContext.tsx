@@ -1,9 +1,10 @@
-//
+// src\components\chat\ConversationContext.tsx
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { Activity } from 'lucide-react';
 import type React from 'react';
+import { useRef } from 'react';
 
 interface ConversationContextProps {
     summary: string;
@@ -11,6 +12,11 @@ interface ConversationContextProps {
 }
 
 export const ConversationContext: React.FC<ConversationContextProps> = ({ summary, goals }) => {
+    // Render Counter for diagnostics
+    const renderCount = useRef(0);
+    renderCount.current++;
+    console.log(`🧮 [DIAG] ConversationContext Component rendered ${renderCount.current} times`);
+
     const renderSummary = () => {
         if (!summary) return null;
 

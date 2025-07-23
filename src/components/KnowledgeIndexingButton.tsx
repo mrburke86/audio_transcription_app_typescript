@@ -3,7 +3,7 @@
 
 import { logger } from '@/lib/Logger';
 import { useBoundStore } from '@/stores/chatStore'; // FIXED: Replaced old useKnowledge with Zustand store (knowledgeSlice)
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 
 interface KnowledgeIndexingButtonProps {
     variant?: 'primary' | 'secondary';
@@ -18,6 +18,11 @@ export const KnowledgeIndexingButton: React.FC<KnowledgeIndexingButtonProps> = (
     showProgress = true,
     className = '',
 }) => {
+    // Render Counter for diagnostics
+    const renderCount = useRef(0);
+    renderCount.current++;
+    console.log(`🧮 [DIAG] ChatInterface rendered ${renderCount.current} times`);
+
     const { triggerIndexing, indexingStatus, indexedDocumentsCount, lastIndexedAt } = useBoundStore(); // FIXED: Destructure from store (knowledgeSlice fields)
     const [showDetails, setShowDetails] = useState(false);
 

@@ -94,3 +94,18 @@ export const buildSummaryPrompt = (conversationText: string): string => {
 **Recent Exchange:**
 ${conversationText}`;
 };
+
+export function buildKnowledgeSearchPrompt(userMessage: string, context: InitialInterviewContext): string {
+    // Combine user message with relevant context for better search results
+    const searchTerms = [
+        userMessage,
+        context.targetRole,
+        context.targetCompany,
+        context.industry,
+        ...context.emphasizedExperiences.slice(0, 2), // Include top 2 emphasized experiences
+    ]
+        .filter(Boolean)
+        .join(' ');
+
+    return searchTerms;
+}

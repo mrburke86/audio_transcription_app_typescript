@@ -1,33 +1,43 @@
 // src/services/QdrantService.ts
 import { logger } from '@/lib/Logger';
-// import { performanceMonitor } from '@/utils/performance/PerformanceMonitor';
-// import { measureAPICall } from '@/utils/performance/measurementHooks';
-import { DocumentChunk, QdrantPoint } from '@/types';
+import { OpenAIEmbeddingService } from '@/services/OpenAIEmbeddingService';
+import { DocumentChunk } from '@/types';
 import { QdrantClient } from '@qdrant/qdrant-js';
 import { v4 as uuidv4 } from 'uuid';
-import { OpenAIEmbeddingService } from './OpenAIEmbeddingService';
-
-const QDRANT_URL = process.env.QDRANT_URL || 'http://localhost:6333';
 export const KNOWLEDGE_COLLECTION_NAME = 'interview_edge_knowledge';
+const QDRANT_URL = process.env.QDRANT_URL || 'http://localhost:6333';
+const apiKey = process.env.OPENAI_API_KEY;
+const CHUNK_SIZE = 800; // Characters per chunk
+const CHUNK_OVERLAP = 100; // Overlap between chunks
 const OPENAI_EMBEDDING_DIMENSION = 1536;
 
 let qdrantClient: QdrantClient | null = null;
+let embeddingService: OpenAIEmbeddingService | null = null;
 
 // Initial Qdrant Client
-export const initQdrantClient = (): QdrantClient => {
-    if (!qdrantClient) {
-        qdrantClient = new QdrantClient({ url: QDRANT_URL });
-        logger.info(`QdrantService: Client initialized for URL: ${QDRANT_URL} 🟢`);
+export function initQdrantClient(): void {
+    if (!apiKey) {
+        throw new Error('OpenAI API key is required for embeddings');
     }
-    return qdrantClient;
-};
+
+    qdrantClient = new QdrantClient({
+        url: QDRANT_URL,
+        // apiKey: process.env.QDRANT_API_KEY, // Optional Qdrant API key
+    });
+
+    embeddingService = new OpenAIEmbeddingService(apiKey);
+
+    logger.info(`QdrantService: Client initialized for URL: ${QDRANT_URL} 🟢`);
+}
 
 // Ensure Knowledge Collection Exists
-export const ensureKnowledgeCollection = async (): Promise<void> => {
-    const client = initQdrantClient();
+export async function ensureKnowledgeCollection(): Promise<void> {
+    if (!qdrantClient) {
+        throw new Error('Qdrant client not initialized');
+    }
 
     try {
-        const collections = await client.getCollections();
+        const collections = await qdrantClient.getCollections();
         const collectionExists = collections.collections.some(
             collection => collection.name === KNOWLEDGE_COLLECTION_NAME
         );
@@ -37,172 +47,35 @@ export const ensureKnowledgeCollection = async (): Promise<void> => {
                 `QdrantService: Creating collection "${KNOWLEDGE_COLLECTION_NAME}" with ${OPENAI_EMBEDDING_DIMENSION}D vectors...`
             );
 
-            await client.createCollection(KNOWLEDGE_COLLECTION_NAME, {
+            await qdrantClient.createCollection(KNOWLEDGE_COLLECTION_NAME, {
                 vectors: {
                     size: OPENAI_EMBEDDING_DIMENSION,
                     distance: 'Cosine',
                 },
-            });
-
-            logger.info(`QdrantService: Collection "${KNOWLEDGE_COLLECTION_NAME}" created successfully.`);
-        }
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        logger.error(`QdrantService: Error ensuring collection. ${errorMessage}`, error);
-        throw error;
-    }
-};
-
-// Enhanced text chunking with better logging
-const chunkText = (text: string, chunkSize = 800, overlap = 100): string[] => {
-    if (!text || text.trim().length === 0) {
-        logger.warning('QdrantService: Empty or null text provided to chunkText function');
-        return [];
-    }
-
-    const chunks: string[] = [];
-    let i = 0;
-    while (i < text.length) {
-        const end = Math.min(i + chunkSize, text.length);
-        const chunk = text.substring(i, end).trim();
-
-        if (chunk.length > 0) {
-            chunks.push(chunk);
-        }
-
-        i += chunkSize - overlap;
-        if (end === text.length) break;
-    }
-
-    return chunks;
-};
-
-// Process and Upsert Document
-export const processAndUpsertDocument = async (fileName: string, fileContent: string): Promise<void> => {
-    const client = initQdrantClient();
-    await ensureKnowledgeCollection();
-
-    logger.info(`QdrantService: Processing document "${fileName}" (${fileContent.length} characters)...`);
-
-    if (!fileContent || fileContent.trim().length < 50) {
-        logger.warning(`QdrantService: Document "${fileName}" is too short. Skipping.`);
-        return;
-    }
-
-    const chunks = chunkText(fileContent);
-    if (chunks.length === 0) {
-        logger.warning(`QdrantService: No valid chunks generated for "${fileName}". Skipping.`);
-        return;
-    }
-
-    const points: QdrantPoint[] = [];
-
-    for (let i = 0; i < chunks.length; i++) {
-        const chunk = chunks[i];
-        try {
-            const apiKey = process.env.OPENAI_API_KEY;
-            if (!apiKey) {
-                throw new Error('OpenAI API key is not defined in environment variables.');
-            }
-            const embeddingService = new OpenAIEmbeddingService(apiKey);
-            const embedding = await embeddingService.generateEmbeddingVector(chunk);
-
-            if (!embedding || embedding.length !== OPENAI_EMBEDDING_DIMENSION) {
-                throw new Error(
-                    `Invalid embedding: expected ${OPENAI_EMBEDDING_DIMENSION}D, got ${embedding?.length || 0}D`
-                );
-            }
-
-            points.push({
-                id: uuidv4(),
-                payload: {
-                    text: chunk,
-                    source: fileName,
-                    chunk_index: i,
-                    chunk_length: chunk.length,
-                    processed_at: new Date().toISOString(),
+                optimizers_config: {
+                    default_segment_number: 2,
                 },
-                vector: embedding,
+                replication_factor: 1,
             });
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown embedding error';
-            logger.error(
-                `QdrantService: Error generating embedding for chunk ${i + 1} from "${fileName}": ${errorMessage}`
-            );
+
+            logger.info(`Collection ${KNOWLEDGE_COLLECTION_NAME} created successfully`);
+        } else {
+            logger.debug(`Collection ${KNOWLEDGE_COLLECTION_NAME} already exists`);
         }
-    }
-
-    if (points.length === 0) {
-        logger.error(`QdrantService: No valid points generated for "${fileName}".`);
-        throw new Error(`Failed to process any chunks for ${fileName}`);
-    }
-
-    try {
-        logger.info(`QdrantService: Upserting ${points.length} vectors to "${KNOWLEDGE_COLLECTION_NAME}"...`);
-        await client.upsert(KNOWLEDGE_COLLECTION_NAME, {
-            wait: true,
-            points,
-        });
     } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown upsert error';
-        logger.error(`QdrantService: Error upserting points for "${fileName}": ${errorMessage}`, error);
+        logger.error(`Failed to ensure collection: ${(error as Error).message}`);
         throw error;
     }
-};
-
-// Search for relevant document chunks
-export const searchRelevantChunks = async (query: string, limit = 5): Promise<DocumentChunk[]> => {
-    const cacheKey = `search_${query}_${limit}`;
-    const cached = sessionStorage.getItem(cacheKey);
-
-    if (cached) {
-        return JSON.parse(cached);
-    }
-
-    try {
-        const client = initQdrantClient();
-        await ensureKnowledgeCollection();
-        const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) {
-            throw new Error('OpenAI API key is not defined in environment variables.');
-        }
-        const embeddingService = new OpenAIEmbeddingService(apiKey);
-
-        const queryEmbedding = await embeddingService.generateEmbeddingVector(query);
-
-        const searchResult = await client.search(KNOWLEDGE_COLLECTION_NAME, {
-            vector: queryEmbedding,
-            limit,
-            with_payload: true,
-            score_threshold: 0.3,
-        });
-
-        const results: DocumentChunk[] = searchResult.map(result => ({
-            id: result.id.toString(),
-            text: result.payload?.text as string,
-            source: result.payload?.source as string,
-            score: result.score,
-        }));
-
-        try {
-            sessionStorage.setItem(cacheKey, JSON.stringify(results));
-        } catch {
-            // Ignore cache write failures
-        }
-
-        return results;
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown search error';
-        logger.error(`QdrantService: Search error: ${errorMessage}`, error);
-        return [];
-    }
-};
+}
 
 // Count indexed knowledge points
 export const countKnowledgePoints = async (): Promise<number> => {
-    const client = initQdrantClient();
+    if (!qdrantClient) {
+        throw new Error('Qdrant client not initialized');
+    }
+
     try {
-        const collectionInfo = await client.getCollection(KNOWLEDGE_COLLECTION_NAME);
+        const collectionInfo = await qdrantClient.getCollection(KNOWLEDGE_COLLECTION_NAME);
         return collectionInfo.points_count || 0;
     } catch (error) {
         const isQdrantError = (e: unknown): e is { status?: number; message?: string } =>
@@ -212,8 +85,274 @@ export const countKnowledgePoints = async (): Promise<number> => {
             return 0;
         }
 
-        const errorMessage = error instanceof Error ? error.message : 'Unknown count error';
-        logger.error(`QdrantService: Error counting points: ${errorMessage}`, error);
+        logger.error(`Failed to count knowledge points: ${(error as Error).message}`);
         return 0;
     }
 };
+
+// Chunk text with overlap
+function chunkText(text: string, source: string): Array<{ text: string; metadata: any }> {
+    const chunks: Array<{ text: string; metadata: any }> = [];
+    const cleanText = text.trim();
+
+    if (!cleanText || cleanText.length === 0) {
+        logger.warning(`Empty text provided for chunking from source: ${source}`);
+        return [];
+    }
+
+    if (cleanText.length <= CHUNK_SIZE) {
+        chunks.push({
+            text: cleanText,
+            metadata: {
+                source,
+                chunk_index: 0,
+                chunk_length: cleanText.length,
+                total_chunks: 1,
+            },
+        });
+        return chunks;
+    }
+
+    let startIndex = 0;
+    let chunkIndex = 0;
+
+    while (startIndex < cleanText.length) {
+        let endIndex = Math.min(startIndex + CHUNK_SIZE, cleanText.length);
+
+        // Find a good break point (end of sentence or paragraph)
+        if (endIndex < cleanText.length) {
+            const nextPeriod = cleanText.indexOf('.', endIndex - 100);
+            const nextNewline = cleanText.indexOf('\n', endIndex - 100);
+
+            if (nextPeriod > endIndex - 100 && nextPeriod < endIndex + 100) {
+                endIndex = nextPeriod + 1;
+            } else if (nextNewline > endIndex - 100 && nextNewline < endIndex + 100) {
+                endIndex = nextNewline + 1;
+            }
+        }
+
+        const chunkText = cleanText.slice(startIndex, endIndex).trim();
+
+        if (chunkText.length > 0) {
+            chunks.push({
+                text: chunkText,
+                metadata: {
+                    source,
+                    chunk_index: chunkIndex,
+                    chunk_length: chunkText.length,
+                    total_chunks: -1, // Will be updated later
+                },
+            });
+            chunkIndex++;
+        }
+
+        startIndex = endIndex - CHUNK_OVERLAP;
+        if (endIndex === cleanText.length) break;
+    }
+
+    // Update total chunks count
+    chunks.forEach(chunk => {
+        chunk.metadata.total_chunks = chunks.length;
+    });
+
+    logger.debug(`Chunked text from ${source} into ${chunks.length} chunks`);
+    return chunks;
+}
+
+// Process and Upsert Document
+export async function processAndUpsertDocument(fileName: string, fileContent: string): Promise<void> {
+    if (!qdrantClient || !embeddingService) {
+        throw new Error('Services not initialized');
+    }
+
+    const startTime = performance.now();
+    logger.info(`Processing document: ${fileName} (${fileContent.length} characters)`);
+
+    if (!fileContent || fileContent.trim().length < 50) {
+        logger.warning(`Document "${fileName}" is too short (${fileContent.length} chars). Skipping.`);
+        return;
+    }
+
+    try {
+        // Chunk the document
+        const chunks = chunkText(fileContent, fileName);
+        if (chunks.length === 0) {
+            logger.warning(`No valid chunks generated for "${fileName}". Skipping.`);
+            return;
+        }
+
+        logger.debug(`Document chunked into ${chunks.length} pieces`);
+
+        // Generate embeddings and prepare points
+        const points: any[] = []; // Using any[] for compatibility
+
+        for (let i = 0; i < chunks.length; i++) {
+            const chunk = chunks[i];
+            const chunkId = uuidv4();
+
+            try {
+                // Generate embedding
+                const embedding = await embeddingService.generateEmbeddingVector(chunk.text);
+
+                if (!embedding || embedding.length !== OPENAI_EMBEDDING_DIMENSION) {
+                    throw new Error(
+                        `Invalid embedding: expected ${OPENAI_EMBEDDING_DIMENSION}D, got ${embedding?.length || 0}D`
+                    );
+                }
+
+                points.push({
+                    id: chunkId,
+                    vector: embedding,
+                    payload: {
+                        text: chunk.text,
+                        source: fileName,
+                        chunk_index: chunk.metadata.chunk_index,
+                        chunk_length: chunk.metadata.chunk_length,
+                        total_chunks: chunk.metadata.total_chunks,
+                        processed_at: new Date().toISOString(),
+                    },
+                });
+            } catch (error) {
+                logger.error(`Failed to generate embedding for chunk ${i} of ${fileName}: ${(error as Error).message}`);
+                // Continue with other chunks
+            }
+        }
+
+        // Upsert points to Qdrant
+        if (points.length > 0) {
+            logger.info(`Upserting ${points.length} vectors to "${KNOWLEDGE_COLLECTION_NAME}"...`);
+
+            await qdrantClient.upsert(KNOWLEDGE_COLLECTION_NAME, {
+                wait: true,
+                points,
+            });
+
+            const processingTime = Math.round(performance.now() - startTime);
+            logger.info(
+                `✅ Document ${fileName} processed successfully: ${points.length} chunks in ${processingTime}ms`
+            );
+        } else {
+            throw new Error(`No valid embeddings generated for ${fileName}`);
+        }
+    } catch (error) {
+        logger.error(`Failed to process document ${fileName}: ${(error as Error).message}`);
+        throw error;
+    }
+}
+
+// Search for relevant document chunks
+export async function searchRelevantChunks(query: string, limit: number = 5): Promise<DocumentChunk[]> {
+    if (!qdrantClient || !embeddingService) {
+        throw new Error('Services not initialized');
+    }
+
+    // Try to get from session storage cache
+    const cacheKey = `search_${query}_${limit}`;
+    if (typeof window !== 'undefined') {
+        try {
+            const cached = sessionStorage.getItem(cacheKey);
+            if (cached) {
+                logger.debug('Returning cached search results');
+                return JSON.parse(cached);
+            }
+        } catch (e) {
+            // Ignore cache errors
+        }
+    }
+
+    try {
+        logger.debug(`Searching for: "${query.slice(0, 50)}..." (limit: ${limit})`);
+
+        // Generate query embedding
+        const queryEmbedding = await embeddingService.generateEmbeddingVector(query);
+
+        // Search in Qdrant
+        const searchResult = await qdrantClient.search(KNOWLEDGE_COLLECTION_NAME, {
+            vector: queryEmbedding,
+            limit,
+            with_payload: true,
+            score_threshold: 0.3, // Minimum similarity score
+        });
+
+        // Convert to DocumentChunk format
+        const chunks: DocumentChunk[] = searchResult.map(result => ({
+            id: result.id.toString(),
+            text: (result.payload?.text ?? '') as string,
+            source: (result.payload?.source ?? 'Unknown') as string,
+            score: result.score,
+        }));
+
+        logger.info(`Found ${chunks.length} relevant chunks for query`);
+
+        // Cache results
+        if (typeof window !== 'undefined' && chunks.length > 0) {
+            try {
+                sessionStorage.setItem(cacheKey, JSON.stringify(chunks));
+            } catch (e) {
+                // Ignore cache write errors
+            }
+        }
+
+        return chunks;
+    } catch (error) {
+        logger.error(`Search failed: ${(error as Error).message}`);
+        return [];
+    }
+}
+
+// Health check
+export async function checkQdrantHealth(): Promise<{
+    healthy: boolean;
+    collections?: number;
+    error?: string;
+    knowledgeCount?: number;
+}> {
+    try {
+        if (!qdrantClient) {
+            initQdrantClient();
+        }
+
+        const collections = await qdrantClient!.getCollections();
+        const knowledgeCount = await countKnowledgePoints();
+
+        return {
+            healthy: true,
+            collections: collections.collections.length,
+            knowledgeCount,
+        };
+    } catch (error) {
+        return {
+            healthy: false,
+            error: (error as Error).message,
+        };
+    }
+}
+
+// Delete all points in collection (useful for re-indexing)
+export async function clearKnowledgeCollection(): Promise<void> {
+    if (!qdrantClient) {
+        throw new Error('Qdrant client not initialized');
+    }
+
+    try {
+        // Delete all points by filter
+        await qdrantClient.delete(KNOWLEDGE_COLLECTION_NAME, {
+            wait: true,
+            filter: {
+                must: [
+                    {
+                        key: 'processed_at',
+                        match: {
+                            any: ['*'], // Match any value
+                        },
+                    },
+                ],
+            },
+        });
+
+        logger.info(`Cleared all points from ${KNOWLEDGE_COLLECTION_NAME}`);
+    } catch (error) {
+        logger.error(`Failed to clear collection: ${(error as Error).message}`);
+        throw error;
+    }
+}

@@ -81,6 +81,11 @@ class SmartLogger {
         this.stats.updatesBySlice[slice] = (this.stats.updatesBySlice[slice] || 0) + 1;
         this.stats.recentUpdates.push({ timestamp: now, slice, action });
 
+        // ✅ DIAGNOSTIC LOG - Add this block here (after stats update)
+        console.log(`[DIAG-Zustand] Update #${this.stats.totalUpdates} in ${slice}:`, action, '| Counts:', {
+            total: this.stats.totalUpdates,
+            bySlice: this.stats.updatesBySlice,
+        });
         // ✅ KEEP ONLY RECENT UPDATES (sliding window)
         if (this.stats.recentUpdates.length > 50) {
             this.stats.recentUpdates = this.stats.recentUpdates.slice(-50);

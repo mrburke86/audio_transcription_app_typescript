@@ -1,4 +1,4 @@
-// src\app\chat\_components\LiveTranscriptionBox.tsx
+// src\components\chat\LiveTranscriptionBox.tsx
 'use client';
 import { cn } from '@/lib/utils';
 import { Message } from '@/types';
@@ -17,6 +17,11 @@ export const LiveTranscriptionBox: React.FC<LiveTranscriptionBoxProps> = ({
     currentInterimTranscript,
     className,
 }) => {
+    // Render Counter for diagnostics
+    const renderCount = useRef(0);
+    renderCount.current++;
+    console.log(`🧮 [DIAG] LiveTranscriptionBox rendered ${renderCount.current} times`);
+
     const containerRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {

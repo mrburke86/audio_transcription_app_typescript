@@ -1,12 +1,16 @@
-// src/stores/slices/llmSlice.ts - FIXED: Debounced streaming updates
-// PROBLEM: Each streaming chunk caused individual Zustand updates → Circuit breaker
-// SOLUTION: Debounce streaming updates to prevent excessive state changes
-
+// src/stores/slices/llmSlice.ts - Enhanced with Knowledge Integration
 import { logger } from '@/lib/Logger';
 import { OpenAIClientService } from '@/services/OpenAIClientService';
 import { StoreState } from '@/stores/chatStore';
 import { ChatMessageParam, LLMSlice, Message, StrategicSuggestions } from '@/types';
-import { buildAnalysisPrompt, buildSummaryPrompt, buildSystemPrompt, buildUserPrompt } from '@/utils/prompts';
+import { formatKnowledgeContext, logKnowledgeUsage } from '@/utils/knowledgeIntegration';
+import {
+    buildAnalysisPrompt,
+    buildKnowledgeSearchPrompt,
+    buildSummaryPrompt,
+    buildSystemPrompt,
+    buildUserPrompt,
+} from '@/utils/prompts';
 import { debounce } from 'lodash';
 import { StateCreator } from 'zustand';
 
@@ -59,9 +63,20 @@ export const createLLMSlice: StateCreator<StoreState, [], [], LLMSlice> = (set, 
             }
         },
 
-        // Generate Response with debounced streaming
+        // Generate Response with knowledge integration
         generateResponse: async (text: string, knowledgeContext = '') => {
-            const { llmService, conversationSummary, initialContext, addAssistantMessage } = get();
+            if (typeof performance !== 'undefined') {
+                performance.clearMarks(); // Add: Clean previous marks
+                performance.mark('generate-response-start'); // Start before logger
+            }
+            const {
+                llmService,
+                conversationSummary,
+                initialContext,
+                addAssistantMessage,
+                searchRelevantKnowledge,
+                indexedDocumentsCount,
+            } = get();
 
             if (!llmService) {
                 set({ llmError: 'AI service not initialized' });
@@ -79,8 +94,31 @@ export const createLLMSlice: StateCreator<StoreState, [], [], LLMSlice> = (set, 
             try {
                 logger.info(`Generating response for: "${text.substring(0, 50)}..."`);
 
+                // 🔍 KNOWLEDGE INTEGRATION: Search for relevant knowledge if available
+                let enhancedKnowledgeContext = knowledgeContext;
+                if (indexedDocumentsCount > 0 && !knowledgeContext) {
+                    logger.info('🔍 Searching knowledge base for relevant information...');
+
+                    try {
+                        const searchQuery = buildKnowledgeSearchPrompt(text, initialContext);
+                        const relevantChunks = await searchRelevantKnowledge(searchQuery, 5);
+
+                        if (relevantChunks.length > 0) {
+                            enhancedKnowledgeContext = formatKnowledgeContext(relevantChunks);
+                            logKnowledgeUsage(searchQuery, relevantChunks);
+
+                            logger.info(`✅ Found ${relevantChunks.length} relevant knowledge chunks`);
+                        } else {
+                            logger.info('📭 No relevant knowledge chunks found for this query');
+                        }
+                    } catch (error) {
+                        logger.error(`Knowledge search failed: ${(error as Error).message}`);
+                        // Continue without knowledge enhancement
+                    }
+                }
+
                 const systemPrompt = buildSystemPrompt(initialContext, initialContext.goals || []);
-                const userPrompt = buildUserPrompt(text, conversationSummary, knowledgeContext);
+                const userPrompt = buildUserPrompt(text, conversationSummary, enhancedKnowledgeContext);
 
                 const messages: ChatMessageParam[] = [
                     { role: 'system', content: systemPrompt },
@@ -94,12 +132,22 @@ export const createLLMSlice: StateCreator<StoreState, [], [], LLMSlice> = (set, 
                     for await (const chunk of llmService.generateStreamedResponseChunks(messages, {
                         model: 'gpt-4o-mini',
                         temperature: 0.7,
+                        max_tokens: 1000,
                     })) {
                         fullResponse += chunk;
+                        performance.mark('generate-response-chunk-received');
+                        // Mark each chunk received
 
                         // ✅ USE DEBOUNCED UPDATE instead of immediate state change
                         debouncedStreamUpdate(fullResponse);
                     }
+
+                    const measure = performance.measure(
+                        'Time to First Chunk',
+                        'generate-response-start',
+                        'generate-response-chunk-received'
+                    );
+                    console.log('[DIAG-Perf] Generate First Chunk:', measure.duration + 'ms');
 
                     // FINAL UPDATE - ensure we get the complete response
                     debouncedStreamUpdate.flush(); // Force immediate flush
@@ -109,6 +157,11 @@ export const createLLMSlice: StateCreator<StoreState, [], [], LLMSlice> = (set, 
                     if (fullResponse.trim()) {
                         addAssistantMessage(fullResponse.trim());
                         logger.info(`✅ Assistant message added to chat history: ${fullResponse.length} characters`);
+
+                        // Log if knowledge was used
+                        if (enhancedKnowledgeContext) {
+                            logger.info('📚 Response enhanced with knowledge base information');
+                        }
                     }
 
                     // ✅ CLEAR STREAMED CONTENT after saving to history
@@ -123,6 +176,7 @@ export const createLLMSlice: StateCreator<StoreState, [], [], LLMSlice> = (set, 
                     const response = await llmService.generateCompleteResponse(messages, {
                         model: 'gpt-4o-mini',
                         temperature: 0.7,
+                        max_tokens: 1000,
                     });
 
                     // ✅ FALLBACK: Add non-streaming response to chat history
@@ -149,9 +203,10 @@ export const createLLMSlice: StateCreator<StoreState, [], [], LLMSlice> = (set, 
             }
         },
 
-        // Generate System
+        // Generate Suggestions with knowledge integration
         generateSuggestions: async (knowledgeContext = '') => {
-            const { llmService, conversationSummary, initialContext } = get();
+            const { llmService, conversationSummary, initialContext, searchRelevantKnowledge, indexedDocumentsCount } =
+                get();
 
             if (!llmService || !initialContext) {
                 set({ llmError: 'Service or context not available for suggestions' });
@@ -162,6 +217,21 @@ export const createLLMSlice: StateCreator<StoreState, [], [], LLMSlice> = (set, 
 
             try {
                 logger.info('Generating strategic suggestions');
+
+                // Search for additional knowledge if available
+                let enhancedKnowledgeContext = knowledgeContext;
+                if (indexedDocumentsCount > 0 && !knowledgeContext && conversationSummary) {
+                    try {
+                        const searchQuery = `${conversationSummary} ${initialContext.industry} insights`;
+                        const relevantChunks = await searchRelevantKnowledge(searchQuery, 3);
+
+                        if (relevantChunks.length > 0) {
+                            enhancedKnowledgeContext = relevantChunks.map(chunk => chunk.text).join('\n\n');
+                        }
+                    } catch (error) {
+                        logger.error(`Knowledge search for suggestions failed: ${(error as Error).message}`);
+                    }
+                }
 
                 const analysisPrompt = buildAnalysisPrompt(conversationSummary, initialContext);
 
@@ -189,7 +259,7 @@ export const createLLMSlice: StateCreator<StoreState, [], [], LLMSlice> = (set, 
                 }
 
                 const generationPrompt = `Based on this analysis: ${JSON.stringify(analysis)}\n\nCreate strategic intelligence for ${initialContext.targetRole} at ${initialContext.targetCompany}:\n\n${
-                    knowledgeContext ? `Knowledge Context:\n${knowledgeContext}\n` : ''
+                    enhancedKnowledgeContext ? `Knowledge Context:\n${enhancedKnowledgeContext}\n` : ''
                 }\nGenerate markdown content with:\n# 🧠 Strategic Intelligence - ${analysis.strategic_opportunity}\n\n## 🎯 Strategic Context\n[Why this intelligence is valuable]\n\n## 💡 Key Strategic Insights\n[Multiple valuable insights with evidence]\n\n## 🚀 Competitive Differentiation\n[How this positions you uniquely]`;
 
                 const strategicContent = await llmService.generateCompleteResponse(
@@ -227,7 +297,7 @@ export const createLLMSlice: StateCreator<StoreState, [], [], LLMSlice> = (set, 
             }
         },
 
-        // Summarise Conversation
+        // Summarize Conversation
         summarizeConversation: async () => {
             const { llmService, conversationHistory, initialContext } = get();
 
@@ -271,13 +341,5 @@ export const createLLMSlice: StateCreator<StoreState, [], [], LLMSlice> = (set, 
         setStreamingComplete: (isComplete: boolean) => set({ isStreamingComplete: isComplete }),
         setLlmLoading: (llmLoading: boolean) => set({ llmLoading }),
         setLlmError: (llmError: string | null) => set({ llmError }),
-
-        __dev_logSliceState: () => {
-            const { llmService, streamedContent, ...rest } = get();
-            logger.debug('[🧪 DEV] LLMSlice State Snapshot', {
-                streamedContentLength: streamedContent.length,
-                ...rest,
-            });
-        },
     };
 };

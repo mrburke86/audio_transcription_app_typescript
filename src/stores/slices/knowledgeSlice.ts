@@ -20,6 +20,10 @@ export const createKnowledgeSlice: StateCreator<KnowledgeSlice> = (set, get) => 
 
     // Initialize the knowledge base
     initializeKnowledgeBase: async (): Promise<void> => {
+        if (typeof performance !== 'undefined') {
+            performance.clearMarks(); // Add: Clean previous marks
+            performance.mark('knowledge-init-start'); // Start before logger
+        }
         logger.info('📚 Initializing Knowledge Base...');
         set({ knowledgeLoading: true, knowledgeError: null });
         try {
@@ -39,6 +43,15 @@ export const createKnowledgeSlice: StateCreator<KnowledgeSlice> = (set, get) => 
             set({ knowledgeError: message });
         } finally {
             set({ knowledgeLoading: false });
+            if (typeof performance !== 'undefined') {
+                performance.mark('knowledge-init-end'); // End in finally (captures errors)
+                const measure = performance.measure(
+                    'Knowledge Init Duration',
+                    'knowledge-init-start',
+                    'knowledge-init-end'
+                );
+                console.log('[DIAG-Perf] Knowledge Init:', measure.duration + 'ms');
+            }
         }
     },
 
