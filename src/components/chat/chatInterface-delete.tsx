@@ -1,4 +1,4 @@
-// src/components/chat/ChatInterface.tsx - WORKING VERSION (BEFORE FIXES)
+// src/components/chat/ChatInterface.tsx - FIXED REAL-TIME TRANSCRIPTION
 import {
     ConversationContext,
     ConversationInsights,
@@ -26,7 +26,7 @@ interface ChatInterfaceProps {
     speechErrorMessage: string | null;
     canvasRef: React.RefObject<HTMLCanvasElement | null>;
 
-    // ✅ ADD SPEECH DATA PROPS
+    // ✅ ADD REAL-TIME TRANSCRIPTION PROPS
     interimTranscriptMessages: any[];
     currentInterimTranscript: string;
 
@@ -45,7 +45,7 @@ interface ChatInterfaceProps {
     handleContextInfo: () => void;
 }
 
-// Memoized sub-components
+// ✅ MEMOIZED COMPONENTS to prevent unnecessary re-renders
 const MemoizedTopNavigationBar = memo(TopNavigationBar);
 const MemoizedVoiceControls = memo(VoiceControls);
 const MemoizedConversationContext = memo(ConversationContext);
@@ -59,8 +59,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = memo(
         recognitionStatus,
         speechErrorMessage,
         canvasRef,
-        interimTranscriptMessages, // ✅ NOW RECEIVED AS PROPS
-        currentInterimTranscript, // ✅ NOW RECEIVED AS PROPS
+        interimTranscriptMessages, // ✅ Now passed as props
+        currentInterimTranscript, // ✅ Now passed as props
         userMessages,
         streamedContent,
         isStreamingComplete,
@@ -134,16 +134,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = memo(
             );
         }, [handleMove]);
 
-        // // ✅ GET REAL TRANSCRIPTION DATA from store
-        // const speechData = useBoundStore(state => ({
-        //     interimTranscriptMessages: state.interimTranscriptMessages || [],
-        //     currentInterimTranscript: state.currentInterimTranscript || '',
-        // }));
-
-        // // ✅ STABLE MESSAGE SELECTORS (memoized to prevent re-renders)
-        const safeInterimTranscriptMessages = interimTranscriptMessages || [];
-        const safeCurrentInterimTranscript = currentInterimTranscript || '';
-
         // ✅ DEBUG LOGGING (only once, not on every render)
         useEffect(() => {
             if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
@@ -214,10 +204,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = memo(
                                                 id="chat-input"
                                                 className="flex flex-col p-3 md:p-4 border-[1px] border-gray-800 rounded-lg shadow-none max-h-52 overflow-y-auto bg-background flex-shrink-0"
                                             >
+                                                {/* ✅ USE REAL TRANSCRIPTION DATA from props */}
                                                 <LiveTranscriptionBox
                                                     id="preChat"
-                                                    interimTranscriptions={safeInterimTranscriptMessages}
-                                                    currentInterimTranscript={safeCurrentInterimTranscript}
+                                                    interimTranscriptions={interimTranscriptMessages || []}
+                                                    currentInterimTranscript={currentInterimTranscript || ''}
                                                     className="flex-1"
                                                 />
 

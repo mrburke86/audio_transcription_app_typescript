@@ -1,5 +1,4 @@
-// src/stores/middleware/circuitBreakerMiddleware.ts - SIMPLE & TYPESCRIPT SAFE
-// Simplified approach using subscription instead of setState wrapping
+// src/stores/middleware/circuitBreakerMiddleware.ts - CHAT-OPTIMIZED VERSION
 
 import { StateCreator, StoreMutatorIdentifier } from 'zustand';
 
@@ -13,14 +12,20 @@ interface CircuitBreakerConfig {
 
 class SmartCircuitBreaker {
     private config: CircuitBreakerConfig = {
-        maxUpdatesPerSecond: 50, // Increased from default for streaming
+        maxUpdatesPerSecond: 100, // ✅ INCREASED: Chat interfaces need higher throughput
         windowSizeMs: 1000,
-        blockDurationMs: 2000,
-        allowedBurstSize: 10, // Allow short bursts
+        blockDurationMs: 1000, // ✅ REDUCED: Shorter block duration
+        allowedBurstSize: 20, // ✅ INCREASED: Allow larger bursts for typing
         exemptActions: [
+            // ✅ EXPANDED: More exemptions for chat functionality
             'streamedContent', // Allow LLM streaming
             'currentInterimTranscript', // Allow speech updates
             'isVisualizationActive', // Allow visualization updates
+            'recognitionStatus', // Allow speech status changes
+            'speechErrorMessage', // Allow error updates
+            'contextLoading', // Allow context loading states
+            'isStreamingComplete', // Allow streaming completion
+            'llmLoading', // Allow LLM loading states
         ],
     };
 
@@ -45,9 +50,9 @@ class SmartCircuitBreaker {
             return false;
         }
 
-        // ✅ BURST DETECTION
-        if (now - this.lastBurstTime < 100) {
-            // 100ms burst window
+        // ✅ BURST DETECTION (more lenient for chat)
+        if (now - this.lastBurstTime < 200) {
+            // ✅ INCREASED: 200ms burst window
             this.burstCount++;
             if (this.burstCount <= this.config.allowedBurstSize) {
                 return false; // Allow burst
@@ -73,19 +78,15 @@ class SmartCircuitBreaker {
             this.totalBlocked++;
             this.isBlocking = true;
 
-            console.group('🚨 SMART CIRCUIT BREAKER ACTIVATED');
-            console.log(
-                `⚡ Rate: ${Math.round(ratePerSecond)} updates/sec (limit: ${this.config.maxUpdatesPerSecond})`
+            // ✅ LESS VERBOSE LOGGING for chat
+            console.warn(
+                `🚨 Circuit Breaker: ${Math.round(ratePerSecond)}/sec (limit: ${this.config.maxUpdatesPerSecond}) - blocked ${this.config.blockDurationMs}ms`
             );
-            console.log(`🔄 Updates in window: ${updatesInWindow}`);
-            console.log(`🎯 Action: ${actionName}`);
-            console.log(`⏸️  Blocked for: ${this.config.blockDurationMs}ms`);
-            console.log(`📊 Total blocked: ${this.totalBlocked}`);
-            console.groupEnd();
 
             // ✅ AUTO-RESET blocking flag after block duration
             setTimeout(() => {
                 this.isBlocking = false;
+                console.log('✅ Circuit breaker reset');
             }, this.config.blockDurationMs);
 
             return true;
@@ -149,7 +150,7 @@ if (typeof window !== 'undefined') {
 
 // ✅ SIMPLIFIED TYPESCRIPT SAFE MIDDLEWARE
 type CircuitBreakerMiddleware = <
-    T extends object, // ✅ Constrain T to object for Object.keys
+    T extends object,
     Mps extends [StoreMutatorIdentifier, unknown][] = [],
     Mcs extends [StoreMutatorIdentifier, unknown][] = [],
 >(
@@ -157,7 +158,6 @@ type CircuitBreakerMiddleware = <
 ) => StateCreator<T, Mps, Mcs>;
 
 export const circuitBreakerMiddleware: CircuitBreakerMiddleware = f => (set, get, store) => {
-    // ✅ SIMPLE APPROACH: Monitor via subscription instead of wrapping setState
     const originalF = f(set, get, store);
 
     // ✅ SUBSCRIBE TO STATE CHANGES

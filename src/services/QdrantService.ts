@@ -6,7 +6,7 @@ import { QdrantClient } from '@qdrant/qdrant-js';
 import { v4 as uuidv4 } from 'uuid';
 export const KNOWLEDGE_COLLECTION_NAME = 'interview_edge_knowledge';
 const QDRANT_URL = process.env.QDRANT_URL || 'http://localhost:6333';
-const apiKey = process.env.OPENAI_API_KEY;
+const apiKey = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY;
 const CHUNK_SIZE = 800; // Characters per chunk
 const CHUNK_OVERLAP = 100; // Overlap between chunks
 const OPENAI_EMBEDDING_DIMENSION = 1536;

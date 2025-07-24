@@ -1,4 +1,4 @@
-// src/app/api/chat/route.ts - LLM Integration API Endpoint
+// src/app/api/chat/route.ts - FIXED VERSION
 
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
@@ -34,68 +34,24 @@ export async function POST(request: NextRequest) {
 
         // ✅ Validate required fields
         if (!messages || !Array.isArray(messages)) {
-            return NextResponse.json({
-            content: response,
-            done: true
-        })
-    }
-
-    } catch (error) {
-        console.error('Chat API Error:', error);
-        
-        // ✅ Handle specific OpenAI errors
-        if (error instanceof Error) {
-            if (error.message.includes('API key')) {
-                return NextResponse.json(
-                    { error: 'Invalid OpenAI API key' },
-                    { status: 401 }
-                );
-            }
-            if (error.message.includes('quota')) {
-                return NextResponse.json(
-                    { error: 'OpenAI quota exceeded' },
-                    { status: 429 }
-                );
-            }
-        }
-
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
-    }
-}
-
-// ✅ GET handler (for testing)
-export async function GET() {
-    return NextResponse.json({
-        message: 'Chat API endpoint is running',
-        timestamp: new Date().toISOString()
-    });
-}(
-                { error: 'Messages array is required' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'Messages array is required' }, { status: 400 });
         }
 
         // ✅ Check OpenAI API key
         if (!process.env.OPENAI_API_KEY && !process.env.NEXT_PUBLIC_OPENAI_API_KEY) {
-            return NextResponse.json(
-                { error: 'OpenAI API key not configured' },
-                { status: 500 }
-            );
+            return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
         }
 
         // ✅ Prepare messages for OpenAI
         const chatMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
             {
                 role: 'system',
-                content: SYSTEM_PROMPT + (context ? `\n\nInterview Context: ${JSON.stringify(context)}` : '')
+                content: SYSTEM_PROMPT + (context ? `\n\nInterview Context: ${JSON.stringify(context)}` : ''),
             },
             ...messages.map((msg: any) => ({
                 role: msg.role as 'user' | 'assistant',
-                content: msg.content
-            }))
+                content: msg.content,
+            })),
         ];
 
         // ✅ Handle streaming response
@@ -110,7 +66,7 @@ export async function GET() {
 
             // ✅ Create streaming response
             const encoder = new TextEncoder();
-            const stream = new ReadableStream({
+            const responseStream = new ReadableStream({
                 async start(controller) {
                     try {
                         for await (const chunk of completion) {
@@ -126,20 +82,20 @@ export async function GET() {
                         controller.close();
                     } catch (error) {
                         console.error('Streaming error:', error);
-                        const errorData = `data: ${JSON.stringify({ 
-                            error: 'Streaming error occurred' 
+                        const errorData = `data: ${JSON.stringify({
+                            error: 'Streaming error occurred',
                         })}\n\n`;
                         controller.enqueue(encoder.encode(errorData));
                         controller.close();
                     }
-                }
+                },
             });
 
-            return new Response(stream, {
+            return new Response(responseStream, {
                 headers: {
                     'Content-Type': 'text/event-stream',
                     'Cache-Control': 'no-cache',
-                    'Connection': 'keep-alive',
+                    Connection: 'keep-alive',
                 },
             });
         }
@@ -154,4 +110,31 @@ export async function GET() {
 
         const response = completion.choices[0]?.message?.content || 'No response generated';
 
-        return NextResponse.json
+        return NextResponse.json({
+            content: response,
+            done: true,
+        });
+    } catch (error) {
+        console.error('Chat API Error:', error);
+
+        // ✅ Handle specific OpenAI errors
+        if (error instanceof Error) {
+            if (error.message.includes('API key')) {
+                return NextResponse.json({ error: 'Invalid OpenAI API key' }, { status: 401 });
+            }
+            if (error.message.includes('quota')) {
+                return NextResponse.json({ error: 'OpenAI quota exceeded' }, { status: 429 });
+            }
+        }
+
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
+}
+
+// ✅ GET handler (for testing)
+export async function GET() {
+    return NextResponse.json({
+        message: 'Chat API endpoint is running',
+        timestamp: new Date().toISOString(),
+    });
+}

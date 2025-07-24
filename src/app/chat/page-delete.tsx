@@ -1,137 +1,214 @@
-// src/app/chat/page.tsx
-'use client';
+// // src/app/chat/page.tsx - SIMPLIFIED DIAGNOSTICS (NO HOOK VIOLATIONS)
+// 'use client';
 
-import { ChatInterface } from '@/components/chat/ChatInterface';
-import { useConsolidatedSpeech } from '@/hooks/useConsolidatedSpeech';
-import { useBoundStore } from '@/stores/chatStore';
-import { useCallback, useEffect } from 'react';
+// import { ChatInterface } from '@/components/chat/ChatInterface';
+// import { useConsolidatedSpeech } from '@/hooks/useConsolidatedSpeech';
+// import { diagnosticLogger } from '@/lib/DiagnosticLogger';
+// import { useBoundStore } from '@/stores/chatStore';
+// import { useCallback, useEffect, useRef } from 'react';
 
-export default function ChatPage() {
-    // Store selectors
-    const {
-        // Context
-        initialContext,
-        isContextValid,
-        navigateToContextCapture,
+// export default function ChatPage() {
+//     // 🎯 SIMPLE DIAGNOSTIC TRACKING (no hook violations)
+//     const renderCount = useRef(0);
+//     const mountTime = useRef(Date.now());
 
-        // Knowledge
-        initializeKnowledgeBase,
-        knowledgeBaseName,
-        indexedDocumentsCount,
+//     renderCount.current++;
 
-        // LLM
-        initializeLLMService,
-        generateResponse,
-        generateSuggestions,
-        streamedContent,
-        isStreamingComplete,
-        llmLoading,
+//     // 🚨 BASIC RENDER ANALYSIS
+//     if (renderCount.current === 1) {
+//         diagnosticLogger.log('info', 'init', 'ChatPage', '🏗️ ChatPage component mounted');
+//     } else if (renderCount.current % 10 === 0) {
+//         const timeSinceMount = Date.now() - mountTime.current;
+//         const renderRate = renderCount.current / (timeSinceMount / 1000);
+//         diagnosticLogger.log('warn', 'render', 'ChatPage',
+//             `📊 High render count: ${renderCount.current} renders in ${timeSinceMount}ms`,
+//             { renderRate: renderRate.toFixed(2) }
+//         );
+//     }
 
-        // Chat
-        conversationHistory,
-        // addUserMessage,
+//     // 📊 OPTIMIZED STORE ACCESS - Separate stable props from changing speech data
+//     const stableData = useBoundStore(state => ({
+//         // Context (stable)
+//         initialContext: state.initialContext,
+//         isContextValid: state.isContextValid,
+//         navigateToContextCapture: state.navigateToContextCapture,
 
-        // UI
-        conversationSummary,
-        strategicSuggestions,
-    } = useBoundStore();
+//         // Knowledge (stable after init)
+//         initializeKnowledgeBase: state.initializeKnowledgeBase,
+//         knowledgeBaseName: state.knowledgeBaseName,
+//         indexedDocumentsCount: state.indexedDocumentsCount,
 
-    // Speech hook - using correct method names
-    const {
-        // State
-        recognitionStatus,
-        speechErrorMessage,
-        canvasRef,
+//         // LLM (stable after init)
+//         initializeLLMService: state.initializeLLMService,
+//         generateResponse: state.generateResponse,
+//         generateSuggestions: state.generateSuggestions,
+//         llmLoading: state.llmLoading,
 
-        // Actions
-        startRecording,
-        stopRecording,
-        clearTranscriptions,
-        submitTranscriptionToChat,
-    } = useConsolidatedSpeech();
+//         // Chat messages (only changes when user submits)
+//         conversationHistory: state.conversationHistory,
 
-    // Initialize services on mount
-    useEffect(() => {
-        // Check context validity
-        if (!isContextValid()) {
-            console.warn('Invalid context, redirecting to context capture');
-            navigateToContextCapture();
-            return;
-        }
+//         // UI (stable)
+//         conversationSummary: state.conversationSummary,
+//         strategicSuggestions: state.strategicSuggestions,
+//     }));
 
-        // Initialize LLM service
-        const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-        if (apiKey) {
-            initializeLLMService(apiKey);
-        } else {
-            console.error('OpenAI API key not found');
-        }
+//     // ✅ SEPARATE STREAMING DATA - This will change frequently but won't affect main component
+//     const streamingData = useBoundStore(state => ({
+//         streamedContent: state.streamedContent,
+//         isStreamingComplete: state.isStreamingComplete,
+//     }));
 
-        // Initialize knowledge base
-        initializeKnowledgeBase().catch(error => {
-            console.error('Failed to initialize knowledge base:', error);
-        });
-    }, [isContextValid, navigateToContextCapture, initializeLLMService, initializeKnowledgeBase]);
+//     // ✅ SEPARATE SPEECH DATA - This will change frequently for real-time transcription
+//     const speechData = useBoundStore(state => ({
+//         interimTranscriptMessages: state.interimTranscriptMessages || [],
+//         currentInterimTranscript: state.currentInterimTranscript || '',
+//     }));
 
-    // Handlers
-    const handleStart = useCallback(async () => {
-        await startRecording();
-    }, [startRecording]);
+//     // 🎤 SPEECH HOOK
+//     const {
+//         recognitionStatus,
+//         speechErrorMessage,
+//         canvasRef,
+//         startRecording,
+//         stopRecording,
+//         clearTranscriptions,
+//         submitTranscriptionToChat,
+//     } = useConsolidatedSpeech();
 
-    const handleStop = useCallback(() => {
-        stopRecording();
-    }, [stopRecording]);
+//     // 🏗️ MANUAL HYDRATION WITH ERROR HANDLING
+//     useEffect(() => {
+//         try {
+//             diagnosticLogger.log('info', 'init', 'ChatPage', '🔄 Starting manual hydration');
 
-    const handleClear = useCallback(() => {
-        clearTranscriptions();
-    }, [clearTranscriptions]);
+//             // Try to rehydrate with error handling
+//             const result = useBoundStore.persist.rehydrate();
 
-    const handleMove = useCallback(async () => {
-        // Submit transcript and get the final transcript from the store
-        await submitTranscriptionToChat();
+//             if (result instanceof Promise) {
+//                 result
+//                     .then(() => {
+//                         diagnosticLogger.log('info', 'init', 'ChatPage', '✅ Manual hydration completed successfully');
+//                     })
+//                     .catch((error) => {
+//                         diagnosticLogger.log('error', 'init', 'ChatPage',
+//                             '❌ Manual hydration failed', { error: error.message });
 
-        // Get the last user message that was just added
-        const messages = conversationHistory;
-        const lastUserMessage = messages.filter(m => m.type === 'user').pop();
+//                         // Clear corrupted storage and use defaults
+//                         sessionStorage.removeItem('interview_context');
+//                         diagnosticLogger.log('info', 'init', 'ChatPage', '🧹 Cleared corrupted sessionStorage');
+//                     });
+//             } else {
+//                 diagnosticLogger.log('info', 'init', 'ChatPage', '✅ Manual hydration completed (sync)');
+//             }
+//         } catch (error) {
+//             diagnosticLogger.log('error', 'init', 'ChatPage',
+//                 '❌ Manual hydration threw error', { error: error instanceof Error ? error.message : String(error) });
 
-        if (lastUserMessage) {
-            // Generate AI response for the last user message
-            await generateResponse(lastUserMessage.content);
-        }
-    }, [submitTranscriptionToChat, conversationHistory, generateResponse]);
+//             // Clear corrupted storage
+//             sessionStorage.removeItem('interview_context');
+//         }
+//     }, []);
 
-    const handleSuggest = useCallback(async () => {
-        await generateSuggestions();
-    }, [generateSuggestions]);
+//     useEffect(() => {
+//         // 🔍 CONTEXT VALIDATION
+//         if (!stableData.isContextValid()) {
+//             diagnosticLogger.log('warn', 'nav', 'ChatPage',
+//                 '🚨 Invalid context detected - redirecting to capture');
+//             stableData.navigateToContextCapture();
+//             return;
+//         }
 
-    const handleContextInfo = useCallback(() => {
-        // Could show a modal or navigate to context page
-        console.log('Context info requested:', initialContext);
-    }, [initialContext]);
+//         // 🤖 LLM INITIALIZATION
+//         const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+//         if (apiKey) {
+//             diagnosticLogger.log('info', 'init', 'ChatPage',
+//                 '🤖 Initializing LLM service', { keyLength: apiKey.length });
+//             stableData.initializeLLMService(apiKey);
+//         } else {
+//             diagnosticLogger.log('error', 'init', 'ChatPage',
+//                 '❌ OpenAI API key not found');
+//         }
 
-    // Filter user messages
-    const userMessages = conversationHistory.filter(msg => msg.type === 'user' || msg.type === 'assistant');
+//         // 📚 KNOWLEDGE BASE INITIALIZATION
+//         diagnosticLogger.log('info', 'init', 'ChatPage', '📚 Starting knowledge base initialization');
+//         stableData.initializeKnowledgeBase().catch(error => {
+//             diagnosticLogger.log('error', 'init', 'ChatPage',
+//                 '❌ Knowledge base initialization failed', error);
+//         });
 
-    return (
-        <ChatInterface
-            initialInterviewContext={initialContext}
-            knowledgeBaseName={knowledgeBaseName}
-            indexedDocumentsCount={indexedDocumentsCount}
-            recognitionStatus={recognitionStatus}
-            speechErrorMessage={speechErrorMessage}
-            canvasRef={canvasRef}
-            userMessages={userMessages}
-            streamedContent={streamedContent}
-            isStreamingComplete={isStreamingComplete}
-            conversationSummary={conversationSummary}
-            conversationSuggestions={strategicSuggestions}
-            isLoading={llmLoading}
-            handleStart={handleStart}
-            handleStop={handleStop}
-            handleClear={handleClear}
-            handleMove={handleMove}
-            handleSuggest={handleSuggest}
-            handleContextInfo={handleContextInfo}
-        />
-    );
-}
+//     }, [stableData.isContextValid, stableData.navigateToContextCapture, stableData.initializeLLMService, stableData.initializeKnowledgeBase]);
+
+//     // 🎯 HANDLERS WITH BASIC TRACKING
+//     const handleStart = useCallback(async () => {
+//         diagnosticLogger.log('info', 'user', 'ChatPage', '👤 User clicked start recording');
+//         await startRecording();
+//     }, [startRecording]);
+
+//     const handleStop = useCallback(() => {
+//         diagnosticLogger.log('info', 'user', 'ChatPage', '👤 User clicked stop recording');
+//         stopRecording();
+//     }, [stopRecording]);
+
+//     const handleClear = useCallback(() => {
+//         diagnosticLogger.log('info', 'user', 'ChatPage', '👤 User clicked clear transcriptions');
+//         clearTranscriptions();
+//     }, [clearTranscriptions]);
+
+//     const handleMove = useCallback(async () => {
+//         diagnosticLogger.log('info', 'user', 'ChatPage', '👤 User clicked submit transcription');
+
+//         await submitTranscriptionToChat();
+
+//         const messages = stableData.conversationHistory;
+//         const lastUserMessage = messages.filter(m => m.type === 'user').pop();
+
+//         if (lastUserMessage) {
+//             diagnosticLogger.log('info', 'api', 'ChatPage',
+//                 '🤖 Generating AI response', { messageLength: lastUserMessage.content.length });
+//             await stableData.generateResponse(lastUserMessage.content);
+//         }
+//     }, [submitTranscriptionToChat, stableData.conversationHistory, stableData.generateResponse]);
+
+//     const handleSuggest = useCallback(async () => {
+//         diagnosticLogger.log('info', 'user', 'ChatPage', '👤 User clicked generate suggestions');
+//         await stableData.generateSuggestions();
+//     }, [stableData.generateSuggestions]);
+
+//     const handleContextInfo = useCallback(() => {
+//         diagnosticLogger.log('info', 'user', 'ChatPage', '👤 User clicked context info', {
+//             role: stableData.initialContext?.targetRole,
+//             company: stableData.initialContext?.targetCompany
+//         });
+//     }, [stableData.initialContext]);
+
+//     // Filter user messages
+//     const userMessages = stableData.conversationHistory.filter(msg =>
+//         msg.type === 'user' || msg.type === 'assistant'
+//     );
+
+//     diagnosticLogger.log('trace', 'render', 'ChatPage', `🎨 Render #${renderCount.current} complete`);
+
+//     return (
+//         <ChatInterface
+//             initialInterviewContext={stableData.initialContext}
+//             knowledgeBaseName={stableData.knowledgeBaseName}
+//             indexedDocumentsCount={stableData.indexedDocumentsCount}
+//             recognitionStatus={recognitionStatus}
+//             speechErrorMessage={speechErrorMessage}
+//             canvasRef={canvasRef}
+//             interimTranscriptMessages={speechData.interimTranscriptMessages}
+//             currentInterimTranscript={speechData.currentInterimTranscript}
+//             userMessages={userMessages}
+//             streamedContent={streamingData.streamedContent}
+//             isStreamingComplete={streamingData.isStreamingComplete}
+//             conversationSummary={stableData.conversationSummary}
+//             conversationSuggestions={stableData.strategicSuggestions}
+//             isLoading={stableData.llmLoading}
+//             handleStart={handleStart}
+//             handleStop={handleStop}
+//             handleClear={handleClear}
+//             handleMove={handleMove}
+//             handleSuggest={handleSuggest}
+//             handleContextInfo={handleContextInfo}
+//         />
+//     );
+// }

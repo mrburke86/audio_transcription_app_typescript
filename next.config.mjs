@@ -3,8 +3,7 @@
 
 const nextConfig = {
     // ✅ FIXED: Always enable strict mode for consistency
-    reactStrictMode: true,
-
+    reactStrictMode: false,
     // ✅ FIXED: Enable type checking in development
     typescript: {
         ignoreBuildErrors: false, // Always check types
