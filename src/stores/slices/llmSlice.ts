@@ -3,6 +3,7 @@ import { logger } from '@/lib/Logger';
 import { OpenAIClientService } from '@/services/OpenAIClientService';
 import { StoreState } from '@/stores/chatStore';
 import { ChatMessageParam, LLMSlice, Message, StrategicSuggestions } from '@/types';
+import { devLog } from '@/utils/devLogger';
 import { formatKnowledgeContext, logKnowledgeUsage } from '@/utils/knowledgeIntegration';
 import {
     buildAnalysisPrompt,
@@ -18,7 +19,18 @@ export const createLLMSlice: StateCreator<StoreState, [], [], LLMSlice> = (set, 
     // DEBOUNCED STREAMING UPDATE to prevent circuit breaker
     const debouncedStreamUpdate = debounce((content: string) => {
         set({ streamedContent: content });
-    }, 50); // Update every 50ms instead of every chunk
+    }, 50);
+
+    // Store cleanup function in a way that can be accessed
+    const cleanup = () => {
+        debouncedStreamUpdate.cancel();
+    };
+
+    // Add cleanup to window for manual cleanup if needed
+    if (typeof window !== 'undefined') {
+        if (!window.__storeCleanups) window.__storeCleanups = [];
+        window.__storeCleanups.push(cleanup);
+    }
 
     return {
         llmService: null,
@@ -26,8 +38,8 @@ export const createLLMSlice: StateCreator<StoreState, [], [], LLMSlice> = (set, 
         isStreamingComplete: false,
         conversationSummary: '',
         strategicSuggestions: {
-            strategicIntelligenceContent: '',
-            currentAnalysis: undefined as StrategicSuggestions['currentAnalysis'],
+            powerUpContent: '',
+            lastAnalysis: undefined as StrategicSuggestions['lastAnalysis'],
             previousAnalyses: [],
         },
         llmLoading: false,
@@ -36,29 +48,27 @@ export const createLLMSlice: StateCreator<StoreState, [], [], LLMSlice> = (set, 
         // Initialize LLM Service
         initializeLLMService: (apiKey: string) => {
             if (typeof window !== 'undefined') {
-                console.group('🤖 LLM SERVICE INIT (CLIENT)');
-                console.log('🔑 Initializing LLM:', {
+                devLog.group('🤖 LLM SERVICE INIT (CLIENT)');
+                devLog.log('🔑 Initializing LLM:', {
                     hasKey: !!apiKey,
                     keyLength: apiKey.length,
                     keyPrefix: apiKey.substring(0, 8) || 'EMPTY',
                 });
-                console.groupEnd();
+                devLog.groupEnd();
             }
 
             try {
                 const service = new OpenAIClientService(apiKey);
                 set({ llmService: service });
-                logger.info('LLM Service initialized successfully');
+                devLog.log('LLM Service initialized successfully');
 
-                if (typeof window !== 'undefined') {
-                    console.log('✅ LLM Service ready on client');
-                }
+                devLog.log('✅ LLM Service ready on client');
             } catch (error) {
-                logger.error(`Failed to initialize LLM service: ${(error as Error).message}`);
+                devLog.error(`Failed to initialize LLM service: ${(error as Error).message}`);
                 set({ llmError: 'Failed to initialize AI service' });
 
                 if (typeof window !== 'undefined') {
-                    console.error('❌ LLM initialization failed:', error);
+                    devLog.error('❌ LLM initialization failed:', error);
                 }
             }
         },
@@ -273,8 +283,8 @@ export const createLLMSlice: StateCreator<StoreState, [], [], LLMSlice> = (set, 
                 const currentSuggestions = get().strategicSuggestions;
                 set({
                     strategicSuggestions: {
-                        strategicIntelligenceContent: strategicContent,
-                        currentAnalysis: analysis,
+                        powerUpContent: strategicContent,
+                        lastAnalysis: analysis,
                         previousAnalyses: [
                             ...currentSuggestions.previousAnalyses,
                             {
@@ -341,5 +351,7 @@ export const createLLMSlice: StateCreator<StoreState, [], [], LLMSlice> = (set, 
         setStreamingComplete: (isComplete: boolean) => set({ isStreamingComplete: isComplete }),
         setLlmLoading: (llmLoading: boolean) => set({ llmLoading }),
         setLlmError: (llmError: string | null) => set({ llmError }),
+        moveClickTimestamp: 0, // ADDED: Timestamp state
+        setMoveClickTimestamp: (timestamp: number) => set({ moveClickTimestamp: timestamp }), // ADDED: Setter
     };
 };

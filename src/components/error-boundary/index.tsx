@@ -1,50 +1,51 @@
-// src/components/error-boundary/index.ts
+// src/components/error-boundary/index.tsx - FIXED EXPORTS AND TYPES
 'use client';
-// Core exports
+
+import React from 'react';
+
+// ✅ PROPER TYPE IMPORTS
 export type { ErrorBoundaryProps, ErrorFallbackProps } from '@/types';
+
+// ✅ COMPONENT EXPORTS
 export { ErrorBoundary, useErrorBoundary, withErrorBoundary } from './ErrorBoundary';
 export { ErrorFallback, InlineErrorFallback } from './ErrorFallback';
 
-// Simple presets for your app
-import React from 'react';
+// ✅ IMPORT FIXED COMPONENTS
 import { ErrorBoundary } from './ErrorBoundary';
 import { InlineErrorFallback } from './ErrorFallback';
 
-// Speech Recognition Error Boundary
+// ✅ PRESET ERROR BOUNDARIES WITH PROPER TYPES
 export const SpeechErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <ErrorBoundary
-        onError={error => {
+        context="Speech"
+        onError={(error: Error) => {
             console.log('🎤 Speech error:', error.message);
-            // Could trigger fallback to text input
         }}
     >
         {children}
     </ErrorBoundary>
 );
 
-// AI/LLM Error Boundary
 export const AIErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <ErrorBoundary
-        onError={error => {
+        context="AI"
+        onError={(error: Error) => {
             console.log('🤖 AI error:', error.message);
-            // Could switch to fallback model
         }}
     >
         {children}
     </ErrorBoundary>
 );
 
-// Inline Error Boundary for smaller components
 export const InlineErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <ErrorBoundary fallback={InlineErrorFallback}>{children}</ErrorBoundary>
 );
 
-// Global App Error Boundary
 export const GlobalErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <ErrorBoundary
+        context="Global"
         showDetails={process.env.NODE_ENV === 'development'}
-        onError={(error, errorInfo) => {
-            // Report to analytics in production
+        onError={(error: Error, errorInfo: React.ErrorInfo) => {
             if (process.env.NODE_ENV === 'production') {
                 console.error('🔥 Global error:', error, errorInfo);
             }

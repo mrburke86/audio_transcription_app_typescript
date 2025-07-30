@@ -1,6 +1,6 @@
 // src/components/chat/StatusIndicator.tsx
-import React from 'react';
 import { Badge } from '@/components/ui';
+import React from 'react';
 
 interface StatusIndicatorProps {
     status: 'active' | 'inactive' | 'error';

@@ -35,11 +35,11 @@ export interface SpeechRecognitionProps {
 }
 
 // Global Window Extension
-declare global {
-    interface Window {
-        webkitSpeechRecognition: typeof SpeechRecognition;
-    }
-}
+// declare global {
+//     interface Window {
+//         webkitSpeechRecognition: typeof SpeechRecognition;
+//     }
+// }
 
 // Qdrant Types
 export interface QdrantPoint {

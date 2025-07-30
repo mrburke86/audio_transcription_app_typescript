@@ -1,4 +1,4 @@
-// src/lib/DiagnosticLogger.ts - SMART DIAGNOSTIC SYSTEM
+// src/lib/DiagnosticLogger.ts - OPTIMIZED DIAGNOSTIC SYSTEM
 
 export type DiagnosticLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'critical';
 export type DiagnosticCategory = 'render' | 'state' | 'api' | 'nav' | 'init' | 'error' | 'perf' | 'user';
@@ -28,7 +28,7 @@ class DiagnosticLogger {
     private sessionStart = Date.now();
     private perfMarks = new Map<string, number>();
 
-    // 🎯 INTELLIGENT PATTERN DETECTION
+    // 🎯 INTELLIGENT PATTERN DETECTION - Reduced: Higher thresholds (e.g., 30 renders/2s instead of 20)
     private patterns = {
         infiniteRender: new Map<string, number[]>(), // Track render timestamps by component
         stateFlapping: new Map<string, any[]>(), // Track rapid state changes
@@ -45,7 +45,7 @@ class DiagnosticLogger {
                 lastRender: Date.now(),
                 errors: [],
             });
-            this.log('debug', 'init', componentName, `🏗️ Component mounted`);
+            this.log('debug', 'init', componentName, `🏗️ Component mounted`); // Reduced: To debug
         }
 
         const lifecycle = this.componentLifecycles.get(componentName)!;
@@ -58,7 +58,7 @@ class DiagnosticLogger {
         return new ComponentTracker(componentName, this);
     }
 
-    // 🔬 INFINITE RENDER DETECTION
+    // 🔬 INFINITE RENDER DETECTION - Reduced: Threshold to 30 renders/2s
     private detectInfiniteRenders(componentName: string, lifecycle: ComponentLifecycle) {
         const now = Date.now();
         const renderHistory = this.patterns.infiniteRender.get(componentName) || [];
@@ -67,8 +67,8 @@ class DiagnosticLogger {
         const recentRenders = [...renderHistory, now].filter(time => now - time < 2000);
         this.patterns.infiniteRender.set(componentName, recentRenders);
 
-        // 🚨 ALERT: More than 20 renders in 2 seconds
-        if (recentRenders.length > 20) {
+        // 🚨 ALERT: More than 30 renders in 2s
+        if (recentRenders.length > 30) {
             this.log(
                 'critical',
                 'render',
@@ -84,7 +84,7 @@ class DiagnosticLogger {
         }
     }
 
-    // 🕵️ ANALYZE SUSPECTED CAUSES
+    // 🕵️ ANALYZE SUSPECTED CAUSES - Reduced: Fewer checks
     private analyzeSuspectedCauses(componentName: string): string[] {
         const causes: string[] = [];
         const recentEntries = this.entries.filter(
@@ -93,7 +93,7 @@ class DiagnosticLogger {
 
         // Check for rapid state changes
         const stateChanges = recentEntries.filter(e => e.message.includes('state') || e.message.includes('update'));
-        if (stateChanges.length > 10) {
+        if (stateChanges.length > 15) {
             causes.push('Rapid state changes detected');
         }
 
@@ -101,26 +101,21 @@ class DiagnosticLogger {
         const effectLogs = recentEntries.filter(
             e => e.message.includes('useEffect') || e.message.includes('dependency')
         );
-        if (effectLogs.length > 5) {
+        if (effectLogs.length > 8) {
+            // Increased threshold
             causes.push('useEffect dependency issues');
         }
 
-        // Check for selector instability
-        const selectorLogs = recentEntries.filter(e => e.message.includes('selector') || e.message.includes('Zustand'));
-        if (selectorLogs.length > 10) {
-            causes.push('Unstable Zustand selectors');
-        }
-
-        return causes;
+        return causes; // Reduced: Removed selector check for simplicity
     }
 
-    // 📊 STATE CHANGE TRACKING
+    // 📊 STATE CHANGE TRACKING - Reduced: History to 8 values, timeSpan to 1500ms
     trackStateChange(component: string, stateName: string, oldValue: any, newValue: any, source?: string) {
         const key = `${component}.${stateName}`;
         const history = this.patterns.stateFlapping.get(key) || [];
 
-        // Keep last 10 values
-        const newHistory = [...history, { value: newValue, timestamp: Date.now() }].slice(-10);
+        // Keep last 8 values
+        const newHistory = [...history, { value: newValue, timestamp: Date.now() }].slice(-8);
         this.patterns.stateFlapping.set(key, newHistory);
 
         // 🔍 DETECT STATE FLAPPING
@@ -129,34 +124,29 @@ class DiagnosticLogger {
             const uniqueValues = new Set(values);
             const timeSpan = newHistory[newHistory.length - 1].timestamp - newHistory[0].timestamp;
 
-            if (uniqueValues.size <= 2 && timeSpan < 1000) {
-                this.log(
-                    'warn',
-                    'state',
-                    component,
-                    `🔄 STATE FLAPPING DETECTED: ${stateName} oscillating between values`,
-                    {
-                        values: Array.from(uniqueValues),
-                        changes: newHistory.length,
-                        timeSpan,
-                        source,
-                    }
-                );
+            if (uniqueValues.size <= 2 && timeSpan < 1500) {
+                this.log('warn', 'state', component, `🔄 STATE FLAPPING DETECTED: ${stateName} oscillating`, {
+                    values: Array.from(uniqueValues),
+                    changes: newHistory.length,
+                    timeSpan,
+                    source,
+                });
             }
         }
 
-        this.log('trace', 'state', component, `📝 State change: ${stateName}`, {
+        this.log('debug', 'state', component, `📝 State change: ${stateName}`, {
+            // Reduced: To debug
             from: oldValue,
             to: newValue,
             source,
         });
     }
 
-    // ⚡ PERFORMANCE TRACKING
+    // ⚡ PERFORMANCE TRACKING - Reduced: Threshold to 200ms
     startPerfMeasure(operationName: string): string {
         const markName = `${operationName}_${Date.now()}`;
         this.perfMarks.set(markName, performance.now());
-        this.log('trace', 'perf', 'Performance', `⏱️ Started: ${operationName}`);
+        this.log('debug', 'perf', 'Performance', `⏱️ Started: ${operationName}`); // Reduced: To debug
         return markName;
     }
 
@@ -170,7 +160,8 @@ class DiagnosticLogger {
         const operationName = markName.split('_')[0];
 
         // 🐌 DETECT SLOW OPERATIONS
-        if (duration > 100) {
+        if (duration > 200) {
+            // Increased threshold
             this.patterns.slowOperations.push({
                 operation: operationName,
                 duration,
@@ -179,11 +170,10 @@ class DiagnosticLogger {
 
             this.log('warn', 'perf', component, `🐌 SLOW OPERATION: ${operationName} took ${duration.toFixed(2)}ms`, {
                 duration,
-                threshold: 100,
-                recommendation: duration > 500 ? 'Consider optimization' : 'Monitor if recurring',
-            });
+                threshold: 200,
+            }); // Reduced: Removed recommendation fluff
         } else {
-            this.log('trace', 'perf', component, `✅ Completed: ${operationName} in ${duration.toFixed(2)}ms`);
+            this.log('debug', 'perf', component, `✅ Completed: ${operationName} in ${duration.toFixed(2)}ms`); // Reduced: To debug
         }
 
         return duration;
@@ -215,16 +205,20 @@ class DiagnosticLogger {
 
         this.entries.push(entry);
 
-        // 🎨 COLORFUL CONSOLE OUTPUT
-        this.outputToConsole(entry);
+        // 🎨 COLORFUL CONSOLE OUTPUT - Reduced: Log only 'info+' unless dev mode
+        if (level !== 'trace' && level !== 'debug') {
+            // Reduced: Skip trace/debug in console by default; add toggle if needed
+            this.outputToConsole(entry);
+        }
 
-        // 🔄 KEEP ONLY RECENT ENTRIES (last 1000)
-        if (this.entries.length > 1000) {
-            this.entries = this.entries.slice(-1000);
+        // 🔄 KEEP ONLY RECENT ENTRIES (last 500)
+        if (this.entries.length > 500) {
+            // Reduced: Smaller buffer
+            this.entries = this.entries.slice(-500);
         }
     }
 
-    // 🎨 SMART CONSOLE OUTPUT
+    // 🎨 SMART CONSOLE OUTPUT - Reduced: Simplified prefix
     private outputToConsole(entry: DiagnosticEntry) {
         const icons = {
             trace: '🔍',
@@ -266,7 +260,7 @@ class DiagnosticLogger {
         }
     }
 
-    // 📈 GENERATE DIAGNOSTIC REPORT
+    // 📈 GENERATE DIAGNOSTIC REPORT - Reduced: Fewer details in report
     generateReport(): DiagnosticReport {
         const now = Date.now();
         const sessionDuration = now - this.sessionStart;
@@ -278,24 +272,22 @@ class DiagnosticLogger {
                 renderCount: lifecycle.renderCount,
                 renderRate: lifecycle.renderCount / (sessionDuration / 1000),
                 errorCount: lifecycle.errors.length,
-                avgTimeBetweenRenders:
-                    lifecycle.renderCount > 1 ? (now - lifecycle.mountTime) / lifecycle.renderCount : 0,
             }))
             .sort((a, b) => b.renderCount - a.renderCount);
 
         // Recent critical issues
-        const criticalIssues = this.entries.filter(e => e.level === 'critical' && now - e.timestamp < 30000).slice(-10);
+        const criticalIssues = this.entries.filter(e => e.level === 'critical' && now - e.timestamp < 30000).slice(-5); // Reduced: Top 5
 
         // Performance summary
         const slowOps = this.patterns.slowOperations
             .filter(op => now - op.timestamp < 60000)
             .sort((a, b) => b.duration - a.duration)
-            .slice(0, 10);
+            .slice(0, 5); // Reduced: Top 5
 
         return {
             sessionDuration,
             totalLogEntries: this.entries.length,
-            componentIssues: componentIssues.slice(0, 10),
+            componentIssues: componentIssues.slice(0, 5), // Reduced: Top 5
             criticalIssues,
             slowOperations: slowOps,
             patterns: {
@@ -307,31 +299,24 @@ class DiagnosticLogger {
         };
     }
 
-    // 💡 SMART RECOMMENDATIONS
+    // 💡 SMART RECOMMENDATIONS - Reduced: Simpler logic
     private generateRecommendations(componentIssues: any[], slowOps: any[]): string[] {
         const recommendations: string[] = [];
 
         // High render count recommendations
-        const highRenderComponents = componentIssues.filter(c => c.renderCount > 50);
+        const highRenderComponents = componentIssues.filter(c => c.renderCount > 100); // Increased threshold
         if (highRenderComponents.length > 0) {
             recommendations.push(
-                `🔄 High render count detected in: ${highRenderComponents.map(c => c.name).join(', ')}. Consider memoization or selector optimization.`
+                `🔄 High render count in: ${highRenderComponents.map(c => c.name).join(', ')}. Consider memoization.`
             );
         }
 
         // Performance recommendations
         if (slowOps.length > 0) {
-            recommendations.push(
-                `🐌 Slow operations detected: ${slowOps.map(op => op.operation).join(', ')}. Consider async/lazy loading.`
-            );
+            recommendations.push(`🐌 Slow operations: ${slowOps.map(op => op.operation).join(', ')}. Optimize async.`);
         }
 
-        // Pattern-based recommendations
-        if (this.patterns.stateFlapping.size > 0) {
-            recommendations.push(`🔄 State oscillation detected. Check useEffect dependencies and selector stability.`);
-        }
-
-        return recommendations;
+        return recommendations; // Reduced: Removed state flapping rec as it's now less frequent
     }
 
     // 🧹 CLEANUP
@@ -346,7 +331,7 @@ class DiagnosticLogger {
     }
 }
 
-// 🎯 COMPONENT TRACKER CLASS
+// 🎯 COMPONENT TRACKER CLASS - Reduced: Some methods to debug
 class ComponentTracker {
     private startTime = performance.now();
 
@@ -355,9 +340,9 @@ class ComponentTracker {
         private logger: DiagnosticLogger
     ) {}
 
-    // Track useEffect
+    // Track useEffect - Reduced: To debug
     useEffect(deps: any[], description: string = 'useEffect') {
-        this.logger.log('trace', 'render', this.componentName, `🔄 ${description} triggered`, { dependencies: deps });
+        this.logger.log('debug', 'render', this.componentName, `🔄 ${description} triggered`, { dependencies: deps });
     }
 
     // Track state changes
@@ -380,14 +365,14 @@ class ComponentTracker {
         };
     }
 
-    // Track navigation
+    // Track navigation - Reduced: To info, simplified message
     navigate(from: string, to: string, reason?: string) {
-        this.logger.log('info', 'nav', this.componentName, `🧭 Navigation: ${from} → ${to}`, { reason });
+        this.logger.log('info', 'nav', this.componentName, `🧭 Nav: ${from} → ${to}`, { reason });
     }
 
-    // Track user interactions
+    // Track user interactions - Reduced: To debug
     userAction(action: string, data?: any) {
-        this.logger.log('info', 'user', this.componentName, `👤 User Action: ${action}`, data);
+        this.logger.log('debug', 'user', this.componentName, `👤 Action: ${action}`, data);
     }
 
     // Track errors
@@ -395,10 +380,12 @@ class ComponentTracker {
         this.logger.log('error', 'error', this.componentName, message, error);
     }
 
-    // Mark render complete
+    // Mark render complete - Reduced: Log only if duration >10ms
     renderComplete() {
         const duration = performance.now() - this.startTime;
-        this.logger.log('trace', 'render', this.componentName, `🎨 Render complete in ${duration.toFixed(2)}ms`);
+        if (duration > 10) {
+            this.logger.log('debug', 'render', this.componentName, `🎨 Render complete in ${duration.toFixed(2)}ms`);
+        }
     }
 }
 
@@ -411,7 +398,7 @@ interface DiagnosticReport {
         renderCount: number;
         renderRate: number;
         errorCount: number;
-        avgTimeBetweenRenders: number;
+        // Reduced: Removed avgTimeBetweenRenders
     }>;
     criticalIssues: DiagnosticEntry[];
     slowOperations: Array<{

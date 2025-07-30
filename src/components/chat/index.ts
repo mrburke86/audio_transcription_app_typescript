@@ -1,7 +1,12 @@
-// src\app\chat\_components\index.ts
+// src/components/chat/index.ts
+// Main interface
+export { ChatInterface } from './ChatInterface';
 
-export * from '../global/TopNavigationBar';
-export * from './ConversationContext';
-export * from './ConversationInsights';
-export * from './LiveTranscriptionBox';
-export * from './VoiceControls';
+// Area components
+export * from './areas';
+
+// Primitive components
+export * from './primitives';
+
+// Context providers
+export * from './context';

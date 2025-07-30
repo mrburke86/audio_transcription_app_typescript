@@ -1,22 +1,20 @@
-// src/components/chat/KnowledgeIndicator.tsx
+// src/components/chat/primitives/KnowledgeIndicator.tsx
 'use client';
 
 import { useBoundStore } from '@/stores/chatStore';
-import React, { useRef } from 'react';
+import React from 'react';
 
 interface KnowledgeIndicatorProps {
     className?: string;
 }
 
 export const KnowledgeIndicator: React.FC<KnowledgeIndicatorProps> = ({ className = '' }) => {
-    // Render Counter for diagnostics
-    const renderCount = useRef(0);
-    renderCount.current++;
-    console.log(`🧮 [DIAG] KnowledgeIndicator Component rendered ${renderCount.current} times`);
+    // const renderCount = useRef(0);
+    // renderCount.current++;
+    // console.log(`🧮 [DIAG] KnowledgeIndicator Component rendered ${renderCount.current} times`);
 
     const { knowledgeLoading, indexedDocumentsCount, knowledgeError } = useBoundStore();
 
-    // Don't show if knowledge base is not initialized or empty
     if (indexedDocumentsCount === 0 || knowledgeError) {
         return null;
     }
@@ -61,12 +59,10 @@ export const KnowledgeIndicator: React.FC<KnowledgeIndicatorProps> = ({ classNam
     );
 };
 
-// Mini version for inline use
 export const KnowledgeIndicatorMini: React.FC<{ active?: boolean }> = ({ active = false }) => {
-    // Render Counter for diagnostics
-    const renderCount = useRef(0);
-    renderCount.current++;
-    console.log(`🧮 [DIAG] ChatInterface rendered ${renderCount.current} times`);
+    // const renderCount = useRef(0);
+    // renderCount.current++;
+    // console.log(`🧮 [DIAG] ChatInterface rendered ${renderCount.current} times`);
 
     const { indexedDocumentsCount } = useBoundStore();
 

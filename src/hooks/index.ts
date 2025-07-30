@@ -1,5 +1,10 @@
 // src/hooks/index.ts
 
-export * from './useClientDebug';
-export * from './useConsolidatedSpeech';
-export * from './useSpeechRecognition';
+export * from './useCleanup';
+export * from './useRenderDiagnostics';
+
+// Speech Hooks
+export * from './speech';
+
+// Chat Hooks
+export * from './chat';

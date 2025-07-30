@@ -1,121 +1,115 @@
-// src/components/error-boundary/ErrorBoundary.tsx
+// src/components/error-boundary/ErrorBoundary.tsx - REMOVE UNUSED METHOD
 'use client';
 
+import { ClassifiedError, classifyError } from '@/lib/errorClassification';
 import { logger } from '@/lib/Logger';
 import type { ErrorBoundaryProps, ErrorFallbackProps } from '@/types';
 import React from 'react';
 import { ErrorFallback } from './ErrorFallback';
 
-/* -------------------------------------------------
-   Local state type
--------------------------------------------------- */
 interface ErrorBoundaryState {
     hasError: boolean;
-    error: Error | null;
+    classifiedError: ClassifiedError | null;
     retryCount: number;
+    isRecovering: boolean;
 }
 
-/* -------------------------------------------------
-   Component
--------------------------------------------------- */
-export class ErrorBoundary extends React.Component<
-    ErrorBoundaryProps,
-    ErrorBoundaryState // 🛠 correct generic (was “ErrorBoundary”)
-> {
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
     private retryTimeoutId: NodeJS.Timeout | null = null;
 
     constructor(props: ErrorBoundaryProps) {
         super(props);
-        this.state = { hasError: false, error: null, retryCount: 0 };
+        this.state = {
+            hasError: false,
+            classifiedError: null,
+            retryCount: 0,
+            isRecovering: false,
+        };
     }
 
-    /* ---------- lifecycle ---------- */
-
     static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
-        return { hasError: true, error };
+        const classifiedError = classifyError(error);
+        return {
+            hasError: true,
+            classifiedError,
+        };
     }
 
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-        logger.error(`💥 Error Boundary: ${error.message}`, {
+        const { context = 'Unknown', onError } = this.props;
+        const classified = classifyError(error);
+
+        logger.error(`💥 Error Boundary [${context}]:`, {
             error: error.message,
-            stack: error.stack,
-            component: errorInfo.componentStack,
+            category: classified.category,
+            severity: classified.severity,
+            componentStack: errorInfo.componentStack,
+            context,
         });
 
-        this.props.onError?.(error, errorInfo);
-
-        /* auto‑retry (max 2) */
-        if (this.shouldAutoRetry(error) && this.state.retryCount < 2) {
-            this.scheduleRetry();
-        }
+        onError?.(error, errorInfo);
     }
 
     componentWillUnmount() {
-        if (this.retryTimeoutId) clearTimeout(this.retryTimeoutId);
+        if (this.retryTimeoutId) {
+            clearTimeout(this.retryTimeoutId);
+        }
     }
 
-    /* ---------- helpers ---------- */
+    // ✅ REMOVED executeRecoveryStrategy - not used in simplified approach
 
-    private shouldAutoRetry(err: Error) {
-        const msg = err.message.toLowerCase();
-        return msg.includes('fetch') || msg.includes('network') || msg.includes('api') || msg.includes('timeout');
-    }
+    private retry = async () => {
+        const maxRetries = this.props.maxRetries || 3;
 
-    private scheduleRetry() {
-        this.retryTimeoutId = setTimeout(
-            this.retry,
-            1_000 * (this.state.retryCount + 1) // 1 s, 2 s
-        );
-    }
+        if (this.state.retryCount >= maxRetries) {
+            logger.warning(`Max retries (${maxRetries}) exceeded`);
+            return;
+        }
 
-    private retry = () => {
-        logger.info(`🔄 Error Boundary: Retry #${this.state.retryCount + 1}`);
-        this.setState(s => ({
+        logger.info(`🔄 Retrying... (attempt ${this.state.retryCount + 1}/${maxRetries})`);
+
+        this.setState(prevState => ({
             hasError: false,
-            error: null,
-            retryCount: s.retryCount + 1,
+            classifiedError: null,
+            retryCount: prevState.retryCount + 1,
         }));
     };
 
     private reset = () => {
-        logger.info('🔄 Error Boundary: Manual reset');
-        this.setState({ hasError: false, error: null, retryCount: 0 });
+        logger.info('🔄 Resetting error boundary');
+        this.setState({
+            hasError: false,
+            classifiedError: null,
+            retryCount: 0,
+            isRecovering: false,
+        });
     };
 
-    /* ---------- render ---------- */
-
-    render() {
-        if (!this.state.hasError || !this.state.error) {
+    render(): React.ReactNode {
+        if (!this.state.hasError || !this.state.classifiedError) {
             return this.props.children;
         }
 
-        const retryFn = this.state.retryCount < 2 ? this.retry : undefined;
+        const Fallback = this.props.fallback || ErrorFallback;
+        const canRetry = this.state.classifiedError.isRetryable && this.state.retryCount < (this.props.maxRetries || 3);
 
-        /* custom fallback supplied? */
-        if (this.props.fallback) {
-            const Fallback = this.props.fallback;
-            const props: ErrorFallbackProps = {
-                error: this.state.error,
-                resetErrorBoundary: this.reset,
-                ...(retryFn && { retry: retryFn }), // 🛠 omit “retry” when undefined
-            };
-            return <Fallback {...props} />;
-        }
+        const retryFn = canRetry
+            ? () => {
+                  this.retry();
+              }
+            : undefined;
 
-        /* default fallback */
         return (
-            <ErrorFallback
-                error={this.state.error}
+            <Fallback
+                error={this.state.classifiedError.originalError}
                 resetErrorBoundary={this.reset}
-                {...(retryFn && { retry: retryFn })} /* 🛠 same conditional spread */
+                {...(retryFn && { retry: retryFn })}
             />
         );
     }
 }
 
-/* -------------------------------------------------
-   HOC wrapper
--------------------------------------------------- */
+// ✅ HOC WRAPPER
 export const withErrorBoundary = <P extends object>(
     Component: React.ComponentType<P>,
     fallback?: React.ComponentType<ErrorFallbackProps>
@@ -130,9 +124,7 @@ export const withErrorBoundary = <P extends object>(
     return Wrapped;
 };
 
-/* -------------------------------------------------
-   Hook
--------------------------------------------------- */
+// ✅ HOOK
 export const useErrorBoundary = () => {
     const [, setState] = React.useState<never>();
     return React.useCallback((err: Error) => {

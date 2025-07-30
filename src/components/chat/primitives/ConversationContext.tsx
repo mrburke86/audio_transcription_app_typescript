@@ -1,10 +1,9 @@
-// src\components\chat\ConversationContext.tsx
+// src/components/chat/primitives/ConversationContext.tsx
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { Activity } from 'lucide-react';
 import type React from 'react';
-import { useRef } from 'react';
 
 interface ConversationContextProps {
     summary: string;
@@ -12,10 +11,9 @@ interface ConversationContextProps {
 }
 
 export const ConversationContext: React.FC<ConversationContextProps> = ({ summary, goals }) => {
-    // Render Counter for diagnostics
-    const renderCount = useRef(0);
-    renderCount.current++;
-    console.log(`🧮 [DIAG] ConversationContext Component rendered ${renderCount.current} times`);
+    // const renderCount = useRef(0);
+    // renderCount.current++;
+    // console.log(`🧮 [DIAG] ConversationContext Component rendered ${renderCount.current} times`);
 
     const renderSummary = () => {
         if (!summary) return null;
@@ -63,7 +61,6 @@ export const ConversationContext: React.FC<ConversationContextProps> = ({ summar
                 ) : (
                     <div>
                         <p className="text-gray-500 italic">No context available</p>
-                        {/* Debug info */}
                         <p className="text-xs text-gray-400 mt-2">
                             Debug: Summary length: {summary?.length || 0}, Goals: {goals.length}
                         </p>

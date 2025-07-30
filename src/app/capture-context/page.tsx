@@ -4,8 +4,8 @@
 import { InterviewModalTabs } from '@/components/interview-modal/InterviewModalTabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { logger } from '@/lib/Logger';
 import { useBoundStore } from '@/stores/chatStore'; // FIXED: Use composed store for context/ui slices (replaces hooks/context)
+import { devLog } from '@/utils/devLogger';
 import { ArrowLeft, CheckCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -18,16 +18,16 @@ export default function CaptureContextPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
-        logger.info('📝 Context capture page loaded');
+        devLog.log('📝 Context capture page loaded');
 
         if (contextIsValid && initialContext) {
-            logger.info(`🔄 Existing context loaded: ${initialContext.targetRole} at ${initialContext.targetCompany}`);
+            devLog.log(`🔄 Existing context loaded: ${initialContext.targetRole} at ${initialContext.targetCompany}`);
         }
     }, [contextIsValid, initialContext]);
 
     const handleBackToHome = () => {
-        logger.info('🏠 Navigating back to home');
-        window.location.href = '/'; // FIXED: Replaced undefined goHome() with direct navigation
+        devLog.log('🏠 Navigating back to home');
+        window.location.href = '/';
     };
 
     return (
@@ -40,7 +40,7 @@ export default function CaptureContextPage() {
                             variant="ghost"
                             onClick={handleBackToHome}
                             className="flex items-center gap-2"
-                            disabled={isSubmitting} // ✅ Disable during submission
+                            disabled={isSubmitting}
                         >
                             <ArrowLeft className="h-4 w-4" />
                             Back to Home
@@ -69,7 +69,6 @@ export default function CaptureContextPage() {
                         <CardTitle className="flex items-center gap-2">🎯 Interview Configuration</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {/* Removed InterviewModalProvider (old context); tabs now use store directly */}
                         <div className="space-y-6">
                             {/* Tab Interface for Configuration */}
                             <InterviewModalTabs />
@@ -125,7 +124,7 @@ const StartSessionButton = ({ isSubmitting }: { isSubmitting: boolean }) => {
     const isContextValidFn = useBoundStore(s => s.isContextValid);
     const contextIsValid = isContextValidFn();
 
-    // // Local submit handler using store (replaces old handleSubmit)
+    // Local submit handler using store (replaces old handleSubmit)
     const handleSubmit = () => {
         if (!isContextValidFn) return;
         window.location.href = '/chat';

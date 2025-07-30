@@ -16,8 +16,8 @@ export interface StrategicOpportunityAnalysis {
 }
 
 export interface StrategicSuggestions {
-    strategicIntelligenceContent: string;
-    currentAnalysis?: StrategicOpportunityAnalysis | undefined;
+    powerUpContent: string;
+    lastAnalysis?: StrategicOpportunityAnalysis | undefined;
     previousAnalyses: Array<{
         strategic_opportunity: StrategicOpportunityType;
         primary_focus_area: string;

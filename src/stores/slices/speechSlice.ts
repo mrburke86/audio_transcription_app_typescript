@@ -40,16 +40,6 @@ export const createSpeechSlice: StateCreator<SpeechSlice> = (set, get) => ({
         set({ interimTranscriptMessages: [], currentInterimTranscript: '' });
     },
 
-    // Clear all transcripts (both interim and final)
-    clearAllTranscripts: () => {
-        logger.debug('🧼 All transcripts (speech slice) cleared');
-        set({
-            interimTranscriptMessages: [],
-            currentInterimTranscript: '',
-            speechErrorMessage: null,
-        });
-    },
-
     // ✅ RECOGNITION ACTIONS
     setRecognitionStatus: status => {
         const currentStatus = get().recognitionStatus;

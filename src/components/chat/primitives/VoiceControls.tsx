@@ -1,4 +1,4 @@
-// src\components\chat\VoiceControls.tsx
+// src/components/chat/primitives/VoiceControls.tsx
 'use client';
 
 import { Button, Card } from '@/components/ui';
@@ -21,21 +21,18 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
     isRecognitionActive,
     canvasRef,
 }) => {
-    // Render Counter for diagnostics
     const renderCount = useRef(0);
     renderCount.current++;
     console.log(`🧮 [DIAG] VoiceControls Component rendered ${renderCount.current} times`);
 
     return (
         <Card className="h-full flex flex-col p-3">
-            {/* Header */}
             <div className="flex items-center justify-center gap-2 mb-4 w-full">
                 <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0 ">
                     <Mic className="w-5 h-5 text-gray-600" />
                 </div>
             </div>
 
-            {/* Control Buttons */}
             <div className="flex flex-col gap-2 mb-3">
                 {isRecognitionActive ? (
                     <Button
@@ -64,7 +61,6 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
                 </Button>
             </div>
 
-            {/* Audio Visualizer */}
             <div className="flex-1 rounded-lg p-2 flex items-center justify-center min-h-0">
                 <canvas
                     ref={canvasRef}

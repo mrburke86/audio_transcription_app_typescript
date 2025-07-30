@@ -1,6 +1,6 @@
 // src\app\api\knowledge\index-knowledge\route.ts
-import { logger } from '@/lib/Logger';
 import { ensureKnowledgeCollection, initQdrantClient, processAndUpsertDocument } from '@/services/QdrantService';
+import { devLog } from '@/utils/devLogger';
 import fs from 'fs';
 import { NextResponse } from 'next/server';
 import path from 'path';
@@ -38,8 +38,8 @@ interface ProcessingResult {
 export async function POST(_request: Request) {
     const startTime = performance.now();
 
-    logger.info('🚀 API Route: Knowledge indexing process started...');
-    logger.debug(
+    devLog.log('🚀 API Route: Knowledge indexing process started...');
+    devLog.log(
         `API Route: Processing ${ALL_KNOWLEDGE_FILES.length} files (${CORE_KNOWLEDGE_FILES.length} core + ${VARIABLE_KNOWLEDGE_FILES.length} variable)`
     );
 
@@ -61,11 +61,11 @@ export async function POST(_request: Request) {
         };
 
         // Process core files first
-        logger.info(`📚 API Route: Processing ${CORE_KNOWLEDGE_FILES.length} core knowledge files...`);
+        devLog.log(`📚 API Route: Processing ${CORE_KNOWLEDGE_FILES.length} core knowledge files...`);
         await processFileCategory(publicDir, CORE_KNOWLEDGE_FILES, 'CORE', result);
 
         // Process variable files
-        logger.info(`🔄 API Route: Processing ${VARIABLE_KNOWLEDGE_FILES.length} variable knowledge files...`);
+        devLog.log(`🔄 API Route: Processing ${VARIABLE_KNOWLEDGE_FILES.length} variable knowledge files...`);
         await processFileCategory(publicDir, VARIABLE_KNOWLEDGE_FILES, 'VARIABLE', result);
 
         // Calculate final metrics
@@ -74,8 +74,8 @@ export async function POST(_request: Request) {
         // Generate response based on results
         if (result.errors.length > 0) {
             const warningMessage = `Indexing partially completed with ${result.errors.length} errors. Files processed: ${result.filesProcessed}/${ALL_KNOWLEDGE_FILES.length}.`;
-            logger.warning(`⚠️ API Route: ${warningMessage}`);
-            logger.debug(`Processing summary: ${JSON.stringify(result.processingDetails)}`);
+            devLog.warning(`⚠️ API Route: ${warningMessage}`);
+            devLog.log(`Processing summary: ${JSON.stringify(result.processingDetails)}`);
 
             return NextResponse.json(
                 {
@@ -89,8 +89,8 @@ export async function POST(_request: Request) {
         }
 
         const successMessage = `Knowledge base indexed successfully! Files processed: ${result.filesProcessed}/${ALL_KNOWLEDGE_FILES.length} in ${result.processingDetails.processingTime}ms.`;
-        logger.info(`🎉 API Route: ${successMessage}`);
-        logger.info(
+        devLog.log(`🎉 API Route: ${successMessage}`);
+        devLog.log(
             `📊 Processing stats: ${Math.round(result.processingDetails.totalSize / 1024)}KB total, avg ${Math.round(
                 result.processingDetails.totalSize / result.filesProcessed
             )}B per file`
@@ -109,7 +109,7 @@ export async function POST(_request: Request) {
         const errorMessage =
             error instanceof Error ? error.message : 'An unknown server error occurred during indexing API call';
 
-        logger.error(`💥 API Route: Critical error during indexing after ${processingTime}ms: ${errorMessage}`, error);
+        devLog.error(`💥 API Route: Critical error during indexing after ${processingTime}ms: ${errorMessage}`, error);
 
         return NextResponse.json(
             {
@@ -136,12 +136,12 @@ async function processFileCategory(
         const fileName = path.basename(relativeFilePath);
 
         try {
-            logger.debug(`📄 API Route: [${category}] Processing file - ${fileName}`);
+            devLog.log(`📄 API Route: [${category}] Processing file - ${fileName}`);
 
             // Enhanced file validation
             if (!fs.existsSync(absoluteFilePath)) {
                 const errorMsg = `File not found: ${fileName}`;
-                logger.warning(`⚠️ API Route: [${category}] ${errorMsg} at ${absoluteFilePath}`);
+                devLog.warning(`⚠️ API Route: [${category}] ${errorMsg} at ${absoluteFilePath}`);
                 result.errors.push(errorMsg);
                 continue;
             }
@@ -150,12 +150,12 @@ async function processFileCategory(
             const fileStats = fs.statSync(absoluteFilePath);
             if (fileStats.size === 0) {
                 const errorMsg = `Empty file: ${fileName}`;
-                logger.warning(`⚠️ API Route: [${category}] ${errorMsg}`);
+                devLog.warning(`⚠️ API Route: [${category}] ${errorMsg}`);
                 result.errors.push(errorMsg);
                 continue;
             }
 
-            logger.debug(
+            devLog.log(
                 `📊 API Route: [${category}] File ${fileName} - ${
                     fileStats.size
                 } bytes, modified ${fileStats.mtime.toISOString()}`
@@ -165,7 +165,7 @@ async function processFileCategory(
             const markdownContent = fs.readFileSync(absoluteFilePath, 'utf-8');
             if (markdownContent.trim().length < 10) {
                 const errorMsg = `File too short: ${fileName} (${markdownContent.length} chars)`;
-                logger.warning(`⚠️ API Route: [${category}] ${errorMsg}`);
+                devLog.warning(`⚠️ API Route: [${category}] ${errorMsg}`);
                 result.errors.push(errorMsg);
                 continue;
             }
@@ -180,14 +180,14 @@ async function processFileCategory(
             categoryProcessed++;
             result.processingDetails.totalSize += markdownContent.length;
 
-            logger.info(
+            devLog.log(
                 `✅ API Route: [${category}] Successfully processed ${fileName} in ${fileProcessingTime}ms (${markdownContent.length} chars)`
             );
         } catch (fileError: unknown) {
             const errorMessage = fileError instanceof Error ? fileError.message : 'Unknown error processing file';
             const fullErrorMsg = `Failed to process ${fileName}: ${errorMessage}`;
 
-            logger.error(`❌ API Route: [${category}] ${fullErrorMsg}`, fileError);
+            devLog.error(`❌ API Route: [${category}] ${fullErrorMsg}`, fileError);
             result.errors.push(fullErrorMsg);
         }
     }
@@ -200,7 +200,7 @@ async function processFileCategory(
     }
 
     const categoryTime = Math.round(performance.now() - categoryStartTime);
-    logger.info(
+    devLog.log(
         `📋 API Route: [${category}] Category completed - ${categoryProcessed}/${filePaths.length} files in ${categoryTime}ms`
     );
 }

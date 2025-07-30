@@ -1,8 +1,9 @@
-// src\components\chat\ChatMessagesBox.tsx
+// src/components/chat/primitives/ChatMessagesBox.tsx
 
 'use client';
 import { markdownComponents } from '@/components/markdownComponents';
 import { cn } from '@/lib/utils';
+import { useBoundStore } from '@/stores/chatStore';
 import { Message } from '@/types';
 import { ChevronDown } from 'lucide-react';
 import React, { memo, useEffect, useRef, useState } from 'react';
@@ -16,21 +17,19 @@ interface ChatMessagesBoxProps {
     className?: string;
 }
 
-const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({
-    id,
-    messages,
-    streamedContent,
-    isStreamingComplete,
-    className,
-}) => {
-    // Render Counter for diagnostics
-    const renderCount = useRef(0);
-    renderCount.current++;
-    console.log(`🧮 [DIAG] ChatMessagesBox Component rendered ${renderCount.current} times`);
-
+export const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({ id, messages, className }) => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [showScrollButton, setShowScrollButton] = useState(false);
+
+    const { streamedContent, isStreamingComplete, moveClickTimestamp } = useBoundStore(); // MODIFIED: Get timestamp
+    useEffect(() => {
+        if (streamedContent && streamedContent.length > 0 && moveClickTimestamp > 0) {
+            const firstChunkTime = Date.now();
+            const latency = firstChunkTime - moveClickTimestamp;
+            console.log(`⏱️ [TIMING] First chunk render latency: ${latency}ms`);
+        }
+    }, [streamedContent, moveClickTimestamp]);
 
     const scrollToBottom = () => {
         if (scrollContainerRef.current) {
@@ -41,24 +40,20 @@ const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({
         }
     };
 
-    // Check if user has scrolled up and show/hide scroll button
     const handleScroll = () => {
         if (scrollContainerRef.current) {
             const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-            const isNearBottom = scrollHeight - scrollTop - clientHeight < 100; // 100px threshold
+            const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
             setShowScrollButton(!isNearBottom && messages.length > 0);
         }
     };
 
-    // ✅ REMOVED: Auto-scroll on message changes
-    // Only show/hide scroll button based on scroll position
     useEffect(() => {
-        handleScroll(); // Check initial scroll position
+        handleScroll();
     }, [messages.length]);
 
     return (
         <div id={id} className={cn('relative flex flex-col h-full rounded-lg overflow-hidden bg-white', className)}>
-            {/* ✅ FIXED: Scroll container with absolute height */}
             <div
                 ref={scrollContainerRef}
                 onScroll={handleScroll}
@@ -69,7 +64,6 @@ const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({
                 }}
             >
                 <div className="p-4 space-y-4 min-h-full">
-                    {/* Empty state */}
                     {messages.length === 0 && !streamedContent && (
                         <div className="flex items-center justify-center h-full text-gray-500">
                             <div className="text-center">
@@ -80,7 +74,6 @@ const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({
                         </div>
                     )}
 
-                    {/* Messages */}
                     {messages.map((message, index) => (
                         <div
                             key={message.id || index}
@@ -108,7 +101,6 @@ const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({
                         </div>
                     ))}
 
-                    {/* Streaming Content */}
                     {streamedContent && !isStreamingComplete && (
                         <div className="flex w-full justify-start">
                             <div className="max-w-[80%] p-3 rounded-lg rounded-bl-sm bg-slate-100 dark:bg-slate-800 text-foreground break-words">
@@ -119,12 +111,10 @@ const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({
                         </div>
                     )}
 
-                    {/* Bottom anchor (for manual scroll target) */}
                     <div ref={messagesEndRef} className="h-4" />
                 </div>
             </div>
 
-            {/* ✅ IMPROVED: Scroll to bottom button - only shows when scrolled up */}
             {showScrollButton && (
                 <button
                     onClick={scrollToBottom}
@@ -136,7 +126,6 @@ const ChatMessagesBox: React.FC<ChatMessagesBoxProps> = ({
                 </button>
             )}
 
-            {/* Message count indicator */}
             {messages.length > 0 && (
                 <div className="absolute top-2 right-2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-60">
                     {messages.length} messages

@@ -148,6 +148,8 @@ export interface LLMSlice {
     setStreamingComplete: (isComplete: boolean) => void;
     setLlmLoading: (isLoading: boolean) => void;
     setLlmError: (error: string | null) => void;
+    moveClickTimestamp: number;
+    setMoveClickTimestamp: (timestamp: number) => void;
 }
 
 /* ------------ Speech Slice ------------ */
@@ -170,7 +172,7 @@ export interface SpeechSlice {
     addInterimTranscriptMessage: (messageWithoutId: Omit<Message, 'id'>) => void;
     updateCurrentInterimTranscript: (transcript: string) => void;
     clearInterimTranscripts: () => void;
-    clearAllTranscripts: () => void;
+    // clearAllTranscripts: () => void;
 
     // Recognition actions
     setRecognitionStatus: (status: RecognitionStatus) => void;

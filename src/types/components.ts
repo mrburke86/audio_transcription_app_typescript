@@ -8,12 +8,14 @@ export interface ErrorBoundaryProps {
     fallback?: React.ComponentType<ErrorFallbackProps>;
     onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
     showDetails?: boolean;
+    maxRetries?: number;
+    context?: string;
 }
 
 export interface ErrorFallbackProps {
     error: Error;
     resetErrorBoundary: () => void;
-    retry?: () => void;
+    retry?: (() => void) | undefined; // ✅ Allow explicit undefined
 }
 
 // Form Components
