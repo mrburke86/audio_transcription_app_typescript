@@ -11,7 +11,7 @@
         "lint:css": "stylelint **/*.css",
         "format": "prettier --check .",
         "format:fix": "prettier --write .",
-        "test": "jest",
+        "test": "vitest run",
         "check-all": "npm run format && npm run type-check && npm run lint && npm run test && npm run build",
         "measure:setup": "tsx scripts/measurementAutomation.ts setup",
         "measure:baseline": "tsx scripts/measurementAutomation.ts baseline",
@@ -58,6 +58,8 @@
         "zustand": "^5.0.6"
     },
     "devDependencies": {
+        "@testing-library/jest-dom": "^6.7.0",
+        "@testing-library/react": "^16.3.0",
         "@types/dom-speech-recognition": "^0.0.6",
         "@types/lodash": "^4.17.20",
         "@types/node": "^20",
@@ -72,10 +74,13 @@
         "eslint-config-next": "^15.0.0",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-prettier": "^5.5.3",
+        "eslint-plugin-unused-imports": "^4.1.4",
+        "jsdom": "^26.1.0",
         "postcss": "^8",
         "prettier": "^3.6.2",
         "prettier-eslint": "^16.4.2",
         "tailwindcss": "^3.4.1",
-        "typescript": "^5"
+        "typescript": "^5",
+        "vitest": "^3.2.4"
     }
 }
