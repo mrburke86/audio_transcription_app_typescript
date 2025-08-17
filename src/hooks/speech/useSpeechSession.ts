@@ -3,6 +3,7 @@
 
 import { logger } from '@/lib/Logger';
 import { useBoundStore } from '@/stores/chatStore';
+import { useSafeGenerateResponse } from '@/hooks';
 import { debounce } from 'lodash';
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { useSpeechAPI } from './useSpeechAPI';
@@ -37,9 +38,10 @@ export const useSpeechSession = (options: SpeechSessionOptions = {}) => {
 
         // Chat integration
         addUserMessage,
-        generateResponse,
         conversationHistory,
     } = useBoundStore();
+
+    const safeGenerateResponse = useSafeGenerateResponse();
 
     // ✅ DEBOUNCED RESULT HANDLER - Business logic
     const handleRecognitionResult = useMemo(
@@ -146,7 +148,10 @@ export const useSpeechSession = (options: SpeechSessionOptions = {}) => {
 
             // Auto-generate response if enabled
             if (autoSubmit) {
-                await generateResponse(transcriptionText);
+                const ok = await safeGenerateResponse(transcriptionText);
+                if (!ok) {
+                    throw new Error('generateResponse failed');
+                }
             }
 
             // Clear transcriptions after successful submission
@@ -163,10 +168,10 @@ export const useSpeechSession = (options: SpeechSessionOptions = {}) => {
     }, [
         getAllTranscriptionText,
         addUserMessage,
-        generateResponse,
         clearInterimTranscripts,
         autoSubmit,
         setSpeechError,
+        safeGenerateResponse,
     ]);
 
     const submitAndRespond = useCallback(async () => {
@@ -176,12 +181,13 @@ export const useSpeechSession = (options: SpeechSessionOptions = {}) => {
             // Manually trigger response generation
             const lastUserMessage = conversationHistory.filter(m => m.type === 'user').pop();
             if (lastUserMessage) {
-                await generateResponse(lastUserMessage.content);
+                const ok = await safeGenerateResponse(lastUserMessage.content);
+                return ok;
             }
         }
 
         return success;
-    }, [submitToChat, autoSubmit, conversationHistory, generateResponse]);
+    }, [submitToChat, autoSubmit, conversationHistory, safeGenerateResponse]);
 
     // ✅ COMPUTED STATE
     const isActivelyRecording = recognitionStatus === 'active';
